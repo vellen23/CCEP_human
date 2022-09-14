@@ -4,7 +4,7 @@ close all; clear all;
 cwp         = pwd;
 sep         = '\';
 idcs        = strfind(cwp,sep);
-path        = cwp(1:idcs(end)-1);
+path        = 'T:\EL_experiment\Codes';
 addpath([path '\toolboxes\fieldtrip']);
 idcs        = strfind(path,sep);
 path        = path(1:idcs(end)-1);  % path 0, where all important folders are (Patients, codes, etc.)
@@ -31,6 +31,7 @@ stimlist_all   = read_log(log);
 stimlist_all = stimlist_all(stimlist_all.type~='Clinic',:);
 stimlist_all.keep = ones(height(stimlist_all),1);
 % for LTP/LTD select specific type
+stop
 %% type
 type                = 'CR';
 

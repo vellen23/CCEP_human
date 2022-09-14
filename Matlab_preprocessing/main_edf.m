@@ -38,6 +38,7 @@ dir_files       = [path_patient,'/data_raw'];
 file =[dir_files '/20220426_EL014_log_all.log'];
 log                 = import_logfile(file);
 stimlist_all   = read_log(log);
+stop
 %% 2. file
 filepath               = [dir_files '/EL015_BM1.EDF']; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
 H                      = Epitome_edfExtractHeader(filepath);
