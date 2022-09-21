@@ -7,7 +7,7 @@ path        = cwp(1:idcs(end)-1);
 idcs        = strfind(path,'\');
 path        = path(1:idcs(end)-1);  % path 0, where all important folders are (Patients, codes, etc.)
 %addpath('C:\Program Files\MATLAB\R2020b\toolbox\fieldtrip');
-addpath(genpath([path '\elab\Epitome']));
+addpath(genpath(['T:\EL_experiment\Codes\Imaging\Epitome']));
 addpath(genpath([path '\toolboxes\nx_toolbox']));
 addpath([path '\toolboxes\fieldtrip']);
 sep         = '\';
@@ -24,26 +24,29 @@ clearvars cwp idcs
 % % addpath('/Applications/MATLAB_R2019b.app/toolbox/nx_toolbox');
 % % addpath('/Applications/MATLAB_R2019b.app/toolbox/iELVis_MATLAB');
 %% Get started
-addpath([pwd '/nx_plots_matlab']);
+% addpath([pwd '/nx_plots_matlab']);
 addpath([pwd '/nx_preproc']);
 ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
-subj            = 'EL015'; %% change name if another data is used !!
-path_patient    = [path, '/Patients/' subj];  
-dir_files       = [path_patient,'/data_raw'];
-
+subj            = 'EL016'; %% change name if another data is used !!
+path_patient    = ['T:\EL_experiment\Patients\' subj];  
+dir_files       = [path_patient,'\data_raw\EL_experiment'];
+dir_infos = [path_patient,'\infos\'];
 %% 1. log 
-file =[dir_files '/20220426_EL014_log_all.log'];
+file =[dir_files '\EL016_BM_IO_1.log'];
 log                 = import_logfile(file);
 stimlist_all   = read_log(log);
-stop
+clear log
+%% load MP_label (all)
+MP_label = importfile_MPlabels([dir_infos '\EL016_lookup.xlsx'], 'Channels');
+BP_label = importfile_BPlabels([dir_infos '\EL016_lookup.xlsx'], 'Channels_BP');
 %% 2. file
-filepath               = [dir_files '/EL015_BM1.EDF']; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
+filepath               = [dir_files '/EL016_BM_IO_1.EDF']; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
 H                      = Epitome_edfExtractHeader(filepath);
 [hdr_edf, EEG_all]     = edfread_data(filepath);
-stimlist = stimlist_BM(stimlist_BM.type=='BM',:);
+% stimlist = stimlist_BM(stimlist_BM.type=='BM',:);
 %% 3. trigger
 % [hdr_edf, trig]     = edfread(filepath,'targetSignals','TRIG'); %TeOcc5, TRIG
 c_trig         = find(hdr_edf.label==string('TRIG'));
@@ -97,15 +100,16 @@ stimlist = stimlist(stim_noise(stim_cut(1))+1:stim_noise(stim_cut(end)+1)-1,:);
 disp('TTL aligned');
 
 %% 5. Test trigger
+stimlist = stimlist_all;
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
 %Fs = 2048;
-n_trig = 10;
+n_trig = 50;
 t      = stimlist.TTL(n_trig);
 IPI    = stimlist.IPI_ms(n_trig);
 x_s = 10;
 x_ax        = -x_s:1/Fs:x_s;
-c= 100;
+c= 5;
 plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
 hold on
 plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
@@ -115,7 +119,7 @@ xline(IPI/1000, '--r');
 
 %% 6. get bipolar montage of EEG
 % bipolar
-ix        = find_BP_index(hdr_edf.label', BP_label.labelP, BP_label.labelN);
+ix        = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.labelN_EDF);
 pos_ChanP =  ix(:,1);
 pos_ChanN =  ix(:,2);
 % EEG_all         = [EEG_all; zeros(1,size(EEG_all,2))];
@@ -125,7 +129,7 @@ EEG_block       = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
 
 %% 7.2 B / IO loop for cutting blocks
 Fs = round(Fs);
-type                = 'BM';
+type                = 'IO';
 
 block_num               = 1;
 stim_list           = stimlist(stimlist.type==type,:); 
