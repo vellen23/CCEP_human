@@ -8,11 +8,12 @@ close all
 % save in Data folder ! 
 %% UPDATE STIMLIST and TTL 
 subj            = 'EL016';
+block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
 % path where all blocks are stored
 % block_path     = uigetdir(['T:\EL_experiment\Patients\', subj, '\Data\EL_experiment']); %
-% block_files     = dir(block_path);
-% isdir           = [block_files.isdir]; % Get all the codes
-% block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
+block_files     = dir(block_path);
+isdir           = [block_files.isdir]; % Get all the codes
+block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
 for i=3:length(block_files)
     run_pp(char([block_path, '\', block_files(i).name]), sclA, sclC );
     run_pp_scalp(char([block_path, '\', block_files(i).name]), sclA_scalp, sclC_scalp, BP_label);
