@@ -5,7 +5,7 @@ cwp         = pwd;
 sep         = '\';
 idcs        = strfind(cwp,sep);
 path        = cwp(1:idcs(end)-1);
-addpath([path '\toolboxes\fieldtrip']); % not sure if you need it though ... it's not bad to have it
+% addpath([path '\toolboxes\fieldtrip']); % not sure if you need it though ... it's not bad to have it
 idcs        = strfind(path,sep);
 path        = path(1:idcs(end)-1);  % path 0, where all important folders are (Patients, codes, etc.)
 %addpath('C:\Program Files\MATLAB\R2020b\toolbox\fieldtrip');
@@ -17,24 +17,34 @@ ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
-subj            = 'EL015'; %% change name if another data is used !!
-path_patient    = [path, '/Patients/' subj];   
-dir_files       = [path_patient,'/data_raw'];% folder where raw edf are stored
+
+subj            = 'EL016'; %% change name if another data is used !!
+path_patient    = ['Y:\eLab\Patients\' subj];   
+dir_files       = [path_patient,'\data_raw\LT_experiment'];% folder where raw edf are stored
+% load labels
+MP_label = importfile_MPlabels([path_patient '\infos\EL016_lookup.xlsx'], 'Channels');
+BP_label = importfile_BPlabels([path_patient '\infos\EL016_lookup.xlsx'], 'Channels_BP');
 
 %% 1. log 
-file =[dir_files '/20220426_EL014_log_all.log']; % the logfile from our stimulation software
-log             = import_logfile(file);
+% log_files = 
+log_files= dir([dir_files '\*.log']);
+i = 1; % find automated way or select manually
+log             = import_logfile([dir_files '\' log_files(i).name]);
 stimlist_all   = read_log(log);
 % based on the log file, the function creates a table with each stimulation
 % (row) and the parameters (columns (time, intensity, channels, protocol)
-
-
+protocols = ["LTD1","LTD10","LTP50"];
+% stimlist = stimlist_all(stimlist_all.type
 %% 2. file
 % select only the stimulation of desired protocol
-filepath               = [dir_files '/EL015_BM1.EDF']; % the file you want to open 
+data_files= dir([dir_files '\*.EDF']);
+i = 1;
+filepath               = [dir_files '\' data_files(i).name]; % the file you want to open 
 H                      = Epitome_edfExtractHeader(filepath);
 [hdr_edf, EEG_all]     = edfread_data(filepath);
-stimlist = stimlist_all(stimlist_all.type=='BM',:); % change to LTP1, LTD10, LTD50 for you protocol
+prot = data_files(i).name(7:end-7); % selected protocol of this data: ["LTD1","LTD10","LTP50"];
+% find stimulations of cselected protocol
+stimlist = stimlist_all(startsWith(string(stimlist_all.type), prot),:); % change to LTP1, LTD10, LTD50 for you protocol
 %% 3. trigger
 % [hdr_edf, trig]     = edfread(filepath,'targetSignals','TRIG'); %TeOcc5, TRIG
 c_trig         = find(hdr_edf.label==string('TRIG'));
@@ -47,18 +57,16 @@ TTL_sample           = TTL_sample';
 stimlist.TTL = zeros(height(stimlist),1);
 % find an easy way to align one TTL_sample to a stimulation you are sure
 % they match. usually first stimulation with first trigger
-i = 1;
-stimlist(ix_block(i),'TTL')= TTL_sample(1);
+i =1;
+stimlist.TTL(i)= TTL_sample(1);
 
-%% 4. fin
-% if len stimtable and and # f triggers are identical, we can just merge
-i                = ix_block(1); % selected one where you are sure hte trigger is correct
+%% 4. find the TTL_sample for the remaining stimulations based on expected sample and timing
+% timestamp of selected stimulation with known TTL
 ts1              = stimlist.h(i)*3.6e3+stimlist.min(i)*60+stimlist.s(i)+stimlist.us(i)/1000000; 
 size_log        = size(stimlist);
-% enter manually
-ttl0            = stimlist.TTL(i);% TTL1(1);
+ttl_1            = stimlist.TTL(i);% TTL1(1);
 day  =0;
-locs_copy = TTL_sample;
+TTL_copy = TTL_sample;
 for s = 1: size(stimlist,1)
     if stimlist.date(s)<stimlist.date(i)
         day = -24;
@@ -67,36 +75,34 @@ for s = 1: size(stimlist,1)
     else
         day = 0;
     end
-        
+    % calculate expected timestamp based on timing
     timestamp              = ((stimlist.h(s)+day)*3.6e3+stimlist.min(s)*60+stimlist.s(s)+stimlist.us(s)/1000000);
-    sample_cal             = (timestamp-ts1)*Fs+ttl0; %expected TTL 
-    [ d, ix ]              = min(abs(locs_copy-sample_cal));
+    sample_cal             = (timestamp-ts1)*Fs+ttl_1; %expected TTL 
+    [ d, ix ]              = min(abs(TTL_copy-sample_cal)); % closes real TTL to expected TTL
     %[ d, ix ] = min( abs( round(timestamp-ts1)+ts0-double(TTL_table.timestamp)) );
-    if d < 1*Fs
-        stimlist.TTL(s)   = locs_copy(ix); 
-        locs_copy(ix) = - max(locs_copy);
+    if d < 0.6*Fs 
+        stimlist.TTL(s)   = TTL_copy(ix); 
+        TTL_copy(ix) = - max(TTL_copy); % remove used TTL that they don't appear several times
         stimlist.noise(s)   = 0;
-    else
+    else % if no TTL was found, just keep the calculated one. it is marked as "noise" 
         stimlist.TTL(s)     = round(sample_cal);
         stimlist.noise(s)   = 1;
     end
 
 end
-stim_cut = find(diff(find(stimlist.noise==1))>1);
-stim_noise = find(stimlist.noise==1);
-stimlist = stimlist(stim_noise(stim_cut(1))+1:stim_noise(stim_cut(end)+1)-1,:);
 disp('TTL aligned');
 
-%% 5. Test trigger
+%% 5. Test trigger, plot some stimulations
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
 %Fs = 2048;
 n_trig = 10;
+c= 50;
 t      = stimlist.TTL(n_trig);
 IPI    = stimlist.IPI_ms(n_trig);
 x_s = 10;
 x_ax        = -x_s:1/Fs:x_s;
-c= 100;
+
 plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
 hold on
 plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
@@ -105,35 +111,13 @@ xline(IPI/1000, '--r');
 
 
 %% 6. get bipolar montage of EEG
-% bipolar
-ix        = find_BP_index(hdr_edf.label', BP_label.labelP, BP_label.labelN);
-pos_ChanP =  ix(:,1);
-pos_ChanN =  ix(:,2);
-% EEG_all         = [EEG_all; zeros(1,size(EEG_all,2))];
-EEG_block       = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
-% % labels
+% load BP_labels and find the index on how the channels are stored in the edf files 
+ix              = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.labelN_EDF);
+pos_ChanP       =  ix(:,1);
+pos_ChanN       =  ix(:,2);
+EEG_BP          = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
 
+%% Cut in block
+% path_preprocessed 
+cut_block_edf(EEG_BP, stimlist,type,block_num, Fs, path_patient, subj, BP_label)
 
-%% 7.2 B / IO loop for cutting blocks
-Fs = round(Fs);
-type                = 'BM';
-
-block_num               = 1;
-stim_list           = stimlist(stimlist.type==type,:); 
-cut_block_edf(EEG_block, stim_list,type,block_num, Fs, path_patient, subj, BP_label)
-
-%% 7.1 CR loop for cutting blocks
-type                = 'CR';
-stimlist.b = stimlist.stim_block;
-blocks          = unique(stimlist.b);
-if height(stimlist(stimlist.b==blocks(3),:))>height(stimlist(stimlist.b==blocks(2),:))
-    ix = find(stimlist.stim_block==blocks(3),1);
-    stimlist.b(1:ix-2) = blocks(3);
-    blocks          = unique(stimlist.b); %
-end
-
-for i=2:length(blocks)%2:11
-    block_num               = blocks(i);
-    stim_list           = stimlist(stimlist.b==block_num,:);%   
-    cut_block_edf(EEG_block, stim_list,type,block_num, Fs, path_patient, subj, BP_label)
-end

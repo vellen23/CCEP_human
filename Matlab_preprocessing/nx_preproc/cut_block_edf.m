@@ -1,9 +1,9 @@
-function [] = cut_block_edf(EEG_block, stim_list,type,block_num, Fs, path_patient, subj,BP_label)
+function [] = cut_block_edf(EEG_block, stim_list,type,block_num, Fs, subj,BP_label, path_pp)
     % function cuts edf file into block based on stimulations (from stim_list) and stores it in a way that Epitome is able to ed it.     
     % labels:
-    inSEEG      = find(contains(BP_label.type,'SEEG'));
-    inScalp     = find(contains(BP_label.type,'scalp'));
-    inECG       = find(contains(BP_label.type,'EKG')|contains(BP_label.type,'emg')|contains(BP_label.type,'ecg'));
+    inSEEG      = find(contains(string(BP_label.type),'SEEG'));
+    inScalp     = find(contains(string(BP_label.type),'scalp'));
+    inECG       = find(contains(string(BP_label.type),'EKG')|contains(string(BP_label.type),'emg')|contains(string(BP_label.type),'ecg'));
 
     labels_all      = table2cell(BP_label);
     exp =1;
@@ -27,22 +27,22 @@ function [] = cut_block_edf(EEG_block, stim_list,type,block_num, Fs, path_patien
     st          = datestr(start,'yyyymmdd HH:MM:SS');
     stop        = datenum(st, 'yyyymmdd HH:MM:SS')+seconds(dur);
     % store data
-     mkdir([path_patient, sprintf('/Data/EL_experiment/data_blocks/%s_BP_%s%02d',exp,subj, type, block_num)])
+    mkdir(sprintf('%s/data_blocks/%s_BP_%s%02d',path_pp,subj, type, block_num))
     labels = labels_all(inSEEG,1);
      %save([path, sprintf('/data_blocks/time/%s_BP_%s_block_%i.mat',subj, type, block_num)],'EEG','labels', 'Fs','start_sample','-v7.3');
-    save([path_patient, sprintf('/Data/EL_experiment/experiment%i/data_blocks/%s_BP_%s%02d/%s_BP_%s%02d.mat',exp,subj, type, block_num,subj, type, block_num)],'EEG','labels', 'Fs','-v7.3');
+    save(sprintf('%s/data_blocks/%s_BP_%s%02d/%s_BP_%s%02d.mat',path_pp,subj, type, block_num,subj, type, block_num),'EEG','labels', 'Fs','-v7.3');
     labels = labels_all(inScalp,1);
-    save([path_patient, sprintf('/Data/EL_experiment/experiment%i/data_blocks/%s_BP_%s%02d/scalpEEG.mat',exp,subj, type, block_num)],'scalpEEG','scalpFs','labels','-v7.3');
+    save(sprintf('%s/data_blocks/%s_BP_%s%02d/scalpEEG.mat',path_pp,subj, type, block_num),'scalpEEG','scalpFs','labels','-v7.3');
     if ~isempty(inECG)
         EMG    = EEG_block(inECG,:);
         EMG_label = labels_all(inECG);
-        save([path_patient, sprintf('/Data/EL_experiment/experiment%i/data_blocks/%s_BP_%s%02d/EMG.mat',exp,subj, type, block_num)],'EMG','EMG_label', 'Fs','-v7.3');
+        save(sprintf('%s/data_blocks/%s_BP_%s%02d/EMG.mat',path_pp,subj, type, block_num),'EMG','EMG_label', 'Fs','-v7.3');
     end
        
-    s = dir([path_patient, sprintf('/Data/EL_experiment/experiment%i/data_blocks/%s_BP_%s%02d/%s_BP_%s%02d.mat',exp,subj, type, block_num,subj, type, block_num)]);
+    s = dir(sprintf('%s/data_blocks/%s_BP_%s%02d/%s_BP_%s%02d.mat',path_pp,subj, type, block_num,subj, type, block_num));
     size_MB = max(vertcat(s.bytes))/1e6;
-    create_metadata(subj,[path_patient, sprintf('/Data/EL_experiment/experiment%i/data_blocks/%s_BP_%s%02d/%s_BP_%s%02d.mat',exp,subj, type, block_num,subj, type, block_num)], Fs, nch, dp, size_MB,start,stop)
+    create_metadata(subj,sprintf('%s/data_blocks/%s_BP_%s%02d/%s_BP_%s%02d.mat',path_pp,subj, type, block_num,subj, type, block_num), Fs, nch, dp, size_MB,start,stop)
     % stim_list = removevars(stim_list, 'b');
-    writetable(stim_list,[path_patient, sprintf('/Data/EL_experiment/experiment%i/%s_stimlist_%s.xlsx',exp,subj, type)],'Sheet',block_num);            
-    fprintf('Data Saved -- /%s_BP_%s%02d\n',subj, type, block_num);
+    writetable(stim_list,sprintf('%s/%s_stimlist_%s.xlsx',path_pp,subj, type),'Sheet',block_num);            
+    fprintf('Data Saved -- /%s_BP_%s_%02d\n',subj, type, block_num);
 end
