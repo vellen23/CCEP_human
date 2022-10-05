@@ -108,7 +108,7 @@ disp('TTL aligned');
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
 %Fs = 2048;
-n_trig = 2531;
+n_trig = 21;
 c= 75;
 t      = stimlist.TTL(n_trig);
 IPI    = stimlist.IPI_ms(n_trig);

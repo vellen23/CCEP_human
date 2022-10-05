@@ -8,7 +8,7 @@ close all
 % save in Data folder ! 
 %% UPDATE STIMLIST and TTL 
 subj            = 'EL016';
-% block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
+block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
 % block_path = ['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks'];
 % % block_path = ['T:\EL_experiment\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks'];
 % % path where all blocks are stored
@@ -18,13 +18,13 @@ subj            = 'EL016';
 % block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
 for i=3:length(block_files)
     run_pp_check =1;
-    if exist(char([block_path, '\', block_files(i).name, '\', 'ppEEG.mat']), 'file')==2
-        pp_date = dir(char([block_path, '\', block_files(i).name, '\', 'ppEEG.mat'])).datenum;
-        raw_date = dir(char([block_path, '\', block_files(i).name, '\', block_files(i).name,'.mat'])).datenum;
-        if pp_date>raw_date
-            run_pp_check = 0;
-        end
-    end
+%     if exist(char([block_path, '\', block_files(i).name, '\', 'ppEEG.mat']), 'file')==2
+%         pp_date = dir(char([block_path, '\', block_files(i).name, '\', 'ppEEG.mat'])).datenum;
+%         raw_date = dir(char([block_path, '\', block_files(i).name, '\', block_files(i).name,'.mat'])).datenum;
+%         if pp_date>raw_date
+%             run_pp_check = 0;
+%         end
+%     end
     if run_pp_check
         run_pp(char([block_path, '\', block_files(i).name]), sclA, sclC );
         run_pp_scalp(char([block_path, '\', block_files(i).name]), sclA_scalp, sclC_scalp, BP_label);
