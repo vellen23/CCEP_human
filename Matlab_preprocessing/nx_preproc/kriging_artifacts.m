@@ -3,13 +3,13 @@ function [EEG_c] = kriging_artifacts(EEG_c, trig1, trig2, IPI, Fs, scalp)
     
     d_pk            = round([0.005 0.005]*Fs);
     d_pk_l          = round([0.002 0.002]*Fs);
-    d_pk_l          = round([0.002 0.009]*Fs);
+    d_pk_l          = round([0.002 0.005]*Fs);
     d_pk_c          = round([0.003 0.003]*Fs);
     if scalp
         d_pk_stim       = round([0.005 0.015]*Fs);%[0.005 0.015]*Fs;, 2-5
     else
         %d_pk_stim       = round([0.005 0.015]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
-        d_pk_stim       = round([0.002 0.022]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
+        d_pk_stim       = round([0.002 0.015]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
     end
 
     le = round(0.01*Fs);%(pk_stim-d_pk_stim(1)-2) - (pk_op+d_pk(2)+1);

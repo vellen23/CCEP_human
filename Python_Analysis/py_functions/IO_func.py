@@ -112,7 +112,165 @@ def SM2IX(SM, StimChanNums, StimChanIx):
     for i in range(len(SM)):
         ChanIx[i] = StimChanIx[np.where(StimChanNums == SM[i])]
     return ChanIx
+def get_LL_all_LTI(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
+    labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM,StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(stimlist,
+                                                                                                          lbls)
+    data_LL = np.zeros((1, 12))  # RespChan, Int, LL, LLnorm, State
+    stim_spec = stimlist[(stimlist.noise <1) ]  # &(stimlist.noise ==0)
+    stimNum = stim_spec.Num.values  # [:,0]
+    noise_val = stim_spec.noise.values  # [:,0]
+    if len(stimNum)>0:
+        #resps = EEG_resp[:, stimNum, :]
+        resps = ff.lp_filter(EEG_resp[:, stimNum, :], 45, Fs)
+        ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
+        IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
+        #LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
+        LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0+0.5) * Fs)], Fs, w_LL, 1, IPIs)
+        LL_peak = np.max(LL_trial, 2)
+        t_peak = np.argmax(LL_trial, 2) + int((t_0 - w_LL / 2) * Fs)
+        t_peak[t_peak < (t_0 * Fs)] = t_0 * Fs
+        inds = np.repeat(np.expand_dims(t_peak, 2), int(w_LL * Fs), 2)
+        inds = inds + np.arange(int(w_LL * Fs))
+        pN = np.min(np.take_along_axis(resps, inds, axis=2), 2)
+        pP = np.max(np.take_along_axis(resps, inds, axis=2), 2)
+        p2p = abs(pP - pN)
+        for c in range(len(LL_peak)):
+            val = np.zeros((LL_peak.shape[1], 12))
+            val[:, 0] = c  # response channel
+            val[:, 1] = ChanP1
+            val[:, 4] = stim_spec.Int_prob.values  # Intensity
+            val[:, 3] = noise_val
+            val[:, 2] = LL_peak[c, :]  # PP
+            val[:, 6] = stim_spec['h'].values
+            val[:, 5] = stim_spec['condition'].values
+            val[:, 7] = stimNum
+            val[:, 8] = stim_spec['StimNum'].values
+            val[:, 9] = stim_spec.type.values
+            val[:, 10] = stim_spec.stim_block.values
+            val[:, 11] =  p2p[c, :]  # LL_peak_ratio[c, :]  # ratio
+            # set stimulation channels to nan
+            val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 3] = 1
+            val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 2] = np.nan
+            # if its the recovery channel, check if strange peak is appearing
+            pks = np.max(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1)
+            pks_loc = np.argmax(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1) + np.int64(
+                (t_0 - 0.05) * Fs)
+            ix = np.where(
+                (pks > 500) & (pks_loc > np.int64((t_0 - 0.005) * Fs)) & (pks_loc < np.int64((t_0 + 0.008) * Fs)))
+            # original stim number:
+            sn = stim_spec.StimNum.values[ix]
+            rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
+            rec_chan = SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
+            if np.isin(c, rec_chan):
+                val[ix, 3] = 1
+
+            data_LL = np.concatenate((data_LL, val), axis=0)
+
+        data_LL = data_LL[1:-1, :]  # remove first row (dummy row)
+        LL_all = pd.DataFrame(
+            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "P2P": data_LL[:, 11], "Artefact": data_LL[:, 3],
+             "nLL": data_LL[:, 2], "Int": data_LL[:, 4],
+             'Condition': data_LL[:, 5], 'Hour': data_LL[:, 6], "Block": data_LL[:, 10], "Stim_type": data_LL[:, 9],
+             "Num": data_LL[:, 7],"Num_block": data_LL[:,8]})
+
+        # distance
+        for s in np.unique(LL_all.Stim):
+            s = np.int64(s)
+            for c in np.unique(LL_all.Chan):
+                c = np.int64(c)
+                LL_all.loc[(LL_all.Stim == s) & (LL_all.Chan == c), 'd'] = np.round(
+                    distance.euclidean(coord_all[s], coord_all[c]), 2)
+        # remove bad channels
+        LL_all.loc[(LL_all.Chan).isin(bad_chans), 'Artefact'] = 1
+        LL_all.loc[(LL_all.Chan).isin(bad_chans), 'Artefact'] = 1
+
+    return LL_all
+
 def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w_LL=0.25):
+    labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM,StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(stimlist,
+                                                                                                          lbls)
+    data_LL = np.zeros((1, 12))  # RespChan, Int, LL, LLnorm, State
+    stim_spec = stimlist[(stimlist.IPI_ms == 0) ]  # &(stimlist.noise ==0)
+    stimNum = stim_spec.StimNum.values  # [:,0]
+    noise_val = stim_spec.noise.values  # [:,0]
+    if len(stimNum)>0:
+        #resps = EEG_resp[:, stimNum, :]
+        resps = ff.lp_filter(EEG_resp[:, stimNum, :], 45, Fs)
+        ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
+        IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
+        #LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
+        LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0+0.5) * Fs)], Fs, w_LL, 1, IPIs)
+        LL_peak = np.max(LL_trial, 2)
+        t_peak = np.argmax(LL_trial, 2) + int((t_0 - w_LL / 2) * Fs)
+        t_peak[t_peak < (t_0 * Fs)] = t_0 * Fs
+        inds = np.repeat(np.expand_dims(t_peak, 2), int(w_LL * Fs), 2)
+        inds = inds + np.arange(int(w_LL * Fs))
+        pN = np.min(np.take_along_axis(resps, inds, axis=2), 2)
+        pP = np.max(np.take_along_axis(resps, inds, axis=2), 2)
+        p2p = abs(pP - pN)
+        for c in range(len(LL_peak)):
+            val = np.zeros((LL_peak.shape[1], 12))
+            val[:, 0] = c  # response channel
+            val[:, 1] = ChanP1
+            val[:, 4] = stim_spec.Int_prob.values  # Intensity
+            val[:, 3] = noise_val
+            val[:, 2] = LL_peak[c, :]  # PP
+            val[:, 6] = stim_spec['h'].values
+            val[:, 5] = stim_spec['condition'].values
+            val[:, 7] = stimNum
+            val[:, 8] = stim_spec.date.values
+            val[:, 9] = stim_spec.sleep.values
+            val[:, 10] = stim_spec.stim_block.values
+            val[:, 11] =  p2p[c, :]  # LL_peak_ratio[c, :]  # ratio
+            # set stimulation channels to nan
+            val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 3] = 1
+            val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 2] = np.nan
+            # if its the recovery channel, check if strange peak is appearing
+            pks = np.max(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1)
+            pks_loc = np.argmax(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1) + np.int64(
+                (t_0 - 0.05) * Fs)
+            ix = np.where(
+                (pks > 500) & (pks_loc > np.int64((t_0 - 0.005) * Fs)) & (pks_loc < np.int64((t_0 + 0.008) * Fs)))
+            # original stim number:
+            sn = stim_spec.StimNum.values[ix]
+            rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
+            rec_chan = SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
+            if np.isin(c, rec_chan):
+                val[ix, 3] = 1
+
+            data_LL = np.concatenate((data_LL, val), axis=0)
+
+        data_LL = data_LL[1:-1, :]  # remove first row (dummy row)
+        LL_all = pd.DataFrame(
+            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "P2P": data_LL[:, 11], "Artefact": data_LL[:, 3],
+             "nLL": data_LL[:, 2], "Int": data_LL[:, 4],
+             'Condition': data_LL[:, 5], 'Hour': data_LL[:, 6], "Block": data_LL[:, 10], "Sleep": data_LL[:, 9],
+             "Num": data_LL[:, 7],"Num_block": data_LL[:, 7], "Date": data_LL[:, 8]})
+
+        # distance
+        for s in np.unique(LL_all.Stim):
+            s = np.int64(s)
+            for c in np.unique(LL_all.Chan):
+                c = np.int64(c)
+                LL_all.loc[(LL_all.Stim == s) & (LL_all.Chan == c), 'd'] = np.round(
+                    distance.euclidean(coord_all[s], coord_all[c]), 2)
+        # remove bad channels
+        LL_all.loc[(LL_all.Chan).isin(bad_chans), 'Artefact'] = 1
+        LL_all.loc[(LL_all.Chan).isin(bad_chans), 'Artefact'] = 1
+        # file = path_patient + '/Analysis/InputOutput/' + cond_folder + '/data/con_trial'+block_l+'.csv'
+        # LL_all.to_csv(file, index=False, header=True)  # scat_plot = scat_plot.fillna(method='ffill')
+        # print(file + ' -- stored')
+    else:
+        data_LL = np.zeros((1, 12))
+        data_LL[:,2:4] = np.nan
+        LL_all = pd.DataFrame(
+            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "P2P": data_LL[:, 2], "Noise": data_LL[:, 3],
+             "nLL": data_LL[:, 2], "Int": data_LL[:, 4],
+             'Condition': data_LL[:, 5], 'Hour': data_LL[:, 6], "Block": data_LL[:, 10], "Sleep": data_LL[:, 9],
+             "Num": data_LL[:, 7],"Num_block": data_LL[:, 7], "Date": data_LL[:, 8]})
+    return LL_all
+
+def get_LL_all_LTI(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM,StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(stimlist,
                                                                                                           lbls)
     data_LL = np.zeros((1, 12))  # RespChan, Int, LL, LLnorm, State

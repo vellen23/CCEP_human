@@ -19,7 +19,11 @@ addpath([pwd '/nx_preproc']);
 ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
 %%
-subj            = 'EL015';
+files= dir([dir_files '\*CR*.EDF']);
+path_pp = [path_patient '\Data\EL_experiment\experiment1'];
+%%
+
+subj            = 'EL016';
 %block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
 block_path     = uigetdir(['T:\EL_experiment\Patients\', subj, '/Data']); %
 % block_files     = dir(block_path);
@@ -100,7 +104,7 @@ for sf=1:height(score_files)
             score_all = score;
             TTL_all = TTL;
         else
-            TTL     = TTL+length(scalpEEG);
+            TTL     = TTL+length(scalp_all);
             TTL_all = [TTL_all; TTL];
             scalp_all = [scalp_all, scalpEEG];
             score_all = [score_all, score];
@@ -109,11 +113,18 @@ for sf=1:height(score_files)
     end
     %scalp
     EEG = scalp_all;
+    Fs_old = Fs;
+    [bBP, aBP]          = butter(4, [0.5 40]/(Fs_old/2), 'bandpass');
+    EEG          = filter(bBP, aBP, EEG')';
+    Fs = 100; 
+    EEG               = resample(EEG',Fs,Fs_old)';
+    
+    TTL_all = TTL_all/Fs_old *Fs;
     % save data
         file_name= [subj, '_scalp2score_', num2str(sf)];
         file_sel = [fileparts(block_path), sep, file_name];
          mkdir(file_sel);
-        save([file_sel, sep, file_name, '.mat'],'EEG','labels', 'Fs','-v7.3');
+        %save([file_sel, sep, file_name, '.mat'],'EEG','labels', 'Fs','-v7.3');
         TTL = TTL_all;
         save([file_sel, sep, 'TTL.mat'],'TTL','-v7.3');
 

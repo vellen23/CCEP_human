@@ -42,7 +42,7 @@ i = 1;
 filepath               = [dir_files '\' data_files(i).name]; % the file you want to open 
 H                      = Epitome_edfExtractHeader(filepath);
 [hdr_edf, EEG_all]     = edfread_data(filepath);
-prot = data_files(i).name(7:end-7); % selected protocol of this data: ["LTD1","LTD10","LTP50"];
+prot = data_files(i).name(7:end-8); % selected protocol of this data: ["LTD1","LTD10","LTP50"];
 % find stimulations of cselected protocol
 stimlist = stimlist_all(startsWith(string(stimlist_all.type), prot),:); % change to LTP1, LTD10, LTD50 for you protocol
 %% 3. trigger
@@ -59,6 +59,10 @@ stimlist.TTL = zeros(height(stimlist),1);
 % they match. usually first stimulation with first trigger
 i =1;
 stimlist.TTL(i)= TTL_sample(1);
+%% quick fix, find peaks of specific channel to find TTL without triggers
+[pk, locs_stim] = findpeaks(nanmean(EEG_all(75:80,:),1), Fs, 'MinPeakDistance',0.5);
+locs_stim = round(locs_stim*Fs)-7;
+
 
 %% 4. find the TTL_sample for the remaining stimulations based on expected sample and timing
 % timestamp of selected stimulation with known TTL
@@ -67,6 +71,7 @@ size_log        = size(stimlist);
 ttl_1            = stimlist.TTL(i);% TTL1(1);
 day  =0;
 TTL_copy = TTL_sample;
+locs_copy = locs_stim;
 for s = 1: size(stimlist,1)
     if stimlist.date(s)<stimlist.date(i)
         day = -24;
@@ -80,13 +85,20 @@ for s = 1: size(stimlist,1)
     sample_cal             = (timestamp-ts1)*Fs+ttl_1; %expected TTL 
     [ d, ix ]              = min(abs(TTL_copy-sample_cal)); % closes real TTL to expected TTL
     %[ d, ix ] = min( abs( round(timestamp-ts1)+ts0-double(TTL_table.timestamp)) );
-    if d < 0.6*Fs 
+    if d < 0.5*Fs 
         stimlist.TTL(s)   = TTL_copy(ix); 
         TTL_copy(ix) = - max(TTL_copy); % remove used TTL that they don't appear several times
         stimlist.noise(s)   = 0;
     else % if no TTL was found, just keep the calculated one. it is marked as "noise" 
-        stimlist.TTL(s)     = round(sample_cal);
-        stimlist.noise(s)   = 1;
+        [ d, ix ]              = min(abs(locs_copy-sample_cal));
+        if d< 0.5*Fs
+            stimlist.TTL(s)   = locs_copy(ix); 
+            locs_copy(ix) = - max(locs_copy); % remove used TTL that they don't appear several times
+            stimlist.noise(s)   = 1;
+        else
+            stimlist.TTL(s)     = round(sample_cal);
+            stimlist.noise(s)   = 2;
+        end
     end
 
 end
@@ -96,16 +108,16 @@ disp('TTL aligned');
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
 %Fs = 2048;
-n_trig = 10;
-c= 50;
+n_trig = 2531;
+c= 75;
 t      = stimlist.TTL(n_trig);
 IPI    = stimlist.IPI_ms(n_trig);
 x_s = 10;
 x_ax        = -x_s:1/Fs:x_s;
 
 plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
-hold on
-plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
+%hold on
+%plot(x_ax,EEG_mean(1,t-x_s*Fs:t+x_s*Fs));
 xline(0, '--r');
 xline(IPI/1000, '--r');
 

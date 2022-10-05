@@ -8,16 +8,23 @@ function [] = score2list(path, badtimes)
     subj = foldername(1:5);
     if isnan(str2double(foldername(end))) % non numeric
         type = foldername(10:end);
+        type_excel = type;
         block_num = 0;
-        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)]);
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)]);
     elseif isnan(str2double(foldername(end-1)))
         type = foldername(10:end-1);
         block_num = str2double(foldername(end));
-        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)],'Sheet',block_num);
+        type_excel = type;
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
     else
         type = foldername(10:end-2);
+        if type(end)=="_"
+            type_excel = type(1:end-1);
+        else
+            type_excel = type;
+        end
         block_num = str2double(foldername(end-1:end));
-        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)],'Sheet',block_num);
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
     end
     Fs = load([path, '/' foldername '.mat'], 'Fs');
     Fs = Fs.Fs;
@@ -84,7 +91,7 @@ function [] = score2list(path, badtimes)
         end
             % bad times from sleep score (8= artifacts)
             score_fs    = repelem(score, Fs);
-            stim_list.noise(:) = 0;
+            % stim_list.noise(:) = 0;
             %scores = zeros(length(EEG),1);
             for i=1:height(stim_list)
                 if score_fs(round(stim_list.TTL(i)))==8
@@ -103,9 +110,9 @@ function [] = score2list(path, badtimes)
         
     end
     if block_num>0
-        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)],'Sheet',block_num);
+        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
     else
-        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)]);
+        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)]);
     end
     disp('data saved')
 end

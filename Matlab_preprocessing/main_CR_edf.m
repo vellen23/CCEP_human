@@ -5,44 +5,48 @@ cwp         = pwd;
 sep         = '\';
 idcs        = strfind(cwp,sep);
 path        = 'T:\EL_experiment\Codes';
-addpath([path '\toolboxes\fieldtrip']);
+%addpath([path '\toolboxes\fieldtrip']);
 idcs        = strfind(path,sep);
 path        = path(1:idcs(end)-1);  % path 0, where all important folders are (Patients, codes, etc.)
 %addpath('C:\Program Files\MATLAB\R2020b\toolbox\fieldtrip');
-addpath(genpath([path '\elab\Epitome']));
+% addpath(genpath([path '\elab\Epitome']));
 addpath(genpath([path '\toolboxes\nx_toolbox']));
 
 clearvars cwp idcs
 addpath([pwd '/nx_preproc']);
-ft_defaults;
+% ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
-subj            = 'EL015'; %% change name if another data is used !!
+subj            = 'EL016'; %% change name if another data is used !!
 path_patient    = [path, '/Patients/' subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
-load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
-
+% load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
+% dir_files       = [path_patient,'\data_raw\LT_experiment'];% folder where raw edf are stored
+% load labels
+MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
+BP_label = importfile_BPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels_BP');
 %% 1. log 
 % file_log =[dir_files '/20220622_EL015_log.log'];
-file_log = 'T:\EL_experiment\Patients\EL015\infos\20220622_EL015_log.log';
+file_log = 'T:\EL_experiment\Patients\EL016\infos\20220921_EL016_log.log';
 log                 = import_logfile(file_log);
 stimlist_all   = read_log(log);
 stimlist_all = stimlist_all(stimlist_all.type~='Clinic',:);
 stimlist_all.keep = ones(height(stimlist_all),1);
-% for LTP/LTD select specific type
-stop
+
 %% type
 type                = 'CR';
-
+dir_files       = 'Y:\eLab\Patients\EL016\Data_raw\EL_experiment';
   %%
-files = dir(dir_files);
-for j=13:length(files)
+files= dir([dir_files '\*CR*.EDF']);
+path_pp = [path_patient '\Data\EL_experiment\experiment1'];
+%%
+for j=1:length(files)
     %% 1. read first raw data
     file = files(j).name;
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
     H                      = Epitome_edfExtractHeader(filepath);
-    % [hdr_edf, EEG_all]     = edfread_data(filepath);
+    [hdr_edf, EEG_all]     = edfread_data(filepath);
     stimlist = stimlist_all;
     stimlist = removevars(stimlist, 'keep');
     %% 2. find triggers
@@ -64,7 +68,7 @@ for j=13:length(files)
     stimlist(ix_block(1),'TTL')= {TTL_startblock};
     %% 4. for each stimulation, assign the expected TTL 
     % if len stimtable and and # f triggers are identical, we can just merge
-    i                = ix_block(1); % selected one where you are sure hte trigger is correct
+    % i                = ix_block(1); % selected one where you are sure hte trigger is correct
     ts1              = stimlist.h(i)*3.6e3+stimlist.min(i)*60+stimlist.s(i)+stimlist.us(i)/1000000; 
     size_log        = size(stimlist);
     % enter manually
@@ -114,7 +118,7 @@ for j=13:length(files)
     clf(figure(1))
     Fs     = hdr_edf.frequency(1);
     %Fs = 148;
-    n_trig = 174;
+    n_trig = 424;
     t      = stimlist.TTL(n_trig);
     IPI    = stimlist.IPI_ms(n_trig);
     x_s = 10;
@@ -129,11 +133,11 @@ for j=13:length(files)
 
     %% 6. get bipolar montage of EEG
     % bipolar
-    ix        = find_BP_index(hdr_edf.label', BP_label.labelP, BP_label.labelN);
+    ix        = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.labelN_EDF);
     pos_ChanP =  ix(:,1);
     pos_ChanN =  ix(:,2);
     % EEG_all         = [EEG_all; zeros(1,size(EEG_all,2))];
-    EEG_block       = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
+    EEG_all       = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
     
     %% 7.1 CR loop for cutting blocks
     
@@ -144,13 +148,19 @@ for j=13:length(files)
         stimlist.b(1:ix-2) = blocks(3);
         blocks          = unique(stimlist.b); %
     end
-
-    for i=2:length(blocks)%2:11
+    %%
+    blocks          = unique(stimlist.b);
+    blocks = blocks(blocks>0);
+    for i=1:length(blocks)%2:11
         block_num               = blocks(i);
         stim_list           = stimlist(stimlist.b==block_num,:);%   
-        cut_block_edf(EEG_block, stim_list,type,block_num, Fs, path_patient, subj, BP_label)
+        cut_block_edf(EEG_all, stim_list,type,block_num, Fs, subj, BP_label,path_pp)
+        %(EEG_block, stim_list,type,block_num, Fs, subj,BP_label, path_pp)
     end
-    assignin('base',['stimlist' file(end-7:end-4)], stimlist)
+    assignin('base',['stimlist' file(end-8:end-4)], stimlist)
+    if height(stimlist_all)<200
+        disp('stop');
+    end
 end
 
 %%%%%
@@ -159,24 +169,26 @@ for j=2:length(files)
     file = files(j).name;
     disp(file);
     filepath               = [dir_files '/' file];
-    VariableName=['stimlist' file(end-7:end-4)];
+    %VariableName=['stimlist' file(end-7:end-4)];
+    VariableName=['stimlist' file(end-8:end-4)];
     eval(['stimlist = ',VariableName,';']);
-    H                      = Epitome_edfExtractHeader(filepath);
-    [hdr_edf, EEG_all]     = edfread_data(filepath);
-    Fs     = hdr_edf.frequency(1);
-    %% 6. get bipolar montage of EEG
-    % bipolar
-    ix        = find_BP_index(hdr_edf.label', BP_label.labelP, BP_label.labelN);
-    pos_ChanP =  ix(:,1);
-    pos_ChanN =  ix(:,2);
-    % EEG_all         = [EEG_all; zeros(1,size(EEG_all,2))];
-    EEG_block       = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
-    clear EEG_all
+%     H                      = Epitome_edfExtractHeader(filepath);
+%     [hdr_edf, EEG_all]     = edfread_data(filepath);
+%     Fs     = hdr_edf.frequency(1);
+%     %% 6. get bipolar montage of EEG
+%     % bipolar
+%     ix        = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.labelN_EDF);
+%     pos_ChanP =  ix(:,1);
+%     pos_ChanN =  ix(:,2);
+%     %EEG_all         = [EEG_all; zeros(1,size(EEG_all,2))];
+%     EEG_all       = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
+
     %% 7.1 CR loop for cutting blocks
     blocks          = unique(stimlist.b);
-    for i=2:length(blocks)%2:11
+    blocks = blocks(blocks>0);
+    for i=1:length(blocks)%2:11
         block_num               = blocks(i);
         stim_list           = stimlist(stimlist.b==block_num,:);%   
-        cut_block_edf(EEG_block, stim_list,type,block_num, Fs, path_patient, subj, BP_label)
+        cut_block_edf_stimlistONLY(EEG_all, stim_list,type,block_num, Fs, subj, BP_label,path_pp)
     end
 end

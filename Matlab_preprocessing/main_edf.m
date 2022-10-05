@@ -30,7 +30,7 @@ ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
-subj            = 'EL016'; %% change name if another data is used !!
+subj            = 'EL015'; %% change name if another data is used !!
 path_patient    = ['T:\EL_experiment\Patients\' subj];  
 dir_files       = [path_patient,'\data_raw\EL_experiment'];
 dir_infos = [path_patient,'\infos\'];

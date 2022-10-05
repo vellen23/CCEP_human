@@ -68,6 +68,7 @@ class main:
         # tissue  = lbls[req].Tissue.values
         self.subj           = subj
         self.path_patient   = path_patient
+        self.path_patient_analysis = os.path.join(os.path.dirname(os.path.dirname(self.path_patient)), 'Projects\EL_experiment\Analysis\Patients', subj)
 
     def osc_power(self, path, hgp=True, sop=True):
         try:
@@ -216,6 +217,9 @@ class main:
         elif type == 'BM':
             types = ['BM', 'Ph_BM', 'CR_BM', 'BrainMapping']
             folder = 'BrainMapping'
+        elif type == 'LT':
+            types = ['LTD1', 'LTD10', 'LTP50']
+            folder = 'LongTermInduction'
         else:
             types = []
             folder = 'nofolder'
@@ -235,6 +239,8 @@ class main:
                 else:
                     t = filename[9:-1]
                     p = int(filename[-1])
+                if t[-1] == '_':
+                    t = t[:-1]
                 stim_table = pd.read_excel(data_path + "/" + subj + "_stimlist_" + t + ".xlsx",
                                            sheet_name='Sheet' + str(p))  #
             else:
@@ -242,11 +248,22 @@ class main:
                 p=0
             print(t)
             condition = t[0:2]
-            stim_table      = stim_table[stim_table['type'].isin(types)]
+            if type == 'LT':
+                stim_table = stim_table[stim_table['type'].str.contains('|'.join(types))]
+                # remove induction stimulations from stim list. we dont anaylze these for now..
+                stim_table = stim_table[~stim_table['type'].str.contains('Prot')]
+                folder = folder+'\\'+t
+            else:
+                stim_table = stim_table[stim_table['type'].isin(types)]
+            if not os.path.exists(self.path_patient_analysis +'\\'+folder):
+                os.makedirs(self.path_patient_analysis +'\\'+folder)
+                os.makedirs(self.path_patient_analysis + '\\' + folder+'\\data')
 
             stim_table = stim_table.drop(columns="Num", errors='ignore')
             stim_table.insert(10, "Num", np.arange(0, len(stim_table), True))
             if len(stim_table)>0:
+                if not os.path.exists(self.path_patient_analysis +'\\'+folder+'/data/'):
+                    os.makedirs(self.path_patient_analysis +'\\'+folder+'/data/')
                 # Get bad channels
                 if os.path.isfile(path + "/bad_chs.mat"):
                     try:  # load bad channels
@@ -259,14 +276,14 @@ class main:
                 else:
                     bad_chan = np.zeros((len(self.labels), 1))
                 try:
-                    badchans = pd.read_csv(path_patient + '/Analysis/'+folder+'/data/badchan.csv')
+                    badchans = pd.read_csv(self.path_patient_analysis +'\\'+folder+'/data/badchan.csv')
                     badchans = badchans.drop(columns=str(block), errors='ignore')
                     badchans.insert(loc= 1, column=str(block), value = bad_chan[:, 0])
                     #new_column = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
                     #badchans[str(block)] = bad_chan[:, 0]
                 except FileNotFoundError:
                     badchans = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
-                badchans.to_csv(path_patient + '/Analysis/'+folder+'/data/badchan.csv', index=False,
+                badchans.to_csv(self.path_patient_analysis +'\\'+folder+'/data/badchan.csv', index=False,
                                 header=True)  # scat_plot
 
                 # get data
@@ -289,13 +306,11 @@ class main:
                         EEG_block[:, s, abs(np.int64(trig + self.dur[0, 0] * self.Fs)):] = EEGpp[:, 0:np.int64(trig + self.dur[0, 1] * self.Fs)]
                     else:
                         EEG_block[:, s, :] = EEGpp[:, np.int64(trig + self.dur[0, 0] * self.Fs):np.int64(trig + self.dur[0, 1] * self.Fs)]
-                if not os.path.exists(path_patient + '/Analysis/'+folder+'/data/'):
-                    os.makedirs(path_patient + '/Analysis/'+folder+'/data/')
 
-                np.save(path_patient + '/Analysis/'+folder+'/data/All_resps_' + str(block).zfill(2) + '_' + condition +str(p).zfill(2)+ '.npy',
+
+                np.save(self.path_patient_analysis +'\\'+folder+'/data/All_resps_' + str(block).zfill(2) + '_' + condition +str(p).zfill(2)+ '.npy',
                         EEG_block)
-                stim_table.to_csv(
-                    path_patient + '/Analysis/'+folder+'/data/Stim_list_' + str(block).zfill(2) + '_' + condition + str(p).zfill(2)+'.csv', index=False,
+                stim_table.to_csv(self.path_patient_analysis +'\\'+folder+'/data/Stim_list_' + str(block).zfill(2) + '_' + condition + str(p).zfill(2)+'.csv', index=False,
                     header=True)  # scat_plot
             else:
                 print('No Stimulation in this protocol')
@@ -402,7 +417,10 @@ class main:
                 p = 0
             print(t)
             condition = t[0:2]
-            stim_table = stim_table[stim_table['type'].isin(types)]
+            if type == 'LT':
+                stim_table  = stim_table[stim_table['type'].str.contains('|'.join(types))]
+            else:
+                stim_table = stim_table[stim_table['type'].isin(types)]
 
             stim_table = stim_table.drop(columns="Num", errors='ignore')
             stim_table.insert(10, "Num", np.arange(0, len(stim_table), True))

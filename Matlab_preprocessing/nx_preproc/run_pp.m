@@ -4,16 +4,23 @@ function [] = rerun_pp(path, sclA, sclC )
     subj                    = foldername(1:5);
     if isnan(str2double(foldername(end))) % non numeric
         type                = foldername(10:end);
+        type_excel = type;s
         block_num           = 0;
         stim_list           =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)]);
     elseif isnan(str2double(foldername(end-1)))
         type                = foldername(10:end-1);
+        type_excel = type;
         block_num           = str2double(foldername(end));
         stim_list           =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)],'Sheet',block_num);
     else
         type = foldername(10:end-2);
+        if type(end)=="_"
+            type_excel = type(1:end-1);
+        else
+            type_excel = type;
+        end
         block_num = str2double(foldername(end-1:end));
-        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)],'Sheet',block_num);
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
     end
     % PREPROCESS EEG
     if block_num>0
@@ -30,14 +37,14 @@ function [] = rerun_pp(path, sclA, sclC )
 %         stim_list       = results{1,5};
         [ppEEG,EEG_art,fs, stim_list]       = EL_preprocess(EEG_load, stim_list,sclA, sclC);
         % save ppEEG and new stimlist
-        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)],'Sheet',block_num);
+        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
 
     else
         EEG_load                    = load([path, sprintf('/%s_BP_%s.mat',subj, type)]);
         [ppEEG,EEG_art,fs, stim_list]      = EL_preprocess(EEG_load, stim_list,sclA, sclC);
         % save ppEEG and new stimlist
         
-        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)]);
+        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)]);
     end
     save([path, '/ppEEG.mat'],'ppEEG', 'fs','-v7.3');
 %     ppEEG = ppEEG_bk;

@@ -16,6 +16,9 @@ function [] = create_TTL(path)
         stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)],'Sheet',block_num);
     else
         type = foldername(10:end-2);
+        if type(end)=="_"
+            type = type(1:end-1);
+        end
         block_num = str2double(foldername(end-1:end));
         stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type)],'Sheet',block_num);
     end
