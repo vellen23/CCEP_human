@@ -136,7 +136,7 @@ for s=1:height(stim_list) %for each stimulation
             stim_list.TTL_PP(s) = trig2;
             for c=1:size(ppEEG_art,1) %  for each channel      
                 ppEEG_art(c,:) = kriging_artifacts(ppEEG_art(c,:), trig1, trig2, IPI, Fs,0);
-%             plot_raw_filter(c,s,stim_list,EEG,ppEEG_art,Fs);
+    %         plot_raw_filter(c,s,stim_list,EEG_BP,ppEEG,Fs);
             end
         end
         %toc

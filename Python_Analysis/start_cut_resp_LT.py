@@ -35,12 +35,20 @@ import _thread
 cwd = os.getcwd()
 
 
-def compute_cut_LT(subj, cut_blocks=1, concat_blocks=1):
+def compute_cut_LT(subj):
     print(f'Performing calculations on {subj}')
     # path_patient = 'T:\EL_experiment\Patients\\' + subj  ##'T:\EL_experiment\Patients'#os.path.join('E:\PhD\EL_experiment\Patients',subj) # path_patient    = 'E:\PhD\EL_experiment\Patients\\'+subj ##'T:\EL_experiment\Patients'
-    path_patient =os.path.join('Y:\\eLab\\Patients', subj) # path to info
-    CUT = cut_resp.main(subj, path_patient)
+    path_patient = os.path.join('Y:\\eLab\\Patients', subj) # path to info
+    # script initiation
+    CUT = cut_resp.main(subj, path_patient, dur=[-1,1])
+    ######run function in CUT :
+    # either define paths yourself (hardcoded)
+    # todo:
+    # path_save = ...
+    # path_pp = .. # where ppEEG.mat is located
+    #.... cut_resp_IOM(path_pp, path_save, prot ='IOM')
 
+    # or use an automated way to find folder containing ppEEG data
     path_patient = os.path.join('Y:\\eLab\\Patients', subj, 'Data\\LT_experiment')
     k = 0
     if cut_blocks:
@@ -49,20 +57,8 @@ def compute_cut_LT(subj, cut_blocks=1, concat_blocks=1):
         folders = glob.glob(path_data + '/' + subj + '_*')
         if len(folders) > 0:
             for i in range(len(folders)):
-                CUT.cut_resp(folders[i], k + i + 1, 'LT')
-
+                CUT.cut_resp_IOM(folders[i], path_save, 'IOM')
                 k = k + i
-    if concat_blocks:
-        print('Concatenating blocks. This might take a while ... ')
-        CUT.concat_resp('BM')
-        CUT.concat_resp('IO')
-        #CUT.concat_resp('PP')
-        # list
-        CUT.concat_list('BM')
-        CUT.concat_list('IO')
-        # CUT.concat_list('PP')
-    print(subj + ' ---- DONE ------ ')
-
 
 def compute_list_update(subj):
     print(f'Performing calculations on {subj}')
@@ -94,6 +90,6 @@ def compute_list_update(subj):
 for subj in ["EL016"]:  # , "EL010"
     # compute_list_update(subj)
     # compute_cut(subj, cut_blocks=1, concat_blocks=1)  # _thread.start_new_thread(compute_list_update, (subj,))
-    compute_cut_LT(subj,1,0)
+    compute_cut_LT(subj)
 # while 1:
 #    time.sleep(1)

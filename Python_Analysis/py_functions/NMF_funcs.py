@@ -19,6 +19,26 @@ cond_labels = ['BM', 'BL', 'Fuma', 'BZD']
 cond_colors = ['#494159', '#594157', "#F1BF98", "#8FB996"]
 
 
+def get_nnmf_Epi(X, rank, it=2000):
+    # remove rows that are completly equal zero
+    # model = NMF(n_components=rank, init='random', random_state=50, max_iter=it)
+    # W = model.fit_transform(X)
+    # H = model.components_
+    W = np.zeros((X.shape[0], rank))
+    X0 = np.delete(X, np.where(np.mean(X, 1) == 0)[0], 0)
+    # run 5 it with mult
+    model = NMF(n_components=rank, init='nndsvda', max_iter=10)
+    W0 = model.fit_transform(X0)
+    H0 = model.components_
+    # run again with best solution of first model
+    model = NMF(n_components=rank, init='custom', max_iter=it, solver='mu')
+    W0 = model.fit_transform(X0, W=W0, H=H0)
+    H = model.components_
+    W[np.where(np.mean(X, 1) > 0)[0], :] = W0
+
+    return W, H
+
+
 def get_nnmf(X, rank, it=2000):
     # remove rows that are completly equal zero
     # model = NMF(n_components=rank, init='random', random_state=50, max_iter=it)
@@ -202,7 +222,7 @@ def get_NMF_AUC(data, NNMF_ass, cond_sel='Condition'):
     for sc in Stims:
         dat = data[data.Stim == sc]
         for Hs in np.unique(NNMF_ass.loc[NNMF_ass.Stim == sc, 'H']):
-            j = NNMF_ass.loc[(NNMF_ass.H == Hs)&(NNMF_ass.Stim == sc), 'H_num'].values[0]
+            j = NNMF_ass.loc[(NNMF_ass.H == Hs) & (NNMF_ass.Stim == sc), 'H_num'].values[0]
             pc = 1
             if (cond_sel == 'Sleep') | (cond_sel == 'SleepState'):
                 # todo: move to mean
