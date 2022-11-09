@@ -33,11 +33,10 @@ def dba_cluster(X, n=2):
     X = np.expand_dims(X,-1)
     km_dba  = TimeSeriesKMeans(n_clusters=n, metric="dtw", max_iter=10, max_iter_barycenter=10, random_state=0).fit(X)
     cc      = km_dba.cluster_centers_
-    cc = cc[:,:,0]
     y       = km_dba.predict(X)
     dist    = km_dba.transform(X)
-    dist_cc = np.max(km_dba.transform(cc))
-    return cc, y, dist, dist_cc
+    dist_cc = np.max(km_dba.transform(km_dba.cluster_centers_))
+    return cc[:, :, 0], y, dist, dist_cc
 
 def get_cluster_pred(sc, rc, LL_CCEP, EEG_resp):
     lists = LL_CCEP[

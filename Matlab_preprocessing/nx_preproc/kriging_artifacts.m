@@ -9,7 +9,7 @@ function [EEG_c] = kriging_artifacts(EEG_c, trig1, trig2, IPI, Fs, scalp)
         d_pk_stim       = round([0.005 0.015]*Fs);%[0.005 0.015]*Fs;, 2-5
     else % duration to remove
         %d_pk_stim       = round([0.005 0.015]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
-        d_pk_stim       = round([0.002 0.015]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
+        d_pk_stim       = round([0.002 0.017]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
     end
 
     le = round(0.01*Fs);%(pk_stim-d_pk_stim(1)-2) - (pk_op+d_pk(2)+1);
@@ -35,15 +35,15 @@ function [EEG_c] = kriging_artifacts(EEG_c, trig1, trig2, IPI, Fs, scalp)
 %            EEG_c(pk_op+d_pk(2)+1:pk_op+d_pk(2)+dur) = EEG_c(pk_op+d_pk(2)+1:pk_op+d_pk(2)+dur)-DC_shift_lin;
 %         end
 %     end
-%     % artifact peaks
-%     EEG_c(pk_op-d_pk(1):pk_op+d_pk(2)) = kriging_func(EEG_c, pk_op, d_pk,3);
-%     if ~isempty(pk_lp)
-%         EEG_c(pk_lp-d_pk_l(1):pk_lp+d_pk_l(2)) = kriging_func(EEG_c, pk_lp, d_pk_l,3);
-%     end
-%     
-%     if ~isempty(pk_cl)
-%         EEG_c(pk_cl-d_pk_c(1):pk_cl+d_pk_c(2)) = kriging_func(EEG_c, pk_cl, d_pk_c,2);
-%     end
+    % artifact peaks
+    EEG_c(pk_op-d_pk(1):pk_op+d_pk(2)) = kriging_func(EEG_c, pk_op, d_pk,3);
+    if ~isempty(pk_lp)
+        EEG_c(pk_lp-d_pk_l(1):pk_lp+d_pk_l(2)) = kriging_func(EEG_c, pk_lp, d_pk_l,3);
+    end
+    
+    if ~isempty(pk_cl)
+        EEG_c(pk_cl-d_pk_c(1):pk_cl+d_pk_c(2)) = kriging_func(EEG_c, pk_cl, d_pk_c,2);
+    end
     
 
     %stimulations peaks

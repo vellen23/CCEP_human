@@ -51,6 +51,65 @@ color_elab[0, :] = np.array([31, 78, 121]) / 255
 color_elab[1, :] = np.array([189, 215, 238]) / 255
 color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
+def check_inStimChan_C(c_s, sc_s, labels_all):
+    rr = np.zeros((len(c_s), len(sc_s)))
+    for j in range(len(c_s)):
+        c = c_s[j]
+        lb = labels_all[c]
+        for i in range(len(sc_s)):
+            sc = np.int64(sc_s[i])
+            stim_lb = labels_all[sc]
+            t = '-'
+            ix = [pos for pos, char in enumerate(lb) if char == t]
+            if len(ix) > 1:
+                ix = np.int64(ix[1])
+            else:
+                ix = np.int64(ix[0])
+            chan1 = lb[:ix]
+            chan2 = lb[ix + 1:]
+            r = 0
+            if stim_lb.find(chan1) != -1:
+                rr[j, i] = 1
+            elif stim_lb.find(chan2) != -1:
+                rr[j, i] = 1
+
+        # print(stim_lb)
+    return rr
+
+
+def check_inStimChan(c, sc_s, labels_all):
+    rr = np.zeros((len(sc_s),))
+    lb = labels_all[c]
+    # print(lb)
+    for i in range(len(sc_s)):
+        sc = np.int64(sc_s[i])
+        stim_lb = labels_all[sc]
+        t = '-'
+        ix = [pos for pos, char in enumerate(lb) if char == t]
+        if len(ix) > 1:
+            ix = np.int64(ix[1])
+        else:
+            ix = np.int64(ix[0])
+        chan1 = lb[:ix]
+        chan2 = lb[ix + 1:]
+        r = 0
+        if stim_lb.find(chan1) != -1:
+            rr[i] = 1
+        elif stim_lb.find(chan2) != -1:
+            rr[i] = 1
+
+        # print(stim_lb)
+    return rr
+
+
+def SM2IX(SM, StimChanNums, StimChanIx):
+    # SM: stim channel in SM number
+    # StimChanNums: all number of stim channels in SM
+    # StimChanIx: all stim channels in all channles environment
+    ChanIx = np.zeros_like(SM)
+    for i in range(len(SM)):
+        ChanIx[i] = StimChanIx[np.where(StimChanNums == SM[i])]
+    return ChanIx
 
 def get_IPI_switch(IPI_all, IPI_selected):
     mn = 0
@@ -71,9 +130,10 @@ def get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500, t_0=1):
         lbls)
     data_LL = np.zeros((1, 13))  # RespChan, Int, LL, LLnorm, State
     Int_prob = 2
-    stim_spec = stimlist[(stimlist.noise == 0)]  # &(stimlist.noise ==0)
+    stim_spec = stimlist[(stimlist.StimNum>= 0)]  # &(stimlist.noise ==0)
+    stimNum = stim_spec.StimNum.values  # [:,0]
+    noise_val = stim_spec.noise.values  # [:,0]
     if len(stim_spec)>0:
-        stimNum = stim_spec.StimNum.values  # [:,0]
         # resps = EEG_resp[:, stimNum, :]
         resps = ff.lp_filter(EEG_resp[:, stimNum, :], 45, Fs)
         ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
@@ -82,14 +142,14 @@ def get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500, t_0=1):
         # todo: change to depending on IPI
         # second pulse
         w_start = np.int64(
-            np.round((IPIs / 1000 + t_0 + 0.01) * Fs))  # start position at sencond trigger plus 20ms (art removal)
+            np.round((IPIs / 1000 + t_0 + 0.005) * Fs))  # start position at sencond trigger plus 20ms (art removal)
         w_end = np.int64(np.round((IPIs / 1000 + t_0 + 0.5) * Fs) - 1)
         n = np.int64((w_end - w_start)[0, 0])
         inds = np.linspace(w_start, w_end, n).T.astype(int)
         resp_PP = np.take_along_axis(resps, inds, axis=2)
         # LL_trial = LLf.get_LL_all(resps[:, :, int(1 * Fs):int(1.5 * Fs)], Fs, 0.25, t_0, IPIs)
         # LL_peak = np.max(LL_trial, 2)
-        LL_trial = LLf.get_LL_all(resp_PP, Fs, 0.25, t_0, IPIs)
+        LL_trial = LLf.get_LL_all(resp_PP, Fs, 0.25)
         LL_peakPP = np.max(LL_trial, 2)
         pk_start = 0.5
         for c in range(len(LL)):
@@ -97,10 +157,10 @@ def get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500, t_0=1):
             val[:, 0] = c  # response channel
             val[:, 1] = ChanP1
             val[:, 4] = stim_spec.Int_cond.values  # Intensity
-            val[:, 2] = LL[c, :, 1]  # PP
-            #val[:, 3] = LL[c, :, 0]  # SP
+            val[:, 12] = noise_val  # PP
+            val[:, 3] = LL[c, :, 0]  # SP
             val[:, 11] = stim_spec.IPI_ms.values
-            val[:, 3] = LL_peakPP[c, :]  # SP
+            val[:, 2] = LL_peakPP[c, :]  # PP for
             val[:, 6] = stim_spec['h'].values
             val[:, 5] = stim_spec['condition'].values
             val[:, 7] = stimNum
@@ -109,97 +169,78 @@ def get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500, t_0=1):
             val[:, 10] = stim_spec.stim_block.values
             # set stimulation channels to nan
             val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 2] = np.nan
+            val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 12] = 1
             # if its the recovery channel, check if strange peak is appearing
-
-            pks = np.max(abs(resps[c, :, np.int64(pk_start * Fs):np.int64(1.5 * Fs)]), 1)
-            pks_loc = np.argmax(abs(resps[c, :, np.int64(pk_start * Fs):np.int64(1.5 * Fs)]), 1) + np.int64(pk_start * Fs)
-            # ix: trials where there is a strong peak during stim period in specific channel
-            ix = np.where((pks > 100) & (pks_loc > np.int64(0.95 * Fs)) & (pks_loc < np.int64(1.005 * Fs)))
-            # check the stimulation nuber of those trials
-            sn = stim_spec.StimNum.values[ix]
-            # get channels that were stimulating befor (stimnum-1) and might be recovering
-            rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
-            rec_chan = bf.SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
-
-            ix_c = np.where(bf.check_inStimChan(c, rec_chan, labels_clinic) == 1)
-            ix_real = np.intersect1d(ix, ix_c)
-            val[ix_real, 2] = np.nan
-            # same procedure for weir behavor before stimulation
-            voltage_rec = np.percentile(abs(resps[c, :, 0:np.int64(1 * Fs)]), 90, 1)
-            ix = np.where(voltage_rec > 500)
+            # if its the recovery channel, check if strange peak is appearing
+            pks = np.max(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1)
+            pks_loc = np.argmax(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1) + np.int64(
+                (t_0 - 0.05) * Fs)
+            ix = np.where(
+                (pks > 500) & (pks_loc > np.int64((t_0 - 0.005) * Fs)) & (pks_loc < np.int64((t_0 + 0.008) * Fs)))
+            # original stim number:
             sn = stim_spec.StimNum.values[ix]
             rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
-            rec_chan = bf.SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
-            ix_c = np.where(bf.check_inStimChan(c, rec_chan, labels_clinic) == 1)
-            ix_real = np.intersect1d(ix, ix_c)
-            val[ix_real, 2] = np.nan
+            rec_chan = SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
+            if np.isin(c, rec_chan):
+                val[ix, 12] = 1
 
             data_LL = np.concatenate((data_LL, val), axis=0)
         # add SP 2mA
         stim_spec = stimlist[(stimlist.IPI_ms > 500)&(stimlist.Int_cond == Int_prob)&(stimlist.noise == 0)]  # &(stimlist.noise ==0)
-        stimNum = stim_spec.StimNum.values  # [:,0]
-        resps = ff.lp_filter(EEG_resp[:, stimNum, :], 45, Fs)
-        ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
-        IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
-        IPIs = np.zeros_like(IPIs)
-        LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
-        # todo: change to depending on IPI
-        # second pulse
-        LL_trial = LLf.get_LL_all(resps[:, :, int(1 * Fs):int(1.5 * Fs)], Fs, 0.25, t_0, IPIs)
-        LL_peak = np.max(LL_trial, 2)
+        if len(stim_spec)>0:
+            stimNum = stim_spec.StimNum.values  # [:,0]
+            resps = ff.lp_filter(EEG_resp[:, stimNum, :], 45, Fs)
+            ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
+            IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
+            IPIs = np.zeros_like(IPIs)
+            LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
+            # todo: change to depending on IPI
+            # second pulse
+            LL_trial = LLf.get_LL_all(resps[:, :, int(1 * Fs):int(1.5 * Fs)], Fs, 0.25)
+            LL_peak = np.max(LL_trial, 2)
 
-        pk_start = 0.5
-        for c in range(len(LL)):
-            val = np.zeros((LL.shape[1], 13))
-            val[:, 0] = c  # response channel
-            val[:, 1] = ChanP1
-            val[:, 4] = 0
-            val[:, 2] = LL[c, :, 1]  # PP
-            # val[:, 3] = LL[c, :, 0]  # SP
-            val[:, 11] = 0
-            val[:, 3] = LL_peak[c, :]  # SP
-            val[:, 6] = stim_spec['h'].values
-            val[:, 5] = stim_spec['condition'].values
-            val[:, 7] = stimNum
-            val[:, 8] = stim_spec.date.values
-            val[:, 9] = stim_spec.sleep.values
-            val[:, 10] = stim_spec.stim_block.values
-            # set stimulation channels to nan
-            val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 2] = np.nan
-            # if its the recovery channel, check if strange peak is appearing
+            pk_start = 0.5
+            for c in range(len(LL)):
+                val = np.zeros((LL.shape[1], 13))
+                val[:, 0] = c  # response channel
+                val[:, 1] = ChanP1
+                val[:, 4] = 0
+                val[:, 3] = np.nan  # PP
+                # val[:, 12] = noise_val # SP
+                val[:, 11] = 0
+                val[:, 2] = LL_peak[c, :]  # SP
+                val[:, 6] = stim_spec['h'].values
+                val[:, 5] = stim_spec['condition'].values
+                val[:, 7] = stimNum
+                val[:, 8] = stim_spec.date.values
+                val[:, 9] = stim_spec.sleep.values
+                val[:, 10] = stim_spec.stim_block.values
+                # set stimulation channels to nan
+                val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 2] = np.nan
+                val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 12] = 1
+                # if its the recovery channel, check if strange peak is appearing
 
-            pks = np.max(abs(resps[c, :, np.int64(pk_start * Fs):np.int64(1.5 * Fs)]), 1)
-            pks_loc = np.argmax(abs(resps[c, :, np.int64(pk_start * Fs):np.int64(1.5 * Fs)]), 1) + np.int64(pk_start * Fs)
-            # ix: trials where there is a strong peak during stim period in specific channel
-            ix = np.where((pks > 100) & (pks_loc > np.int64(0.95 * Fs)) & (pks_loc < np.int64(1.005 * Fs)))
-            # check the stimulation nuber of those trials
-            sn = stim_spec.StimNum.values[ix]
-            # get channels that were stimulating befor (stimnum-1) and might be recovering
-            rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
-            rec_chan = bf.SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
+                pks = np.max(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1)
+                pks_loc = np.argmax(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1) + np.int64(
+                    (t_0 - 0.05) * Fs)
+                ix = np.where(
+                    (pks > 500) & (pks_loc > np.int64((t_0 - 0.005) * Fs)) & (pks_loc < np.int64((t_0 + 0.008) * Fs)))
+                # original stim number:
+                sn = stim_spec.StimNum.values[ix]
+                rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
+                rec_chan = SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
+                if np.isin(c, rec_chan):
+                    val[ix, 12] = 1
 
-            ix_c = np.where(bf.check_inStimChan(c, rec_chan, labels_clinic) == 1)
-            ix_real = np.intersect1d(ix, ix_c)
-            val[ix_real, 2] = np.nan
-            # same procedure for weir behavor before stimulation
-            voltage_rec = np.percentile(abs(resps[c, :, 0:np.int64(1 * Fs)]), 90, 1)
-            ix = np.where(voltage_rec > 500)
-            sn = stim_spec.StimNum.values[ix]
-            rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
-            rec_chan = bf.SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
-            ix_c = np.where(bf.check_inStimChan(c, rec_chan, labels_clinic) == 1)
-            ix_real = np.intersect1d(ix, ix_c)
-            val[ix_real, 2] = np.nan
-
-            data_LL = np.concatenate((data_LL, val), axis=0)
+                data_LL = np.concatenate((data_LL, val), axis=0)
 
 
 
         data_LL = data_LL[1:-1, :]  # remove first row (dummy row)
         LL_all = pd.DataFrame(
-            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "LL_peak": data_LL[:, 3], "Int": data_LL[:, 4],
+            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "LL_SP": data_LL[:, 3], "Int": data_LL[:, 4],
              'IPI':data_LL[:, 11], 'Condition': data_LL[:, 5], 'Hour': data_LL[:, 6], "Block": data_LL[:, 10], "Sleep": data_LL[:, 9],
-             "Num": data_LL[:, 7], "Date": data_LL[:, 8]})
+             "Num": data_LL[:, 7],"Num_block": data_LL[:,7], "Date": data_LL[:, 8], "Artefact": data_LL[:, 12]})
 
 
         # distance
@@ -211,7 +252,7 @@ def get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500, t_0=1):
                     distance.euclidean(coord_all[s], coord_all[c]), 2)
         # remove bad channels
         LL_all.loc[(LL_all.Chan).isin(bad_chans), 'LL'] = np.nan
-        LL_all.loc[(LL_all.Chan).isin(bad_chans), 'LL_peak'] = np.nan
+        LL_all.loc[(LL_all.Chan).isin(bad_chans), 'Artefact'] = 1
         #file = path_patient + '/Analysis/PairedPulse/' + cond_folder + '/data/con_trial.csv'
         #LL_all.to_csv(file, index=False, header=True)  # scat_plot = scat_plot.fillna(method='ffill')
         #print(file + ' -- stored')
@@ -235,7 +276,7 @@ def get_LL_all_Ph(stimlist, EEG_resp, Stims, labels_clinic, coord_all, path_pati
     resps = EEG_resp[:, stimNum, :]
     ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(Stims))
     IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
-    LL = LL_funcs.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
+    LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
     for c in range(len(LL)):
         val = np.zeros((LL.shape[1], 10))
         val[:, 0] = c  # response channel
@@ -296,7 +337,7 @@ def get_LL_thr(EEG_resp, LL_all, labels_all, path_patient, n=3):
 def LL_mx(EEG_trial, w=0.25, t0=1.01):
     # calculate mean response and get LL (incl peak)
     resp = ff.lp_filter(np.mean(EEG_trial, 0), 40, Fs)
-    LL_resp = LL_funcs.get_LL_all(np.expand_dims(np.expand_dims(resp, axis=0), 0), Fs, w, 1, 0)
+    LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(resp, axis=0), 0), Fs, w)
     LL_resp = LL_resp[0, 0]
     mx = np.max(LL_resp[np.int64((t0 + w / 2) * Fs):np.int64((t0 + 1.5 * w) * Fs)])
     mx_ix = np.argmax(LL_resp[np.int64((t0 + w / 2) * Fs):np.int64((t0 + 1.5 * w) * Fs)])
@@ -306,7 +347,7 @@ def LL_mx(EEG_trial, w=0.25, t0=1.01):
 def sig_resp(mean, thr, w=0.25):
     # check whether a mean response is a significant CCEP based on a pre-calculated threshold thr
     mean = ff.lp_filter(mean, 40, Fs)
-    LL_resp = LL_funcs.get_LL_all(np.expand_dims(np.expand_dims(mean, axis=0), 0), Fs, w, 1, 0)
+    LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(mean, axis=0), 0), Fs, w)
     LL_resp = LL_resp[0, 0]
     mx = np.max(LL_resp[np.int64((1.01 + w / 2) * Fs):np.int64((1.01 + 1.5 * w) * Fs)])
     max_ix = np.argmax(LL_resp[np.int64((1.01 + w / 2) * Fs):np.int64((1.01 + 1.5 * w) * Fs)])

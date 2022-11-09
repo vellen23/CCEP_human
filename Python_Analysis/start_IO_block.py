@@ -36,9 +36,6 @@ import platform
 from glob import glob
 from scipy.io import savemat
 
-sys.path.append('./PCI/')
-sys.path.append('./PCI/PCIst')
-import pci_st as pci
 import basic_func as bf
 from matplotlib.patches import Rectangle
 import tqdm
@@ -59,12 +56,13 @@ if platform.system() == 'Windows':
 
     CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx", header=0)
 else:  # 'Darwin' for MA
-    regions = pd.read_excel("/Volumes/EvM_T7/PhD/EL_experiment/Patients/all/elab_labels.xlsx", sheet_name='regions', header=0)
+    regions = pd.read_excel("/Volumes/EvM_T7/PhD/EL_experiment/Patients/all/elab_labels.xlsx", sheet_name='regions',
+                            header=0)
     color_regions = regions.color.values
     regions = regions.label.values
 
-    CR_color = pd.read_excel("/Volumes/EvM_T7/PhD/EL_experiment/Patients/all/Analysis/BrainMapping/CR_color.xlsx", header=0)
-
+    CR_color = pd.read_excel("/Volumes/EvM_T7/PhD/EL_experiment/Patients/all/Analysis/BrainMapping/CR_color.xlsx",
+                             header=0)
 
 CR_color_a = CR_color.a.values
 CR_color = CR_color.c.values
@@ -98,7 +96,7 @@ def remove_art(con_trial, EEG_resp):
 
     chan, trial = np.where(np.max(abs(EEG_resp[0:int(0.5 * Fs)]), 2) > 1500)
     for i in range(len(trial)):
-        con_trial.loc[(con_trial.Chan == chan[i]) & (con_trial.Num_block == trial[i]), 'Artefact'] =-1
+        con_trial.loc[(con_trial.Chan == chan[i]) & (con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     resp_BL = abs(ff.lp_filter(EEG_resp, 2, Fs))
     resp_BL = resp_BL[:, :, 0:int(Fs)]
@@ -135,7 +133,7 @@ def compute_update_sleep_subj(subj):
 
     if platform.system() == 'Windows':
         sep = ','
-        path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
+        path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     else:  # 'Darwin' for MAC
         path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
@@ -207,40 +205,40 @@ def compute_update_sleep_subj(subj):
 def compute_subj(subj, cond_folder='Ph'):
     # for subj in ["EL011"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
     # cwd = os.getcwd()
-    print(f'Performing calculations on {subj}, Condition: '+cond_folder)
-
+    print(f'Performing calculations on {subj}, Condition: ' + cond_folder)
 
     ######## General Infos
-
-    if platform.system() == 'Windows':
-        sep = ','
-        path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
-        path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    else:  # 'Darwin' for MAC
-        path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
-        sep = ';'
+    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
+    if not os.path.exists(path_gen):
+        path_gen = 'T:\\EL_experiment\\Patients\\' + subj
+    path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+    path_infos = os.path.join(path_patient, 'infos')
+    if not os.path.exists(path_infos):
+        path_infos = path_gen + '\\infos'
     Fs = 500
-    # Path(path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data').mkdir(parents=True, exist_ok=True)
-    # Path(path_patient + '/Analysis/' + folder + '/' + cond_folder + '/figures').mkdir(parents=True, exist_ok=True)
+    Path(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\').mkdir(parents=True, exist_ok=True)
+    Path(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\').mkdir(parents=True, exist_ok=True)
 
     # get labels
     if cond_folder == 'Ph':
-        files_list = glob(path_patient_analysis  + '\\'+ folder +'\\data\\Stim_list_*Ph*')
+        files_list = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*Ph*')
     elif cond_folder == 'CR':
-        files_list = glob(path_patient_analysis  + '\\'+ folder +'\\data\\Stim_list_*CR*')
+        files_list = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*CR*')
     else:
-        files_list = glob(path_patient_analysis  + '\\'+ folder +'\\data\\Stim_list_*')
+        files_list = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*')
     i = 0
     stimlist = pd.read_csv(files_list[i])
     # EEG_resp = np.load(path_patient + '/Analysis/' + folder + '/data/ALL_resps_'+files_list[i][-11:-4]+'.npy')
-    lbls = pd.read_excel(path_patient + "/infos/" + subj + "_labels.xlsx", header=0, sheet_name='BP')
+    lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
+
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
         stimlist,
         lbls)
     badchans = pd.read_csv(path_patient_analysis + '/BrainMapping/data/badchan.csv')
     bad_chans = np.unique(np.array(np.where(badchans.values[:, 1:] == 1))[0, :])
-    #bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
-    #file_con = path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data/con_trial_all.csv'
+    # bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
+    # file_con = path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data/con_trial_all.csv'
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
 
     ######### Load data
@@ -263,7 +261,8 @@ def compute_subj(subj, cond_folder='Ph'):
                 stimlist = stimlist.drop(columns='StimNum')
             stimlist.insert(5, 'StimNum', np.arange(len(stimlist)))
 
-            EEG_resp = np.load(path_patient_analysis + '\\' +folder +'\\data\\ALL_resps_' + files_list[l][-11:-4] + '.npy')
+            EEG_resp = np.load(
+                path_patient_analysis + '\\' + folder + '\\data\\ALL_resps_' + files_list[l][-11:-4] + '.npy')
             if EEG_resp.shape[1] != np.max(stimlist.StimNum) + 1:
                 print('ERROR number of stimulations is not correct')
                 break
@@ -278,7 +277,7 @@ def compute_subj(subj, cond_folder='Ph'):
                 block_l = files_list[l][-11:-4]
                 file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
                 skip = 1
-                if skip:
+                if skip*os.path.isfile(file):
                     con_trial_block = pd.read_csv(file)
                 else:
                     con_trial_block = IOf.get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25,
@@ -287,13 +286,14 @@ def compute_subj(subj, cond_folder='Ph'):
                     con_trial_block = remove_art(con_trial_block, EEG_resp)
                     con_trial_block = con_trial_block.reset_index(drop=True)
                     con_trial_block.to_csv(file, index=False, header=True)
-                if   (os.path.isfile(file_MN1)) & ('N1' not in con_trial_block): #path_patient_analysis + '\\'+protocol+'\\data\\M_N1.npy', M_N1peaks :
-                    #todo: get p2p N1, N2, etc.
+                if (os.path.isfile(file_MN1)) & (
+                        'N1' not in con_trial_block):  # path_patient_analysis + '\\'+protocol+'\\data\\M_N1.npy', M_N1peaks :
+                    # todo: get p2p N1, N2, etc.
                     M_N1peaks = np.load(file_MN1)
                     con_trial_block = IOf.get_peaks_all(con_trial_block, EEG_resp, M_N1peaks)
                     con_trial_block.to_csv(file, index=False, header=True)
                 con_trial_block.Num = con_trial_block.Num_block + mx_across
-                mx_across = mx_across+np.max(stimlist.StimNum) + 1  # np.max(con_trial_block.Num) + 1
+                mx_across = mx_across + np.max(stimlist.StimNum) + 1  # np.max(con_trial_block.Num) + 1
 
                 if l == 0:
                     con_trial = con_trial_block
@@ -311,12 +311,14 @@ def compute_subj(subj, cond_folder='Ph'):
 
         con_trial.to_csv(file_con, index=False, header=True)
         print(subj + ' ---- DONE ------ ')
+
+
 def update_peaks(subj, cond_folder='CR'):
     ######## General Infos
     print(subj + ' ---- START ------ ')
     if platform.system() == 'Windows':
         sep = ','
-        path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
+        path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     else:  # 'Darwin' for MAC
         path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
@@ -325,7 +327,7 @@ def update_peaks(subj, cond_folder='CR'):
     Fs = 500
 
     print('loading EEG data')
-    EEG_resp_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_'+cond_folder+'.npy'
+    EEG_resp_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy'
     EEG_CR = np.load(EEG_resp_CR_file)
 
     file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
@@ -338,11 +340,13 @@ def update_peaks(subj, cond_folder='CR'):
     con_trial.to_csv(file_con, index=False, header=True)
 
     print(subj + ' -----Peaks updated  DONE ------ ')
- #compute_subj('EL004', 'CR')
-for subj in ["EL011","EL012", "El014","EL010","EL005","EL004","EL013","EL015"]: #"EL015","EL004",
-    #compute_subj(subj, 'CR')
-    update_peaks(subj, cond_folder='CR')
-    #_thread.start_new_thread(compute_subj, (subj,'CR'))
+
+
+# compute_subj('EL004', 'CR')
+for subj in ['EL017']: #["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
+    # compute_subj(subj, 'CR')
+    compute_subj(subj, cond_folder='CR')
+    # _thread.start_new_thread(compute_subj, (subj,'CR'))
 #
 while 1:
     time.sleep(1)

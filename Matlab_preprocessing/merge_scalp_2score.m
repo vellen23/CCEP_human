@@ -18,14 +18,12 @@ addpath([pwd '/nx_plots_matlab']);
 addpath([pwd '/nx_preproc']);
 ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
-%%
-files= dir([dir_files '\*CR*.EDF']);
-path_pp = [path_patient '\Data\EL_experiment\experiment1'];
+
 %%
 
-subj            = 'EL016';
+subj            = 'EL017';
 %block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
-block_path     = uigetdir(['T:\EL_experiment\Patients\', subj, '/Data']); %
+block_path     = uigetdir(['Y:\eLab\Patients\', subj, '\Data\EL_experiment\experiment1']); %
 % block_files     = dir(block_path);
 % isdir           = [block_files.isdir]; % Get all the codes
 % block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
@@ -46,6 +44,9 @@ while i<= length(block_files)
         i = i+1;
     end
 end
+%%
+files= dir([dir_files '\*CR*.EDF']);
+path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 %% split based on selected files
 scalp_all       = [];
 score_all = [];
@@ -124,7 +125,7 @@ for sf=1:height(score_files)
         file_name= [subj, '_scalp2score_', num2str(sf)];
         file_sel = [fileparts(block_path), sep, file_name];
          mkdir(file_sel);
-        %save([file_sel, sep, file_name, '.mat'],'EEG','labels', 'Fs','-v7.3');
+        save([file_sel, sep, file_name, '.mat'],'EEG','labels', 'Fs','-v7.3');
         TTL = TTL_all;
         save([file_sel, sep, 'TTL.mat'],'TTL','-v7.3');
 
@@ -147,7 +148,7 @@ for sf=1:height(score_files)
     scalp_all   = [];
     score_all   = [];
 end
-%% load updated score file, if not splitted
+%% load updated score file
 for sf=1:height(score_files)      
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
@@ -169,19 +170,25 @@ for sf=1:height(score_files)
     
     for i=i_start:i_stop
         disp(block_files(i).name);
-        try
-            load(char([block_path, sep, block_files(i).name, sep,'score.mat']));
-        catch
+%         try
+%             load(char([block_path, sep, block_files(i).name, sep,'score.mat']));
+%         catch
             %disp('no score file found')
             load(char([block_path, sep, block_files(i).name, sep,'scalpEEG.mat']));
             score = zeros(1,round(length(scalpEEG)/Fs));
-        end
+%         end
         score(1,:) = score_all(1, 1:size(score,2));
         save(char([block_path, sep, block_files(i).name, sep,'score.mat']),'score','-v7.3');
         
         score_all = score_all(:,size(score,2)+1:end);
     end
 end
+%% update
+for i=41:length(block_files)
+    score2list(char([block_path, sep, block_files(i).name]), 0);
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% old 
+
 %% split files in 24h blocks
 while length(block_files)>2
     
@@ -355,13 +362,13 @@ score0 = score;
     
 for i=3:length(block_files)
     disp(block_files(i).name);
-    try
-        load(char([block_path, sep, block_files(i).name, sep,'score.mat']));
-    catch
+%     try
+%         load(char([block_path, sep, block_files(i).name, sep,'score.mat']));
+%     catch
         %disp('no score file found')
         load(char([block_path, sep, block_files(i).name, sep,'scalpEEG.mat']));
         score = zeros(1,round(length(scalpEEG)/Fs));
-    end
+%     end
     score(1,:) = score_all(1, 1:size(score,2));
     save(char([block_path, sep, block_files(i).name, sep,'score.mat']),'score','-v7.3');
 
@@ -375,6 +382,6 @@ end
 % block_files     = dir(block_path);
 % isdir           = [block_files.isdir]; % Get all the codes
 % block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
-for i=3:length(block_files)
+for i=17:length(block_files)
     score2list(char([block_path, sep, block_files(i).name]), 0);
 end

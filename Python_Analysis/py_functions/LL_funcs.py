@@ -501,13 +501,8 @@ def get_NNMFcoeff_both(data, Fs, stim_list, t_0=1, win=0.1):  # specific for Int
     return resp_coeff  # chns x stims x SP/PP LL
 
 
-def get_LL_all(data, Fs, win, t0, IPI):  # specific for Int and IPI
-    t1 = np.int64(t0 * Fs)  # start conditioning stim, time zero
-    t2 = np.int64((t0 + IPI / 1000) * Fs)  # start probing stim
-    # blank out stim artifact
-    # data[:, :, np.int(t1 - 0.002 * Fs):np.int(t1 + 0.01 * Fs)] = 0
-    # data[:, :, np.int(t2 - 0.002 * Fs):np.int(t2 + 0.01 * Fs)] = 0
-    # wdp         = np.int(Fs * wdp_S)  # sliding window size in samples
+def get_LL_all(data, Fs, win):  # specific for Int and IPI
+    ## LL for entire signal
     wdp = np.int64(Fs * win)  # 100ms -> 50 sample points
     EEG_pad = np.pad(data, [(0, 0), (0, 0), (np.int64(wdp / 2), np.int64(wdp / 2))], 'constant',
                      constant_values=(0, 0))  # 'reflect'(18, 3006)

@@ -36,7 +36,7 @@ def get_nnmf_Epi(X, rank, it=2000):
     H = model.components_
     W[np.where(np.mean(X, 1) > 0)[0], :] = W0
 
-    return W, H
+    return W, W0, H
 
 
 def get_nnmf(X, rank, it=2000):
@@ -190,19 +190,87 @@ def get_NMF_Stim_association(data, H_all):
     s = 0
     for sc in Stims:
         con_nmf_test = data[data.Stim == sc]
-        con_nmf_surr = data[data.Stim != sc]
+        if len(Stims)>1:
+            shortcut = 0
+            con_nmf_surr = data[data.Stim != sc]
+            p_thr = 95
+        else:
+            shortcut = 1
+            con_nmf_surr = data[data.Stim == sc]
+            p_thr = 90
         h = 0
         for Hs in H_all:
             con_nmf_test_sum = con_nmf_test.groupby(['Stim', 'Int'])[Hs].mean()
-            auc_test = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
-            surr = np.zeros((300,))
-            for i in range(len(surr)):
-                surr[i] = np.trapz(random.choices(con_nmf_surr[Hs].values, k=len(np.unique(con_nmf_test.Int))),
-                                   np.unique(con_nmf_test.Int))
-            if auc_test > np.percentile(surr, 95):
-                auc = np.zeros((1, 4))
-                auc[0, :] = [sc, auc_test, int(Hs[1:]), np.percentile(surr, 95)]  # , h
-                NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
+            auc_test = np.mean(con_nmf_test_sum.values[-3:])/np.mean(con_nmf_test_sum.values[:3])
+            if shortcut:
+                if auc_test>1.2:
+                    auc = np.zeros((1, 4))
+                    auc[0, :] = [sc, auc_test, int(Hs[1:]), 1.2]  # , h
+                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
+            else:
+                #auc_test = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
+                surr = np.zeros((100,))
+                for i in range(len(surr)):
+                    np.random.shuffle(con_nmf_surr[Hs].values)
+                    # np.random.shuffle(con_nmf_surr['Int'])
+                    con_nmf_test_sum = con_nmf_surr.groupby(['Stim', 'Int'])[Hs].mean()
+                    # auc_surr = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
+                    surr[i] = np.mean(con_nmf_test_sum.values[-3:])/np.mean(con_nmf_test_sum.values[:3])
+                if auc_test > np.percentile(surr, p_thr):
+                    auc = np.zeros((1, 4))
+                    auc[0, :] = [sc, auc_test, int(Hs[1:]), np.percentile(surr, p_thr)]  # , h
+                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
+
+    NNMF_ass = NNMF_ass[1:, :]
+    NNMF_ass = pd.DataFrame(NNMF_ass, columns=['Stim', 'AUC', 'H_num', 'threshold'])  # , 'Hour'
+    NNMF_ass.insert(2, 'H', 'H')
+    for Hn in np.unique(NNMF_ass.H_num):
+        NNMF_ass.loc[NNMF_ass.H_num == Hn, 'H'] = 'H' + str(int(Hn))
+    NNMF_ass = NNMF_ass.reset_index(drop=True)
+
+    return NNMF_ass
+
+def get_NMF_Stim_association_PP(data, H_all):
+    # cond_sel either block or Ph_conditionn or Sleep
+    # H_all = data.columns[9:] #todo: find better way
+    NNMF_ass = np.zeros((1, 4))
+    IPI_all = np.unique(data.IPI)
+    Stims = np.unique(data.Stim)
+    s = 0
+    for sc in Stims:
+        con_nmf_test = data[((data.Int == 0)|(data.Int == np.max(data.Int)))&(data.Stim == sc)]
+        if len(Stims)>1:
+            shortcut = 0
+            con_nmf_surr = data[data.Stim != sc]
+            p_thr = 95
+        else:
+            shortcut = 1
+            con_nmf_surr = data[data.Stim == sc]
+            p_thr = 90
+        h = 0
+        for Hs in H_all:
+            con_nmf_test_sum = con_nmf_test.groupby(['Stim','IPI'])[Hs].mean()
+            z = (con_nmf_test_sum.values - np.mean(con_nmf_test_sum.values)) / np.std(con_nmf_test_sum.values)
+
+            auc_test = np.max(z)-np.min(z)
+            if shortcut:
+                if (np.min(z)<-1.2) & (np.max(z)>1.2):
+                    auc = np.zeros((1, 4))
+                    auc[0, :] = [sc, auc_test, int(Hs[1:]), 1.2]  # , h
+                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
+            else:
+                #auc_test = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
+                surr = np.zeros((100,))
+                for i in range(len(surr)):
+                    np.random.shuffle(con_nmf_surr[Hs].values)
+                    # np.random.shuffle(con_nmf_surr['Int'])
+                    con_nmf_test_sum = con_nmf_surr.groupby(['Stim', 'Int'])[Hs].mean()
+                    # auc_surr = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
+                    surr[i] = np.mean(con_nmf_test_sum.values[-3:])/np.mean(con_nmf_test_sum.values[:3])
+                if auc_test > np.percentile(surr, p_thr):
+                    auc = np.zeros((1, 4))
+                    auc[0, :] = [sc, auc_test, int(Hs[1:]), np.percentile(surr, p_thr)]  # , h
+                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
 
     NNMF_ass = NNMF_ass[1:, :]
     NNMF_ass = pd.DataFrame(NNMF_ass, columns=['Stim', 'AUC', 'H_num', 'threshold'])  # , 'Hour'
@@ -215,6 +283,66 @@ def get_NMF_Stim_association(data, H_all):
 
 
 # protocol specific
+
+def get_NMF_AUC_Stim(data, sc, cond_sel='Condition'):
+    # only one stim channel
+    NNMF_AUC = np.zeros((1, 8))
+    Int_all = np.unique(data.Int)
+
+    for Hs in np.unique(data.H):
+        j = data.loc[(data.H == Hs), 'H_num'].values[0]
+        pc = 1
+        if (cond_sel == 'Sleep') | (cond_sel == 'SleepState'):
+            # todo: move to mean
+            val_min = np.min(dat.groupby([cond_sel, 'Int'])[Hs].median())
+            val_max = np.max(dat.groupby([cond_sel, 'Int'])[Hs].median())
+            AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
+
+            for cond in np.unique(dat[cond_sel]):
+                dat_c = data[(data[cond_sel] == cond)]
+                # todo: change to mean
+                H_mean = dat_c.groupby('Int')[Hs].median().values
+                ##  AUC
+                AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
+                NNMF_AUC = np.concatenate([NNMF_AUC, [[sc, j, 0, 0, cond, AUC, pc, len(dat_c)]]], axis=0)
+        else:
+            val_min = np.min(dat.groupby(['Date', cond_sel, 'Int'])[Hs].mean())
+            val_max = np.max(dat.groupby(['Date', cond_sel, 'Int'])[Hs].mean())
+            AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
+            for d in range(len(np.unique(dat.Date))):
+                dat_D = dat[dat.Date == np.unique(dat.Date)[d]]
+                for cond in np.unique(dat_D[cond_sel]):
+                    dat_c = data[
+                        (data.Date == np.unique(dat.Date)[d])  & (data[cond_sel] == cond)]
+                    # most common hour value
+                    # todo: add Hour
+                    h = np.bincount(dat_c.Hour).argmax()  # np.median(dat_h.Hour)
+                    # mean H coefficient for each intensity
+                    H_mean = dat_c.groupby('Int')[Hs].mean().values
+                    ## AUC
+
+                    AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
+                    auc = np.zeros((1, 8))
+                    auc[0, 0:8] = [sc, j, d, h, cond, AUC, pc, len(dat_c)]  # , h
+                    NNMF_AUC = np.concatenate([NNMF_AUC, auc], axis=0)
+        j = j + 1
+    NNMF_AUC = NNMF_AUC[1:, :]
+    NNMF_AUC = pd.DataFrame(NNMF_AUC,
+                            columns=['Stim', 'H', 'Day', 'Hour', cond_sel, 'AUC', 'Pearson', 'N_trial'])  # , 'Hour'
+    for col in ['Stim', 'H', 'Day', 'Hour', 'AUC', 'Pearson', 'N_trial']:
+        NNMF_AUC[col] = NNMF_AUC[col].astype('float')
+    # NNMF_AUC.insert(4,'nAUC', 0)
+    if (cond_sel == 'Sleep') | (cond_sel == 'SleepState'):
+        NNMF_AUC = NNMF_AUC.drop(columns=['Day', 'Hour'])
+    else:
+        NNMF_AUC.sort_values(by=['Day', cond_sel])
+        NNMF_AUC[cond_sel] = NNMF_AUC[cond_sel].astype('float')
+    if cond_sel == 'Sleep':
+        NNMF_AUC[cond_sel] = NNMF_AUC[cond_sel].astype('float')
+    NNMF_AUC = NNMF_AUC.reset_index(drop=True)
+
+    return NNMF_AUC
+
 def get_NMF_AUC(data, NNMF_ass, cond_sel='Condition'):
     NNMF_AUC = np.zeros((1, 8))
     Int_all = np.unique(data.Int)
@@ -372,10 +500,13 @@ def plot_H_trial_IPI(data, xl, hl, sl, title, nmf_fig_path):
 
 
 def plot_H_trial(data, xl, hl, title, nmf_fig_path):
-    data = data.drop(columns='Hour')
+    if 'Hour' in data:
+        data = data.drop(columns='Hour')
     H_all = [i for i in data.columns if i.startswith('H')]
-
-    fig = plt.figure(figsize=(len(H_all) * 5, 7))
+    fac = 5
+    if xl =='IPI':
+        fac = 8
+    fig = plt.figure(figsize=(len(H_all) * fac, 7))
     plt.suptitle(title)
     gs = fig.add_gridspec(1, len(H_all))  # GridSpec(4,1, height_ratios=[1,2,1,2])
     i = 0
@@ -385,13 +516,69 @@ def plot_H_trial(data, xl, hl, title, nmf_fig_path):
         col_sel = 'colorblind'
     for Hs in H_all:
         fig.add_subplot(gs[0, i])
-        sns.scatterplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel)
+        #
+        if xl =='IPI':
+            sns.swarmplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel)
+        else:
+            sns.scatterplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel)
         i = i + 1
+
     file = nmf_fig_path + 'H_' + hl + '_r' + str(len(H_all))
     plt.savefig(file + '.jpg')
     plt.savefig(file + '.svg')
     plt.close(fig)
 
+def plot_H_IPI_cond(data, hl,cond, nmf_fig_path):
+    # cond: SleepState, Wake, NREM, REM
+    if 'Hour' in data:
+        data = data.drop(columns='Hour')
+    H_all = [i for i in data.columns if i.startswith('H')]
+    sns.catplot(x='IPI', y=hl, hue=cond, data=data, aspect=4, row='Int', palette =['black', 'blue', 'red'])
+    plt.ylim([0,10])
+    file = nmf_fig_path + 'H_' + hl + '_r' + str(len(H_all))+'_'+cond
+    plt.savefig(file + '.jpg')
+    plt.savefig(file + '.svg')
+    # plt.close(fig)
+
+def plot_NMF_AUC_SleepState(data, sc, h, title, file):
+    cond_labels = ['Wake', 'NREM', 'REM']
+    color = ['black', '#1F4E7A', '#f65858']
+    # title = subj + ' --- '+labels_all[sc]+', '+str(Hs)
+    # remove N1
+    data = data[(data.Sleep < 5) & (data.Sleep != 1) & (data.Stim == sc)]  # & ((data.Hour < 9) | (data.Hour > 20))
+    Hs = 'H' + str(h)
+    Int_all = np.unique(data.Int)
+    fig = plt.figure(figsize=(15,15))
+
+    val_min = np.min(data.groupby(['SleepState', 'Int'])[Hs].mean())
+    val_max = np.max(data.groupby(['SleepState', 'Int'])[Hs].mean())
+    AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
+    for con_val, c_ix in zip(cond_labels, np.arange(3)):  # snp.unique(data.Sleep).astype('int'):
+        dat_c = data[(data.SleepState == con_val)]
+        plt.title(title, fontsize=30)
+        H_mean = dat_c.groupby('Int')[Hs].mean().values
+        # sns.scatterplot(x='Int', y= Hs, data=dat_c)
+        AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
+        plt.plot(np.unique(dat_c.Int), H_mean,
+                 label=con_val + '- AUC: ' + str(np.round(AUC, 2)), color = color[c_ix], linewidth=5)
+        ## AUC
+
+        plt.fill_between(np.unique(dat_c.Int), val_min, H_mean, color = color[c_ix], alpha=0.1)
+        # plt.text(8, (val_max-con_val/2)/3 ,cond_labels[con_val]+ '- AUC: '+ str(np.round(AUC,2)), fontsize=12)
+    plt.axhline(val_min, color=[0,0,0])
+    plt.axhline(val_max, color=[0,0,0])
+    plt.plot([0, np.max(Int_all)], [val_min, val_max], '--', c=[0, 0, 0], alpha=0.5)
+    plt.text(2, 1.01 * val_max, 'max "1"')
+    plt.text(2, 0.9 * val_min, 'min "0"')
+    plt.ylim([0, 1.1 * val_max])
+    plt.xticks(fontsize=25)
+    plt.yticks(fontsize=25)
+    plt.legend(fontsize=25)
+    plt.ylabel('H coefficient', fontsize=30)
+    plt.xlabel('Intensity [mA]', fontsize=30)
+    plt.savefig(file + '.jpg')
+    plt.savefig(file + '.svg')
+    plt.close(fig)
 
 def plot_NMF_AUC_Sleep(data, sc, h, title, file):
     cond_labels = ['Wake', 'N1', 'N2', 'N3', 'REM']

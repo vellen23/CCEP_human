@@ -126,7 +126,7 @@ EEG = cut_block_edf_clin(EEG_BP, stim_list,prot,1, Fs, subj, BP_label, path_prep
 ppEEG_art = EEG;
 for s=1:height(stim_list) %for each stimulation
         %tic
-        dur = stim_list.IPI_ms(s);
+        dur = stim_list.dur(s);
         n_stim = dur*60;
         for n=1:n_stim
             IPI = 0;
@@ -141,7 +141,7 @@ for s=1:height(stim_list) %for each stimulation
         end
         %toc
 end
-
+%%
 [bBP, aBP]          = butter(4, [0.5 200]/(Fs/2), 'bandpass');
 ppEEG          = filter(bBP, aBP, ppEEG_art')';
 %     % notch - find which notch

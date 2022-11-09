@@ -89,16 +89,24 @@ color_elab[0, :] = np.array([31, 78, 121]) / 255
 color_elab[1, :] = np.array([189, 215, 238]) / 255
 color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
-def update_sleep(con_trial, prot='BrainMapping'):
+def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
+    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    file_con = path_patient_analysis + '\\' + prot + '\\' + cond_folder + '\\data\\con_trial_all.csv'
+    con_trial =pd.read_csv(file_con)
     # load hypnogram
-    file_hypno = path_patient + '/Analysis/stimlist_hypnogram.csv'
+    file_hypno  = path_patient_analysis+'\\stimlist_hypnogram.csv' #path_patient + '/Analysis/stimlist_hypnogram.csv'
     if os.path.isfile(file_hypno):
         stimlist_hypno = pd.read_csv(file_hypno)
         stimlist_hypno.loc[(stimlist_hypno.sleep == 9),'sleep']=0
         for ss in np.arange(5):
             stimNum = stimlist_hypno.loc[(stimlist_hypno.sleep == ss) & (stimlist_hypno.Prot == prot), 'StimNum']
             con_trial.loc[np.isin(con_trial.Num, stimNum), 'Sleep'] = ss
-    return con_trial
+
+    con_trial.insert(5, 'SleepState', 'Wake')
+    con_trial.loc[(con_trial.Sleep > 0) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
+    con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
+    con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
+    con_trial.to_csv(file_con, index=False, header=True) # return con_trial
 
 def remove_art(con_trial, EEG_resp):
     # remove LL that are much higher than the mean
@@ -135,7 +143,8 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
     ######## General Infos
     print(subj + ' ---- START ------ ')
 
-    path_patient_analysis = 'Y:\\eLab\Projects\EL_experiment\Analysis\Patients\\' + subj
+    # path_patient_analysis = 'Y:\\eLab\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     path_patient = 'Y:\\eLab\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
 
     sep = ';'
@@ -169,6 +178,7 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
     # if condition is PHh, store concatenated file, since its only two blocks and not too large
 
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
+
     # file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
     ######### Load data
     rerun = 1  # todo: remove in future
@@ -347,7 +357,8 @@ def update_peaks(subj, cond_folder='CR'):
     print(subj + ' ---- START ------ ')
     if platform.system() == 'Windows':
         sep = ','
-        path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
+        #path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
+        path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     else:  # 'Darwin' for MAC
         path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
@@ -370,14 +381,16 @@ def update_peaks(subj, cond_folder='CR'):
 
     print(subj + ' ----- Sig Calculations  DONE ------ ')
 #
-for subj in ['EL016']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
+for subj in ['EL017']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
     #if i>0: cal_con_trial(subj, 'CR')
     # _thread.start_new_thread(cal_con_trial, (subj, 'Ph')) # cal_con_trial(subj, 'Ph')
     # get_significance_trial(subj, cond_folder='Ph', update_sig=0)
-    cal_con_trial(subj, cond_folder='CR')
+    # cal_con_trial(subj, cond_folder='CR')
+    update_sleep(subj)
+    # cal_con_trial(subj, cond_folder='Ph')
 
-for subj in ['EL015', 'EL013']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
-    update_peaks(subj, cond_folder='CR')
+#for subj in ['EL016']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
+#     update_peaks(subj, cond_folder='CR')
 # for subj in ['EL008','EL004']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012'
 #     #if i>0: cal_con_trial(subj, 'CR')
 #     cal_con_trial(subj, 'Ph')

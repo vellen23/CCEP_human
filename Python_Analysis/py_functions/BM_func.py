@@ -133,8 +133,7 @@ def LL_BM_connection(EEG_resp, stimlist, bad_chans, coord_all, labels_clinic, St
     resps = ff.lp_filter(EEG_resp[:, stimNum, :], 45, Fs)
     ChanP1 = SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
     # LL_all = LLf.get_LL_both(data=resps, Fs=Fs, IPI=np.zeros((len(stimNum), 1)), t_0=t_0, win=w_LL)
-    LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0 + 0.5) * Fs)], Fs, w_LL, 1,
-                              np.zeros((len(stimNum), 1)))
+    LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0 + 0.5) * Fs)], Fs, w_LL)
     LL_peak = np.max(LL_trial, 2)
     t_peak = np.argmax(LL_trial, 2) + int((t_0 - w_LL / 2) * Fs)
     t_peak[t_peak < (t_0 * Fs)] = t_0 * Fs
@@ -511,7 +510,7 @@ def get_sig_thr(rc, LL_CCEP, EEG_resp, t_num, Fs=500, fig_path='no'):
 def LL_mx(EEG_trial, Fs=500, w=0.25, t0=1, t1=1.5, get_P2P=0):
     # calculate mean response and get LL (incl peak)
     resp = ff.lp_filter(np.mean(EEG_trial, 0), 45, Fs)
-    LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(resp, axis=0), 0), Fs, w, 1, 0)
+    LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(resp, axis=0), 0), Fs, w)
 
     LL_resp = LL_resp[0, 0]
     mx = np.max(LL_resp[np.int64((t0 + w / 2) * Fs):np.int64((t1 - w / 2) * Fs)])

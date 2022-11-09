@@ -24,56 +24,33 @@ cwd = os.getcwd()
 
 
 class main:
-    def __init__(self, subj, path_patient, dur=[-1, 3]):
-        if platform.system() == 'Windows':
-            sep = ';'  # ','
-            # path_patient = 'E:\PhD\EL_experiment\Patients\ ' + subj  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-        else:  # 'Darwin' for MAC
-            sep = ';'
-            # path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
+    def __init__(self, subj, path_gen, dur=np.array([-1, 3])):
+
+        if not os.path.exists(path_gen):
+            path_gen = 'T:\\EL_experiment\\Patients\\' + subj # if not in hulk check in T drive
+        path_patient = path_gen + '\Data\EL_experiment'  # path where data is stored
+        path_infos = os.path.join(path_patient, 'infos') # infos is either in Data or in general
+        if not os.path.exists(path_infos):
+            path_infos = path_gen + '\\infos'
+
         #  basics, get 4s of data for each stimulation, [-2,2]s
         self.Fs = 500
-        # self.dur             = np.zeros((1, 2), dtype=np.int32)
+        self.dur             = np.zeros((1, 2), dtype=np.int32)
         self.dur[0, :] = dur  # [-1, 3]
         self.dur_tot = np.int32(np.sum(abs(self.dur)))
         self.x_ax = np.arange(self.dur[0, 0], self.dur[0, 1], (1 / self.Fs))
 
         # load patient specific information
-        lbls = pd.read_excel(os.path.join(path_patient, 'infos', subj + "_labels.xlsx"), header=0, sheet_name='BP')
+        lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
         self.labels = lbls.label.values
         self.labels_C = lbls.Clinic.values
-        # file_name       = subj + '_lookup.xlsx'
-        # df              = pd.read_excel(os.path.join(path_patient + "/infos/", file_name),
-        #                    sheet_name='Par_CR')  # ChanP  ChanN  Int [mA]  IPI [ms]  ISI [s]  Num_P
-        #
-        # stim_chan = np.array(df.values[:, 0:2], dtype=float)
-        # stim_chan = stim_chan[~np.isnan(stim_chan)]
-        # stim_chan = stim_chan[np.nonzero(stim_chan)].reshape(-1, 2)
-        # self.StimChanNums = stim_chan[:, 0]  # ChanP
-        # self.StimChans = []         # stimulation channel labels (anatomy)
-        # self.StimChansC = []        # stimulation channel labels (clinic)
-        # self.StimChanIx = []        # Indiex for stimulation channel in entire label list
-        # # for i in range(len(stim_chan)):
-        # #     self.StimChans.append(self.labels[(np.array(lbls.ChanP_SM.values) == stim_chan[i, 0]) & (
-        # #                 np.array(lbls.ChanN_SM.values) == stim_chan[i, 1])][0])
-        # #     self.StimChansC.append(self.labels_C[(np.array(lbls.ChanP_SM.values) == stim_chan[i, 0]) & (
-        # #                 np.array(lbls.ChanN_SM.values) == stim_chan[i, 1])][0])
-        # #     self.StimChanIx.append(lbls[(np.array(lbls.ChanP_SM.values) == stim_chan[i, 0]) & (
-        # #                 np.array(lbls.ChanN_SM.values) == stim_chan[i, 1])]['Num'].values[0] - 1)
-        #
-        # # get labels and coordinates of channels
-        # req_stim = np.zeros(len(self.labels))
-        # for i in range(len(self.labels)):
-        #     if any(item in self.labels[i] for item in self.StimChans):
-        #         req_stim[i] = 1
-        # self.req            = ~lbls['Area'].str.contains('Outside') & (lbls.Lesion == 0) & (lbls.IEA == 0) & (lbls.SOZ == 0)
+
         self.coord_all = np.array([lbls.x.values, lbls.y.values, lbls.z.values]).T
         # only healthy channels
         # tissue  = lbls[req].Tissue.values
         self.subj = subj
         self.path_patient = path_patient
-        self.path_patient_analysis = os.path.join(os.path.dirname(os.path.dirname(self.path_patient)),
-                                                  'Projects\EL_experiment\Analysis\Patients', subj)
+        self.path_patient_analysis = os.path.join('Y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients', subj)
 
     def osc_power(self, path, hgp=True, sop=True):
         try:
@@ -463,6 +440,7 @@ class main:
             stim_table = stim_table.drop(columns="Num", errors='ignore')
             stim_table.insert(10, "Num", np.arange(0, len(stim_table), True))
             if len(stim_table) > 0:
+                # Get bad channels
                 if os.path.isfile(path + "/bad_chs.mat"):
                     try:  # load bad channels
                         matfile = h5py.File(path + "/bad_chs.mat", 'r')['bad_chs']
@@ -474,12 +452,14 @@ class main:
                 else:
                     bad_chan = np.zeros((len(self.labels), 1))
                 try:
-                    badchans = pd.read_csv(path_patient + '/Analysis/' + folder + '/data/badchan.csv')
+                    badchans = pd.read_csv(self.path_patient_analysis + '\\' + folder + '/data/badchan.csv')
                     badchans = badchans.drop(columns=str(block), errors='ignore')
                     badchans.insert(loc=1, column=str(block), value=bad_chan[:, 0])
+                    # new_column = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
+                    # badchans[str(block)] = bad_chan[:, 0]
                 except FileNotFoundError:
                     badchans = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
-                badchans.to_csv(path_patient + '/Analysis/' + folder + '/data/badchan.csv', index=False,
+                badchans.to_csv(self.path_patient_analysis + '\\' + folder + '/data/badchan.csv', index=False,
                                 header=True)  # scat_plot
                 # todo: two digit number of block
                 col_drop = ["StimNum", 'StimNum.1', 'us', 'ISI_s', 'TTL', 'TTL_PP', 'TTL_DS', 'TTL_PP_DS',
@@ -489,10 +469,10 @@ class main:
                         stim_table = stim_table.drop(columns=col_drop[d])
                 stim_table.insert(0, "StimNum", np.arange(len(stim_table)), True)
                 stim_table = stim_table.reset_index(drop=True)
-                stim_table.to_csv(
-                    path_patient + '/Analysis/' + folder + '/data/Stim_list_' + str(block).zfill(
-                        2) + '_' + condition + str(p).zfill(2) + '.csv', index=False,
-                    header=True)  # scat_plot
+
+                stim_table.to_csv(self.path_patient_analysis + '\\' + folder + '/data/Stim_list_' + str(block).zfill(
+                    2) + '_' + condition + str(p).zfill(2) + '.csv', index=False,
+                                  header=True)  # scat_plot
 
                 print('stimlist updated')
         else:
@@ -616,7 +596,7 @@ class main:
         else:
             folder = 'nofolder'
 
-        files = glob(self.path_patient + '/Analysis/' + folder + '/data/Stim_list_*')
+        files = glob(self.path_patient_analysis + '\\' + folder + '/data/Stim_list_*')
         files = np.sort(files)
         # prots           = np.int64(np.arange(1, len(files) + 1))  # 43
         stimlist = []
@@ -643,7 +623,7 @@ class main:
                 stimlist = stimlist.drop(columns=col_drop[d])
         stimlist.insert(0, "StimNum", np.arange(len(stimlist)), True)
 
-        stimlist.to_csv(self.path_patient + '/Analysis/' + folder + '/data/Stimlist.csv', index=False,
+        stimlist.to_csv(self.path_patient_analysis + '\\' + folder + '/data/Stimlist.csv', index=False,
                         header=True)  # scat_plot
         print('data stored')
         print(self.path_patient + '/Analysis/' + folder + '/data/Stimlist.csv')

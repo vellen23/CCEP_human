@@ -125,7 +125,7 @@ def get_LL_all_LTI(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
         ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
         IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
         #LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
-        LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0+0.5) * Fs)], Fs, w_LL, 1, IPIs)
+        LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0+0.5) * Fs)], Fs, w_LL)
         LL_peak = np.max(LL_trial, 2)
         t_peak = np.argmax(LL_trial, 2) + int((t_0 - w_LL / 2) * Fs)
         t_peak[t_peak < (t_0 * Fs)] = t_0 * Fs
@@ -199,7 +199,7 @@ def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w
         ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
         IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
         #LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
-        LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0+0.5) * Fs)], Fs, w_LL, 1, IPIs)
+        LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0+0.5) * Fs)], Fs, w_LL)
         LL_peak = np.max(LL_trial, 2)
         t_peak = np.argmax(LL_trial, 2) + int((t_0 - w_LL / 2) * Fs)
         t_peak[t_peak < (t_0 * Fs)] = t_0 * Fs
@@ -283,7 +283,7 @@ def get_LL_all_LTI(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
         ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
         IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
         #LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
-        LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0+0.5) * Fs)], Fs, w_LL, 1, IPIs)
+        LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0+0.5) * Fs)], Fs, w_LL)
         LL_peak = np.max(LL_trial, 2)
         t_peak = np.argmax(LL_trial, 2) + int((t_0 - w_LL / 2) * Fs)
         t_peak[t_peak < (t_0 * Fs)] = t_0 * Fs
@@ -365,7 +365,7 @@ def get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, path_patient, cond_fold
     ChanP1 = bf.SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
     IPIs = np.expand_dims(np.array(stim_spec.IPI_ms.values), 1)
     LL = LLf.get_LL_both(data=resps, Fs=Fs, IPI=IPIs, t_0=1, win=w)
-    LL_trial = LLf.get_LL_all(resps[:, :, int(1 * Fs):int(1.5 * Fs)], Fs, 0.25, 1, IPIs)
+    LL_trial = LLf.get_LL_all(resps[:, :, int(1 * Fs):int(1.5 * Fs)], Fs, 0.25)
     LL_peak = np.max(LL_trial, 2)
     pk_start = 0.5
     for c in range(len(LL)):
@@ -485,7 +485,7 @@ def get_LL_thr(EEG_resp, LL_all, labels_all, path_patient, n_trial=3):
 def LL_mx(EEG_trial, Fs=500, w=0.25, t0=1.01):
     # calculate mean response and get LL (incl peak)
     resp = ff.lp_filter(np.mean(EEG_trial, 0), 20, Fs)
-    LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(resp, axis=0), 0), Fs, w, 1, 0)
+    LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(resp, axis=0), 0), Fs, w)
     LL_resp = LL_resp[0, 0]
     mx = np.max(LL_resp[np.int64((t0 + w / 2) * Fs):np.int64((t0 + w) * Fs)])
     mx_ix = np.argmax(LL_resp[np.int64((t0 + w / 2) * Fs):np.int64((t0 + w) * Fs)])
@@ -495,7 +495,7 @@ def LL_mx(EEG_trial, Fs=500, w=0.25, t0=1.01):
 def sig_resp(mean, thr, w=0.25, Fs=500):
     # check whether a mean response is a significant CCEP based on a pre-calculated threshold thr
     mean = ff.lp_filter(mean, 45, Fs)
-    LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(mean, axis=0), 0), Fs, w, 1, 0)
+    LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(mean, axis=0), 0), Fs, w)
     LL_resp = LL_resp[0, 0]
     mx = np.max(LL_resp[np.int64((1.01 + w / 2) * Fs):np.int64((1.01 + w) * Fs)])
     max_ix = np.argmax(LL_resp[np.int64((1.01 + w / 2) * Fs):np.int64((1.01 + w) * Fs)])
