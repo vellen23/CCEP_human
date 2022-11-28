@@ -98,9 +98,9 @@ def compute_list_update(subj):
     print(subj + ' ---- DONE ------ ')
 #
 # compute_cut('EL014')
-for subj in ["EL017"]:  # , "EL010"
+for subj in ["EL010"]:  # , "EL010"
     # compute_list_update(subj)
     # compute_cut(subj, cut_blocks=1, concat_blocks=0)  # _thread.start_new_thread(compute_list_update, (subj,))
-    compute_list_update(subj)
+    compute_cut(subj, concat_blocks=0)
 # while 1:
 #    time.sleep(1)

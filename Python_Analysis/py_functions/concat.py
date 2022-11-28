@@ -24,7 +24,7 @@ def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2
     stimNum_all = lists.Num.values.astype('int')
     M_GT = np.zeros((n_cluster + 1, 2000))
     r = 0
-    t_resp = 0
+    t_onset = 0
     if len(stimNum_all) > 0:
         t_nan = np.where(np.isnan(np.mean(EEG_resp[rc, stimNum_all, :], 1)) * 1)  # [0][0]
         if len(t_nan[0]) > 0:
@@ -33,18 +33,18 @@ def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2
             resp_all = ff.lp_filter(np.nanmean(bf.zscore_CCEP(EEG_resp[rc, stimNum_all, :]), 0), 40, Fs)
             LL_resp = LLf.get_LL_all(np.expand_dims(np.expand_dims(resp_all, 0), 0), Fs, w)
             thr = np.percentile(np.concatenate([LL_resp[0, 0, int((w / 2) * Fs):int((t_0 - w / 2) * Fs)],
-                                                LL_resp[0, 0, int((2.5) * Fs):int((4 - w / 2) * Fs)]]),
+                                                LL_resp[0, 0, int((3) * Fs):int((4 - w / 2) * Fs)]]),
                                 99)  # LL_resp[0, 0, int((t_0+0.5) * Fs):] = 0 * Fs):] = 0
             LL_t = np.array(LL_resp[0, 0, :int((t_0 + 0.5) * Fs)] > thr) * 1
             t_resp_all = search_sequence_numpy(LL_t, np.ones((int((w + 0.08) * Fs),)))
             if len(t_resp_all) > 0:
-                t_resp = t_resp_all[0] / Fs - t_0 + w / 2
+                t_onset = t_resp_all[0] / Fs - t_0 + w / 2
                 r = 1
-                if (t_resp < 0.001) | (t_resp > 0.5):
-                    t_resp = 0
+                if (t_onset < 0.001) | (t_onset > 0.5):
+                    t_onset = 0
             else:
                 r = 0
-                t_resp = 0
+                t_onset = 0
 
             re = 1
             while re == 1:
@@ -58,9 +58,9 @@ def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2
                 EEG_trial = signal.resample(EEG_trial, int(num_rs), axis=1)
                 EEG_trial = stats.zscore(EEG_trial, axis=1)
 
-                _, y, _, _ = Cf.dba_cluster(
-                    EEG_trial[:, int((t_0 + t_resp) * Fs_rs):int((t_0 + t_resp + w_cluster) * Fs_rs)], n_cluster)
-                if ((np.sum(y == 1)) > 1) & ((np.sum(y == 0)) > 1):  # remove outliers
+                _, y, _, _ = Cf.ts_cluster(
+                    EEG_trial[:, int((t_0 + t_onset) * Fs_rs):int((t_0 + t_onset + w_cluster) * Fs_rs)], n_cluster,method='euclidean')
+                if ((np.sum(y == 1)) > 2) & ((np.sum(y == 0)) > 2):  # remove outliers
                     re = 0
                 elif (np.sum(y == 1) < 2):
                     num_art = stimNum_all[y == 1]
@@ -75,7 +75,7 @@ def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2
             for c in range(n_cluster):
                 M_GT[c + 1, :] = ff.lp_filter(np.nanmean(EEG_resp[rc, stimNum_all[y == c], :], 0), 45, Fs)
 
-    return M_GT, [t_resp, r], LL_CCEP
+    return M_GT, [t_onset, r], LL_CCEP
 
 
 def get_N1peaks_mean(sc, rc, LL_CCEP, EEG_resp, Int=6, t_0=1, Fs=500):
@@ -184,13 +184,14 @@ def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR'):
     return EEG_resp, stimlist
 
 
+
 def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=0):
     print(subj + ' -- START --')
     ## path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
     path_patient_analysis = 'y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
 
-    file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_t_resp.npy'
-    file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_GT.npy'
+    file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_tresp.npy'
+    file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_CC.npy'
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     con_trial = pd.read_csv(file_con)
 
@@ -206,7 +207,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=0):
         chan_all = np.unique(con_trial.Chan)
         n_chan = np.max(chan_all).astype('int') + 1
         M_GT_all = np.zeros((n_chan, n_chan, 3, 2000))
-        M_t_resp = np.zeros((n_chan, n_chan, 2))
+        M_t_resp = np.zeros((n_chan, n_chan, 5)) #LL_sig, t_onst, t_resp, pearson of GT
         M_t_resp[:, :, 1] = -1
         for sc in tqdm.tqdm(np.unique(con_trial.Stim)):
             sc = int(sc)
@@ -232,8 +233,8 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
 
     EEG_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy'
     # if not os.path.isfile(file_MN1):
-    # if os.path.isfile(EEG_CR_file):
-    EEG_resp, stimlist = concat_resp_condition(subj, folder=folder, cond_folder=cond_folder)
+    if not os.path.isfile(EEG_CR_file):
+        EEG_resp, stimlist = concat_resp_condition(subj, folder=folder, cond_folder=cond_folder)
     reload = 0
     # else:
     #     reload = 1 #EEG_resp = np.load(EEG_CR_file)
@@ -255,12 +256,13 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
 
 
 ##first you have to have con_trial_alll
-for subj in ["EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
-    for f in ['BrainMapping', 'InputOutput', 'PairedPulse']:
-        if f == 'BrainMapping':
-            start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)
-        else:
-            start_subj(subj, folder=f, cond_folder='CR')
+for subj in ["EL011", "EL010", "EL012", 'EL014', "EL015", "EL016",
+             "EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
+    for f in ['BrainMapping', 'InputOutput', 'PairedPulse']: # 'BrainMapping', 'InputOutput',
+        #if f == 'BrainMapping':
+        #    start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)
+        #else:
+        start_subj(subj, folder=f, cond_folder='CR')
 
 # thread = 0
 # sig = 0

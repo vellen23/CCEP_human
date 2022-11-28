@@ -11,6 +11,7 @@ sys.path.append('T:\EL_experiment\Codes\CCEP_human\Python_Analysis\py_functions'
 from scipy.stats import norm
 from tkinter import *
 import _thread
+
 root = Tk()
 root.withdraw()
 import scipy
@@ -64,6 +65,9 @@ class main:
 
         stimlist = pd.read_csv(
             self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\stimlist_' + self.cond_folder + '.csv')
+        if len(stimlist) ==0:
+            stimlist = pd.read_csv(
+                self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\stimlist_' + self.cond_folder + '.csv')
         #
         labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
             stimlist,
@@ -138,7 +142,7 @@ class main:
             cmap.set_under('#2b2b2b')
             cmap.set_bad('black')
             M = np.ma.masked_equal(M, 0)
-            im = axmatrix.matshow(M, aspect='auto', origin='lower', cmap=cmap, vmin=0, vmax=10)
+            im = axmatrix.matshow(M, aspect='auto', origin='lower', cmap=cmap, vmin=0, vmax=np.percentile(M,95))
         elif method == 'Prob':
             cmap = copy.copy(plt.cm.get_cmap(cmap))  # cmap = copy.copy(mpl.cm.get_cmap(cmap))
             cmap.set_under('black')
@@ -150,8 +154,8 @@ class main:
             cmap.set_under('black')
             cmap.set_bad('white')
             M = np.ma.masked_equal(M, -20)
-            mask = 1*(np.tri(M.shape[0],k=0)==0)
-            M = np.ma.array(M, mask = mask)
+            mask = 1 * (np.tri(M.shape[0], k=0) == 0)
+            M = np.ma.array(M, mask=mask)
             im = axmatrix.matshow(M, aspect='auto', origin='lower', cmap=cmap, vmin=-1, vmax=1)
         else:
             im = axmatrix.matshow(M, aspect='auto', origin='lower', cmap=cmap)
@@ -184,29 +188,33 @@ class main:
         if save:
             plt.savefig(
                 self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\' + group + '\\BM_' + method + '\\BM_' + label + '.jpg')
+            plt.savefig(
+                self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\' + group + '\\BM_' + method + '\\BM_' + label + '.svg')
+
             # plt.savefig(path_patient_analysis+'\\' + folder + '\\' + cond_folder +'\\figures/BM_LL\\BM_'+label+'.jpg')
             plt.close(fig)  # plt.show()#
 
         else:
             plt.show()
 
-    def get_sig(self, sc, rc, con_trial, M_GT, t_resp, sig_mean, EEG_CR, p=95, exp=2, w_cluster=0.25, t_0=1):
+    def get_sig(self, sc, rc, con_trial, M_GT, t_resp, EEG_CR, p=95, exp=2, w_cluster=0.25, t_0=1):
         # for each trial get significance level based on surrogate (Pearson^2 * LL)
         dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)]
         EEG_trials = ff.lp_filter(EEG_CR[[[rc]], dat.Num.values.astype('int'), :], 45, self.Fs)
-        LL_trials = LLf.get_LL_all(EEG_trials, self.Fs, w_cluster, 1, 0)
+        LL_trials = LLf.get_LL_all(EEG_trials, self.Fs, w_cluster)
         # surr
         pear_surr_all = []
         f = 1
         for t_test in [0.3, 0.7, 1.8, 2.2, 2.6]:  # surrogates times, todo: in future blockwise
             s = (-1) ** f
-            pear = sigf.get_pearson2mean(M_GT[1, :], s * EEG_trials[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
-                                         Fs=500)  # Pearson# Pearson
-            pear2 = sigf.get_pearson2mean(M_GT[2, :], s * EEG_trials[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
-                                          Fs=500)  # Pearson# Pearson
-            LL = LL_trials[0, :, int(t_test + w_cluster / 2) * self.Fs]
+            pear = np.zeros((len(EEG_trials[0]),)) - 1
+            for n_c in range(len(M_GT)):
+                pear = np.max([pear, sigf.get_pearson2mean(M_GT[n_c, :], s * EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
+                                                           win=w_cluster,
+                                                           Fs=500)], 0)
+            LL = LL_trials[0, :, int((t_test + w_cluster / 2) * self.Fs)]
             # pear_surr = np.arctanh(np.max([pear,pear2],0))*LL
-            pear_surr = np.sign(np.max([pear, pear2], 0)) * abs(np.max([pear, pear2], 0) ** exp) * np.sqrt(LL)
+            pear_surr = np.sign(pear) * abs(pear ** exp) * LL
             pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
             f = f + 1
         # other trials
@@ -225,38 +233,41 @@ class main:
         if (len(bad_StimNum[0]) > 0):
             StimNum = np.delete(StimNum, bad_StimNum)
             EEG_surr = ff.lp_filter(EEG_CR[[[rc]], StimNum, :], 45, self.Fs)
-        LL_surr = LLf.get_LL_all(EEG_surr, self.Fs, w_cluster, 1, 0)
+        LL_surr = LLf.get_LL_all(EEG_surr, self.Fs, w_cluster)
         for t_test in [0.3, 0.7, 1.8, 2.2, 2.6]:  # surrogates times, todo: in future blockwise
             s = (-1) ** f
-            pear = sigf.get_pearson2mean(M_GT[1, :], s * EEG_surr[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
-                                         Fs=500)  # Pearson# Pearson
-            pear2 = sigf.get_pearson2mean(M_GT[2, :], s * EEG_surr[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
-                                          Fs=500)  # Pearson# Pearson
-            LL = LL_surr[0, :, int(t_test + w_cluster / 2) * self.Fs]
+
+            pear = np.zeros((len(EEG_surr[0]),)) - 1
+            for n_c in range(len(M_GT)):
+                pear = np.max([pear, sigf.get_pearson2mean(M_GT[n_c, :], s * EEG_surr[0], tx=t_0 + t_resp, ty=t_test,
+                                                           win=w_cluster,
+                                                           Fs=500)], 0)
+
+            LL = LL_surr[0, :, int((t_test + w_cluster / 2) * self.Fs)]
             # pear_surr = np.arctanh(np.max([pear,pear2],0))*LL
-            pear_surr = np.sign(np.max([pear, pear2], 0)) * abs(np.max([pear, pear2], 0) ** exp) * np.sqrt(LL)
+            pear_surr = np.sign(pear) * abs(pear ** exp) * LL
             pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
             f = f + 1
 
         # real
         t_test = t_0 + t_resp
-        pear = sigf.get_pearson2mean(M_GT[1, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
-                                     Fs=500)  # Pearson# Pearson
-        pear2 = sigf.get_pearson2mean(M_GT[2, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
-                                      Fs=500)  # Pearson# Pearson
-        pear3 = sigf.get_pearson2mean(M_GT[0, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
-                                      Fs=500)  # Pearson# Pearson
-        LL = LL_trials[0, :, int(t_test + w_cluster / 2) * self.Fs]
-        pear = np.sign(np.max([pear, pear2, pear3], 0)) * abs(np.max([pear, pear2, pear3], 0) ** exp) * np.sqrt(LL)
+        pear = np.zeros((len(EEG_trials[0]),)) - 1
+        for n_c in range(len(M_GT)):
+            pear = np.max(
+                [pear, sigf.get_pearson2mean(M_GT[n_c, :], s * EEG_trials[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
+                                             Fs=500)], 0)
+
+        LL = LL_trials[0, :, int((t_test + w_cluster / 2) * self.Fs)]
+        pear = np.sign(pear) * abs(pear ** exp) * LL
         sig = (pear > np.nanpercentile(pear_surr_all, p)) * 1
         con_trial.loc[
-            (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'Sig'] = sig * sig_mean
+            (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'Sig'] = sig  # * sig_mean
+        con_trial.loc[
+            (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'LL_onset'] = LL
         return con_trial
 
     def save_M_block(self, con_trial, metrics=['LL'], savefig=1):
-        con_trial_sig = con_trial[con_trial.d > -10]
-        con_trial_sig.loc[con_trial_sig.Sig == 1, 'Sig'] = 0
-        con_trial_sig.loc[con_trial_sig.Sig == 2, 'Sig'] = 1
+        con_trial_sig = con_trial[(con_trial.Sleep < 5) & (con_trial.d > -10)]
         con_trial_sig.loc[con_trial_sig.Sig < 0, 'Sig'] = np.nan
         con_trial_sig.insert(4, 'LL_sig', np.nan)
         con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
@@ -281,7 +292,8 @@ class main:
 
                 M_B_all = np.zeros((int(np.max(con_trial_sig.Block) + 1), len(self.labels_all), len(self.labels_all)))
                 for b in np.unique(con_trial_sig.Block).astype('int'):
-                    summ = con_trial_sig[(con_trial_sig.Block == b) & (con_trial_sig.Artefact < 1)]  # (con_trial.Sleep==s)&
+                    summ = con_trial_sig[
+                        (con_trial_sig.Block == b) & (con_trial_sig.Artefact < 1)]  # (con_trial.Sleep==s)&
 
                     summ = summ.groupby(['Stim', 'Chan'], as_index=False)[[metric, 'd']].mean()
                     # summ = summ[summ.Sig==1]
@@ -310,7 +322,7 @@ class main:
             M_pearson = np.zeros((1, 9))
             block_all = np.unique(con_trial.Block).astype('int')
             for b1 in block_all:
-                for b2 in block_all[block_all>b1]:
+                for b2 in block_all[block_all > b1]:
                     M_B_pear[b1, b2] = np.corrcoef(M_B_allp[b1, :, :].flatten(), M_B_allp[b2, :, :].flatten())[0, 1]
                     M_B_pear[b2, b1] = np.corrcoef(M_B_allp[b1, :, :].flatten(), M_B_allp[b2, :, :].flatten())[0, 1]
                     # quantification
@@ -343,7 +355,7 @@ class main:
             M_pear.loc[(M_pear.B_Sleep == 4) & (M_pear.A_Sleep == 3), 'Comp_Type'] = 'REM-NREM'
             M_pear.loc[(M_pear.B_Sleep == 3) & (M_pear.A_Sleep == 4), 'Comp_Type'] = 'REM-NREM'
             ### figures
-            #1. Quantification
+            # 1. Quantification
             sns.catplot(x='Comp_Type', y='Pearson', kind='box', data=M_pear[(M_pear.A_mix == 1) & (M_pear.B_mix == 1)],
                         height=8, aspect=3)
             plt.title('Pearson of connectivity maps comparisons (without blocks having mixed sleepstates)', fontsize=30)
@@ -379,8 +391,8 @@ class main:
     def save_M_sleep(self, con_trial, metrics=['LL'], savefig=1):
         # 1. convert con_trial table
         con_trial_sig = con_trial[con_trial.d > -10]
-        con_trial_sig.loc[con_trial_sig.Sig == 1, 'Sig'] = 0
-        con_trial_sig.loc[con_trial_sig.Sig == 2, 'Sig'] = 1
+        # con_trial_sig.loc[con_trial_sig.Sig == 1, 'Sig'] = 0
+        # con_trial_sig.loc[con_trial_sig.Sig == 2, 'Sig'] = 1
         con_trial_sig.loc[con_trial_sig.Sig < 0, 'Sig'] = np.nan
         con_trial_sig.insert(4, 'LL_sig', np.nan)
         con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
@@ -418,7 +430,8 @@ class main:
             np.save(M_dir_path, M_B_all)
 
     def get_sleep_ttest(self, con_trial, load=1):
-        sleepstate_labels = np.unique(con_trial['SleepState'])
+        sleepstate_labels_u = np.unique(con_trial.loc[con_trial.Sleep > 0, 'SleepState'])
+        sleepstate_labels = ['NREM', 'REM']
         # t-test
         M_dir_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\Sleep\\ttest_sleep.npy'
         if os.path.exists(M_dir_path) * load:
@@ -433,18 +446,19 @@ class main:
                         dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1) & (
                                 con_trial.Sig == 2)]
                         if len(dat) > 0:
-                            for ss in range(2):
-                                d_NREM, p_NREM = scipy.stats.ttest_ind(
-                                    dat.loc[(dat.SleepState == sleepstate_labels[2]), 'LL'].values,
-                                    dat.loc[(dat.SleepState == sleepstate_labels[ss]), 'LL'].values)
-                                if p_NREM < 0.05:
-                                    if np.sign(d_NREM) == 1:
-                                        d = 2
+                            for ss in range(len(sleepstate_labels)):
+                                if sleepstate_labels[ss] in sleepstate_labels_u:
+                                    d_NREM, p_NREM = scipy.stats.ttest_ind(
+                                        dat.loc[(dat.SleepState == 'W'), 'LL'].values,
+                                        dat.loc[(dat.SleepState == sleepstate_labels[ss]), 'LL'].values)
+                                    if p_NREM < 0.05:
+                                        if np.sign(d_NREM) == 1:
+                                            d = 2
+                                        else:
+                                            d = 3
+                                        M_ttest_sleep[sc, rc, ss] = d
                                     else:
-                                        d = 3
-                                    M_ttest_sleep[sc, rc, ss] = d
-                                else:
-                                    M_ttest_sleep[sc, rc, ss] = 1
+                                        M_ttest_sleep[sc, rc, ss] = 1
                         else:
                             M_ttest_sleep[sc, rc, :] = 0  # no significant connections
             np.save(M_dir_path, M_ttest_sleep)
@@ -522,7 +536,7 @@ class main:
             sleep_con_val = np.arange(-1, 2)
             sleep_plot_val = np.array([2, 1, 3])  # n
 
-            M_sleep_nmf = np.zeros((len(self.labels_all), len(self.labels_all)))
+            M_sleep_nmf = np.zeros((M_t_resp.shape[0], M_t_resp.shape[0]))
             for lab, val, plot_val in zip(sleep_con_labels, sleep_con_val, sleep_plot_val):
                 h = np.where(H_sleep.values[:, 1] == val)[0]
 
@@ -609,8 +623,6 @@ class main:
 
         # only LL if there was a significant connection, remove Sig get Prob instead
         con_trial_sig = con_trial[con_trial.d > -10]
-        con_trial_sig.loc[con_trial_sig.Sig == 1, 'Sig'] = 0
-        con_trial_sig.loc[con_trial_sig.Sig == 2, 'Sig'] = 1
         con_trial_sig.loc[con_trial_sig.Sig < 0, 'Sig'] = np.nan
         con_trial_sig.insert(4, 'LL_sig', np.nan)
         con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
@@ -632,25 +644,25 @@ class main:
                 con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'Sig'] = M_t_resp[sc, rc, 1]
                 prob_vals = con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'Prob'].values
                 ix_wake = \
-                np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == 'Wake')[0]
+                    np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == 'Wake')[0]
                 for ss, s_ix in zip(['NREM', 'REM'], np.arange(2)):
                     ix_sleep = \
                         np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == ss)[0]
                     if (len(ix_wake) > 0) & (len(ix_sleep) > 0):
 
                         con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                    con_sleep.Chan == rc), 'ttest_wake'] = M_ttest_sleep[sc, rc, s_ix]
+                                con_sleep.Chan == rc), 'ttest_wake'] = M_ttest_sleep[sc, rc, s_ix]
 
-                        if abs(prob_vals[ix_sleep[0]]-prob_vals[ix_wake[0]])>0.2:
+                        if abs(prob_vals[ix_sleep[0]] - prob_vals[ix_wake[0]]) > 0.2:
                             if np.sign(prob_vals[ix_sleep[0]] - prob_vals[ix_wake[0]]) == 1:
                                 con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                            con_sleep.Chan == rc), 'prob_wake'] = 3
+                                        con_sleep.Chan == rc), 'prob_wake'] = 3
                             else:
                                 con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                            con_sleep.Chan == rc), 'prob_wake'] = 2
+                                        con_sleep.Chan == rc), 'prob_wake'] = 2
                         else:
                             con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                        con_sleep.Chan == rc), 'prob_wake'] = 1
+                                    con_sleep.Chan == rc), 'prob_wake'] = 1
                 con_sleep.loc[
                     (con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'prob_wake'] = 1
                 con_sleep.loc[(con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (
@@ -667,7 +679,7 @@ class main:
                          index=False,
                          header=True)
 
-    def BM_plots_General(self, M_t_resp, con_trial):
+    def BM_plots_General(self, M_t_resp, con_trial, reload=0):
         # labels
         # labels:
         labels_sel = np.delete(self.labels_all, self.bad_all, 0)
@@ -680,52 +692,71 @@ class main:
 
         # summary
         con_trial_sig = con_trial[con_trial.d > -10]
-        con_trial_sig.loc[con_trial_sig.Sig == 1, 'Sig'] = 0
-        con_trial_sig.loc[con_trial_sig.Sig == 2, 'Sig'] = 1
         con_trial_sig.insert(4, 'LL_sig', np.nan)
         con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
         summ = con_trial_sig[(con_trial_sig.Sig > -1)]  # only possible connections
         summ = summ.groupby(['Stim', 'Chan'], as_index=False)[['Sig', 'LL_sig', 'd']].mean()
 
-        M_dir_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\M_dir.npy'
-        reload = 0
-        if os.path.exists(M_dir_path)*reload:
-            print('loading')
-            asym = np.load(M_dir_path)
-        else:
-            print('calculating')
-            M_t_resp0 = M_t_resp[:, :, :]  # [M_t_resp<0]
-            M_t_resp0[M_t_resp0 < 0] = np.nan
+        M_dir_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\M_dir.csv'
 
-            asym = np.zeros((len(self.labels_all), len(self.labels_all),2)) - 1
-            asym[:,:,1] = -20
+        if os.path.exists(M_dir_path)*reload:
+            print('loading Directionality matrix')
+            M_DI = pd.read_csv(M_dir_path)
+        else:
+            print('calculating Directionality matrix')
+            M_DI = np.zeros((1, 5))
             for sc in range(len(self.labels_all)):
                 for rc in range(sc, len(self.labels_all)):
-                    if np.min([M_t_resp[sc, rc, 1], M_t_resp[rc, sc, 1]]) > -1:  # possible connection for both
-                        dire = M_t_resp[sc, rc, 1] + M_t_resp[rc, sc, 1]
-                        asym[sc, rc,0] = M_t_resp[sc, rc, 1] * dire
-                        asym[rc, sc,0] = M_t_resp[rc, sc, 1] * dire
-                        if dire == 2: #both connections are active
-                            probA = summ.loc[(summ.Chan == rc) & (summ.Stim == sc), 'Sig'].values[0]
-                            probB = summ.loc[(summ.Chan == sc) & (summ.Stim == rc), 'Sig'].values[0]
-                            ID = 1- np.min([probA, probB])/np.max([probA, probB])
-                            asym[sc, rc, 1] = (-1+2*(probA>probB))*ID #.5*np.sqrt(2)*abs(probA-probB)
-                            asym[rc, sc, 1] = (-1+2*(probB>probA))*ID # -(.5*np.sqrt(2)*abs(probA-probB))
-                        elif dire ==1: # only one connection
-                            if M_t_resp[sc, rc, 1] ==1:
-                                asym[sc, rc, 1] = 1
-                                asym[rc, sc, 1] = -1 # no connection
-                            else:
-                                asym[sc, rc, 1] = -1 # no connection
-                                asym[rc, sc, 1] = 1
-                        else: # no connections
-                            asym[sc, rc, 1] = -10
-                            asym[rc, sc, 1] = -10
+                    probA = summ.loc[(summ.Chan == rc) & (summ.Stim == sc), 'Sig'].values
+                    if len(probA) == 0:
+                        probA = -1
+                    else:
+                        probA = probA[0]
+                    probB = summ.loc[(summ.Chan == sc) & (summ.Stim == rc), 'Sig'].values
+                    if len(probB) == 0:
+                        probB = -1
+                    else:
+                        probB = probB[0]
+                    M_DI_ix = [[sc, rc, probA, probB, np.nan]]
+                    M_DI = np.concatenate([M_DI, M_DI_ix], 0)
+            M_DI = M_DI[1:, :]
+            M_DI = pd.DataFrame(M_DI, columns=['A', 'B', 'P_AB', 'P_BA', 'DI'])
 
+            M_DI.loc[(M_DI.P_AB > -1) & (M_DI.P_BA > -1), 'DI'] = (1 - np.min(
+                [M_DI.loc[(M_DI.P_AB > -1) & (M_DI.P_BA > -1), 'P_AB'],
+                 M_DI.loc[(M_DI.P_AB > -1) & (M_DI.P_BA > -1), 'P_BA']], 0) / np.max(
+                [M_DI.loc[(M_DI.P_AB > -1) & (M_DI.P_BA > -1), 'P_AB'],
+                 M_DI.loc[(M_DI.P_AB > -1) & (M_DI.P_BA > -1), 'P_BA']], 0)) * (M_DI.loc[(M_DI.P_AB > -1) & (
+                    M_DI.P_BA > -1), 'P_AB'] - M_DI.loc[(M_DI.P_AB > -1) & (M_DI.P_BA > -1), 'P_BA'])
+            M_DI.loc[(M_DI.P_AB > 0) & (M_DI.P_BA == 0), 'DI'] = 1
+            M_DI.loc[(M_DI.P_AB == 0) & (M_DI.P_BA > 0), 'DI'] = -1
+            M_DI.to_csv(M_dir_path,
+                        index=False,
+                        header=True)
+        asym = np.zeros((len(self.labels_all), len(self.labels_all), 2)) - 1
+        for sc in np.unique(M_DI.A).astype('int'):
+            dat = M_DI.loc[M_DI.A == sc]
+            chans = dat.B.values.astype('int')
+            asym[sc, chans, 0] = dat.P_AB.values
+            asym[sc, chans, 1] = dat.DI.values
+            asym[sc, chans, 0] = asym[sc, chans, 0] + 1 * (abs(dat.DI.values) < 1)
+            dat = M_DI.loc[M_DI.B == sc]
+            chans = dat.A.values.astype('int')
+            asym[sc, chans, 0] = dat.P_BA.values
+            asym[sc, chans, 1] = -dat.DI.values
+            asym[sc, chans, 0] = asym[sc, chans, 0] + 1 * (abs(dat.DI.values) < 1)
+        sc0 = M_DI.loc[(M_DI.P_AB == 0) & (M_DI.P_BA == 0), 'A'].values.astype('int')
+        rc0 = M_DI.loc[(M_DI.P_AB == 0) & (M_DI.P_BA == 0), 'B'].values.astype('int')
+        for sc, rc in zip(sc0, rc0):
+            asym[sc, rc, 1] = -10
+            asym[rc, sc, 1] = -10
+        asym[asym[:, :, 0] > 1, 0] = 2  # set probabilities to 1 if higher tha 0
+        asym[(asym[:, :, 0] < 2) & (asym[:, :, 0] > 0), 0] = 1  # set probabilities to 1 if higher tha 0
+        # asym[(asym[:, :, 0] ==0), 1] = -10
+        asym[np.isnan(asym[:, :, 1]), 1] = -20  # set probabilities to 1 if higher tha 0
 
-            np.save(M_dir_path, asym)
         ##save binary and symmetry plots
-        M_resp = np.delete(np.delete(asym[:,:,0], self.bad_all, 0), self.bad_all, 1)
+        M_resp = np.delete(np.delete(asym[:, :, 0], self.bad_all, 0), self.bad_all, 1)
         M_resp = M_resp[ind, :]
         M_resp = M_resp[:, ind]
         ll = 'General'  # +', '+sleep_states[s]
@@ -740,29 +771,29 @@ class main:
         M_resp = M_resp[:, ind]
         ll = 'General'  # +', '+sleep_states[s]
         self.plot_BM(M_resp, labels_sel, areas_sel, ll, 0, 'Dir', save=1, circ=0, group='General')
-        asym[asym<-9]=np.nan
+        asym[asym < -9] = np.nan
 
         ##
 
         summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summary_general.csv'
-        if os.path.exists(summary_gen_path)*reload:
-            print('loading')
+        if os.path.exists(summary_gen_path) * reload:
+            # print('loading')
             summ = pd.read_csv(summary_gen_path)
         else:
-            print('calculating')
+            # print('calculating')
             # aymmetry and probability by distance
 
             summ.insert(4, 't_resp', -1)
             summ.insert(4, 'Dir_B', -1)
             summ.insert(4, 'Dir_index', -1)
-            #asym[rc, sc, 1]
+            # asym[rc, sc, 1]
 
             for sc in np.unique(summ.Stim).astype('int'):
                 for rc in np.unique(summ.Chan).astype('int'):
-                    summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 't_resp'] = M_t_resp[sc, rc, 0]
-                    summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 'Dir_B'] = asym[sc, rc,0]
-                    summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 'Dir_index'] = asym[sc, rc,1]
-                    if asym[sc, rc,1] == -10:
+                    summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 't_resp'] = M_t_resp[sc, rc, 2]
+                    summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 'Dir_B'] = asym[sc, rc, 0]
+                    summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 'Dir_index'] = asym[sc, rc, 1]
+                    if asym[sc, rc, 1] == -10:
                         print(sc, rc)
             dist_groups = np.array([[0, 15], [15, 30], [30, 120]])
             dist_labels = ['local (<15 mm)', 'short (<30mm)', 'long']
@@ -782,7 +813,7 @@ class main:
         plt.yticks(fontsize=15)
         plt.xlabel('')
         plt.savefig(
-            self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\General\\Sym_dist_scatter.jpg')
+            self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\General\\Sym_dist_scatter.svg')
         plt.show()
         # sns.scatterplot(x='d', y='t_resp', hue='Dir', data=summ[summ.Dir>0])
         # plt.legend(['Uni-drectional', 'Bi-directional'])
@@ -790,7 +821,8 @@ class main:
         # sns.catplot(x='Dist', y= 't_resp', hue='Dir', data=summ[summ.Dir>0], kind='swarm', aspect=3)
         fig = plt.figure(figsize=(10, 8))
         fig.patch.set_facecolor('xkcd:white')
-        sns.histplot(x='Dist', hue='Dir_B', data=summ[summ.Dir_index > 0], multiple="stack", palette=["#c34f2f", "#1e4e79"])
+        sns.histplot(x='Dist', hue='Dir_B', data=summ[summ.Dir_index > 0], multiple="stack",
+                     palette=["#c34f2f", "#1e4e79"])
         plt.legend(['Bi-directional', 'Uni-drectional'], fontsize=15)
         plt.ylabel('Number of significant connections', fontsize=25)
         plt.title('Across all trials', fontsize=25)
@@ -798,7 +830,7 @@ class main:
         plt.yticks(fontsize=15)
         plt.xlabel('')
         plt.savefig(
-            self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\General\\Sym_dist_bar.jpg')
+            self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\General\\Sym_dist_bar.svg')
         plt.show()
         ## prob and LL
         M_LL = np.zeros((len(self.labels_all), len(self.labels_all), 2)) - 1
@@ -828,43 +860,90 @@ def start_subj(subj, sig=0):
     run_main = main(subj)
     path_patient_analysis = 'y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
 
-    file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_t_resp.npy'
-    file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_GT.npy'
+    # file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_t_resp.npy'
+    file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_tresp.npy'  # for each connection: LLsig (old), t_onset (old), t_resp, CC_p, CC_LL1, CC_LL2
+    file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_CC.npy'
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
+    file_sig_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\sig_con.csv'
+    file_CC_surr = path_patient_analysis + '\\' + folder + '\\data\\M_CC_surr.csv'
+
+    # todo: make clean
     con_trial = pd.read_csv(file_con)
     M_GT_all = np.load(file_GT)
     M_t_resp = np.load(file_t_resp)
-    ### drop:
+    sig_con = pd.read_csv(file_sig_con)
+    surr_thr = pd.read_csv(file_CC_surr)
+    if "Sig_CC_LL" not in sig_con:
+        sig_con.insert(3, 'Sig_CC_LL', 0)
+    sig_con.Sig_CC_LL = 0
+    sig_con.loc[sig_con.Sig_LL == -1, 'Sig_CC_LL'] = -1
+    for rc in range(M_GT_all.shape[0]):
+        thr = 1.1 * surr_thr.loc[surr_thr.Chan == rc, 'CC_LL99'].values[0]
+        # thr = np.min([0.65, thr])
+        sig_con.loc[(sig_con.Chan == rc) & ((sig_con.CC_LL1 >= thr) | (sig_con.CC_LL2 >= thr)), 'Sig_CC_LL'] = 1
+
+    if "LL_onset" not in con_trial:
+        con_trial.insert(4, 'LL_onset', 0)
+
+    if 'd' not in sig_con:
+        # sig_con.insert(3, 'd', 0)
+        summ_d = con_trial.groupby(['Stim', 'Chan'], as_index=False)[['d']].mean()
+        sig_con = pd.merge(sig_con, summ_d, on=['Stim', 'Chan'])
+        sig_con.to_csv(file_sig_con,
+                       index=False,
+                       header=True)
+
+    if "Sig" not in con_trial:
+        sig = 1
     if sig:
-        for col in ['t_N2', 'N2', 'sN1', 'sN2', 'N1', 't_N1', 'Sig', 'PLL', 'Pearson']:
+        for col in ['t_N2', 'N2', 'sN1', 'sN2', 'N1', 't_N1', 'Sig', 'PLL', 'Pearson', 'Sig']:
             if col in con_trial: con_trial = con_trial.drop(columns=col)
         con_trial.insert(5, 'Sig', -1)
         EEG_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy'
         EEG_CR = np.load(EEG_CR_file)
+        remove_art = 1
+        if remove_art:
+            for rc in range(len(EEG_CR)):
+                tt = np.where(np.max(abs(EEG_CR[rc, :, :500]), 1) > 3000)[0]
+                con_trial.loc[(con_trial.Chan == rc) & np.isin(con_trial.Num, tt), 'Artefact'] = 2
+            con_trial.to_csv(file_con,
+                             index=False,
+                             header=True)
+
         for sc in tqdm.tqdm(np.unique(con_trial.Stim), desc='Stimulation Channel'):
             sc = int(sc)
             resp_chans = np.unique(con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Stim == sc), 'Chan']).astype(
                 'int')
             for rc in resp_chans:
-                M_GT = M_GT_all[sc, rc, :, :]
-                t_resp = M_t_resp[sc, rc, 0]
-                sig_mean = M_t_resp[sc, rc, 1] + 1
-                if sig_mean > 0:
-                    con_trial = run_main.get_sig(sc, rc, con_trial, M_GT, t_resp, sig_mean, EEG_CR, p=95, exp=2,
+                dat = sig_con.loc[(sig_con.Stim == sc) & (sig_con.Chan == rc)]
+                if dat.Sig_CC_LL.values[0]:
+                    if subj =='EL009':
+                        thr = np.min([2,1.1 * surr_thr.loc[surr_thr.Chan == rc, 'CC_LL99'].values[0]])
+                    else:
+                        thr = 1.1 * surr_thr.loc[surr_thr.Chan == rc, 'CC_LL99'].values[0]
+                    M_GT = M_GT_all[sc, rc, :, :]
+                    if len(np.where(dat[['CC_LL1', 'CC_LL2']].values[0][:] < thr)[0][:] + 1) > 0:
+                        M_GT = np.delete(M_GT, np.where(dat[['CC_LL1', 'CC_LL2']].values[0][:] < thr)[0][:] + 1, 0)
+                    # M_GT[np.where(dat[['CC_LL1','CC_LL2']].values[0][:]<thr)[0][:]+1,:] = np.nan
+                    t_resp = dat.t_onset.values[0]
+                    con_trial = run_main.get_sig(sc, rc, con_trial, M_GT, t_resp, EEG_CR, p=90, exp=2,
                                                  w_cluster=0.25)
+                else:
+                    con_trial.loc[(con_trial.Chan == rc) & (con_trial.Stim == sc), 'Sig'] = 0
         con_trial.to_csv(file_con,
                          index=False,
                          header=True)
-    rerun = 1
-    if rerun:# not 'SleepState' in con_trial:
-        # con_trial.insert(5, 'SleepState', 'Wake')
+
+    if not 'SleepState' in con_trial:
+        con_trial.insert(5, 'SleepState', 'Wake')
+        # con_trial.loc[(con_trial.Sleep == 0) , 'SleepState'] = 'W'
         con_trial.loc[(con_trial.Sleep > 0) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
         con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
         con_trial.to_csv(file_con,
                          index=False,
                          header=True)
 
-    general = 0
+    general = 1
     if general:
         run_main.BM_plots_General(M_t_resp, con_trial)
     blocks = 1
@@ -872,9 +951,9 @@ def start_subj(subj, sig=0):
         # Blockwise BM
         _ = run_main.save_M_block(con_trial, metrics=['LL'], savefig=1)
         # np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\M_B_all.npy', M_B_all)
-    sleep = 0
-    sleep_nmf = 0
-    if (subj=='EL013')|(subj=='EL012'): # not enough sleep data
+    sleep = 1
+    sleep_nmf = 1
+    if (subj == 'EL013') | (subj == 'EL012'):  # not enough sleep data
         sleep = 0
         sleep_nmf = 0
 
@@ -894,7 +973,8 @@ def start_subj(subj, sig=0):
 
 thread = 0
 sig = 0
-for subj in ['El017', 'EL010','EL011','EL015', 'EL014', 'EL016']:  # 'EL015','EL014',, 'EL012','EL013'
+# todo: 'EL009',
+for subj in ['EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017']:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'
     if thread:
         _thread.start_new_thread(start_subj, (subj, sig))
     else:

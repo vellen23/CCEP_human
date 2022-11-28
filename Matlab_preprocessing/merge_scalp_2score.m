@@ -21,7 +21,7 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %%
 
-subj            = 'EL017';
+subj            = 'EL009';
 %block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
 block_path     = uigetdir(['Y:\eLab\Patients\', subj, '\Data\EL_experiment\experiment1']); %
 % block_files     = dir(block_path);
@@ -184,7 +184,7 @@ for sf=1:height(score_files)
     end
 end
 %% update
-for i=41:length(block_files)
+for i=3:length(block_files)
     score2list(char([block_path, sep, block_files(i).name]), 0);
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% old 

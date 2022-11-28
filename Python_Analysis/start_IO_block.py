@@ -276,7 +276,7 @@ def compute_subj(subj, cond_folder='Ph'):
                 # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
                 block_l = files_list[l][-11:-4]
                 file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-                skip = 1
+                skip = 0
                 if skip*os.path.isfile(file):
                     con_trial_block = pd.read_csv(file)
                 else:
@@ -343,7 +343,7 @@ def update_peaks(subj, cond_folder='CR'):
 
 
 # compute_subj('EL004', 'CR')
-for subj in ['EL017']: #["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
+for subj in ['EL009']: #["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
     # compute_subj(subj, 'CR')
     compute_subj(subj, cond_folder='CR')
     # _thread.start_new_thread(compute_subj, (subj,'CR'))

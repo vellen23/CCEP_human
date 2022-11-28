@@ -111,10 +111,7 @@ def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
 def remove_art(con_trial, EEG_resp):
     # remove LL that are much higher than the mean
     # remove trials that have artefacts (high voltage values)
-    chan, trial = np.where(np.max(abs(EEG_resp), 2) > 4000)
-    for i in range(len(trial)):
-        con_trial.loc[
-            (con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (con_trial.Num == trial[i]), 'Artefact'] = 1
+
 
     chan, trial = np.where(np.max(abs(EEG_resp[0:int(0.5 * Fs)]), 2) > 1500)
     for i in range(len(trial)):
@@ -132,6 +129,11 @@ def remove_art(con_trial, EEG_resp):
 
     # remove unrealistic high LL
     con_trial.loc[(con_trial.Artefact == 0) & (con_trial.LL > 30), 'Artefact'] = -1
+
+    chan, trial = np.where(np.max(abs(EEG_resp), 2) > 4000)
+    for i in range(len(trial)):
+        con_trial.loc[
+            (con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (con_trial.Num == trial[i]), 'Artefact'] = 1
 
     return con_trial
 
@@ -206,8 +208,8 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
                 # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
                 block_l = files_list[l][-11:-4]
                 file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-                #if skip:
-                if os.path.isfile(file):
+                skip = 0
+                if os.path.isfile(file)*skip:
                     con_trial_block = pd.read_csv(file)
                 else:
                     con_trial_block = BMf.LL_BM_connection(EEG_resp, stimlist, bad_chans, coord_all,
@@ -242,13 +244,11 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
 def get_significance_trial(subj, cond_folder='CR', update_sig = 0):
     ######## General Infos
     print(subj + ' ---- START ------ ')
-    if platform.system() == 'Windows':
-        sep = ','
-        path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
-        path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    else:  # 'Darwin' for MAC
-        path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
-        sep = ';'
+
+    path_patient_analysis = 'Y:\\eLab\\EvM\\Projects\\EL_experiment\\Analysis\\Patients\\' + subj
+    path_patient = 'Y:\\eLab\\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+
+
     sep = ';'
     Fs = 500
 
@@ -299,9 +299,9 @@ def get_significance_trial(subj, cond_folder='CR', update_sig = 0):
         return
 
     print('loading EEG data')
-    file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
-    M_N1peaks = np.load(file_MN1)
-    M_N1peaks[M_N1peaks[:, :, 2] > 1, :] = 0
+    #file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
+    #M_N1peaks = np.load(file_MN1)
+    #M_N1peaks[M_N1peaks[:, :, 2] > 1, :] = 0
     EEG_resp_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_'+cond_folder+'.npy'
     EEG_CR = np.load(EEG_resp_CR_file)
 
@@ -381,12 +381,12 @@ def update_peaks(subj, cond_folder='CR'):
 
     print(subj + ' ----- Sig Calculations  DONE ------ ')
 #
-for subj in ['EL017']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
+for subj in ['EL009']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
     #if i>0: cal_con_trial(subj, 'CR')
     # _thread.start_new_thread(cal_con_trial, (subj, 'Ph')) # cal_con_trial(subj, 'Ph')
-    # get_significance_trial(subj, cond_folder='Ph', update_sig=0)
-    # cal_con_trial(subj, cond_folder='CR')
-    update_sleep(subj)
+    ####old###get_significance_trial(subj, cond_folder='CR', update_sig=0)
+    cal_con_trial(subj, cond_folder='CR')
+    # update_sleep(subj)
     # cal_con_trial(subj, cond_folder='Ph')
 
 #for subj in ['EL016']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',

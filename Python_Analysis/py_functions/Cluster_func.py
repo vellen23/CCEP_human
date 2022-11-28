@@ -21,7 +21,7 @@ import freq_funcs as ff
 import LL_funcs
 import tqdm
 import platform
-from tslearn.clustering import TimeSeriesKMeans
+from tslearn.clustering import TimeSeriesKMeans, KShape
 from tslearn.datasets import CachedDatasets
 from tslearn.preprocessing import TimeSeriesScalerMeanVariance, TimeSeriesResampler
 from scipy.spatial import distance
@@ -29,16 +29,29 @@ import itertools
 import math
 
 
-def dba_cluster(X, n=2):
-    X = np.expand_dims(X,-1)
-    km_dba  = TimeSeriesKMeans(n_clusters=n, metric="dtw", max_iter=10, max_iter_barycenter=10, random_state=0).fit(X)
-    cc      = km_dba.cluster_centers_
-    y       = km_dba.predict(X)
-    dist    = km_dba.transform(X)
+def ts_cluster(X, n=2, method='euclidean'):
+    # methods: 'dtw', 'euclidean', 'shape'
+    X = np.expand_dims(X, -1)
+    if method == 'shape': #cross-correlation based
+        ks = KShape(n_clusters=n, n_init=1, random_state=0).fit(X)
+    else:
+        ks = TimeSeriesKMeans(n_clusters=n, metric=method, max_iter=10, max_iter_barycenter=10, random_state=0).fit(X)
+    cc = ks.cluster_centers_ #centroids
+    y = ks.predict(X) # cluster label
+    return cc[:, :, 0], y
+
+
+def dba_cluster(X, n=2, method='dtw'):
+    X = np.expand_dims(X, -1)
+    km_dba = TimeSeriesKMeans(n_clusters=n, metric=method, max_iter=10, max_iter_barycenter=10, random_state=0).fit(X)
+    cc = km_dba.cluster_centers_
+    y = km_dba.predict(X)
+    dist = km_dba.transform(X)
     dist_cc = np.max(km_dba.transform(km_dba.cluster_centers_))
     return cc[:, :, 0], y, dist, dist_cc
 
-def get_cluster_pred(sc, rc, LL_CCEP, EEG_resp):
+
+def get_cluster_pred(sc, rc, LL_CCEP, EEG_resp, Fs=500):
     lists = LL_CCEP[
         ~np.isnan(LL_CCEP.zLL.values) & (LL_CCEP['Chan'] == rc) & (LL_CCEP['Stim'] == sc) & (LL_CCEP['Condition'] > 0)]
     conds_trials = lists.Condition.values.astype('int')
