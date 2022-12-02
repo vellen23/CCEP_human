@@ -54,7 +54,7 @@ def compute_cut(subj, cut_blocks=1, concat_blocks=1):
 
                         CUT.cut_resp(folders[i], k + i + 1, 'BM')
                         CUT.cut_resp(folders[i], k + i + 1, 'IO')
-                        CUT.cut_resp(folders[i], k + i + 1, 'PP')
+                        # CUT.cut_resp(folders[i], k + i + 1, 'PP')
 
                     k = k + i
     if concat_blocks:
@@ -98,7 +98,7 @@ def compute_list_update(subj):
     print(subj + ' ---- DONE ------ ')
 #
 # compute_cut('EL014')
-for subj in ["EL010"]:  # , "EL010"
+for subj in ["EL018"]:  # , "EL010"
     # compute_list_update(subj)
     # compute_cut(subj, cut_blocks=1, concat_blocks=0)  # _thread.start_new_thread(compute_list_update, (subj,))
     compute_cut(subj, concat_blocks=0)

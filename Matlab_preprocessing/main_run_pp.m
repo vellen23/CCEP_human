@@ -2,13 +2,13 @@
 clear all
 close all
 %% UPDATE STIMLIST and TTL 
-subj            = 'EL017';
+subj            = 'EL018';
 % block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
 block_path = ['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks'];
 
 %% patient specific
 path = 'Y:\eLab\Patients\';
-subj            = 'EL017'; %% change name if another data is used !!
+subj            = 'EL018'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 % load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
@@ -27,7 +27,7 @@ save([block_path '\scale_fac.mat'],'sclA','sclA_scalp', 'sclC','sclC_scalp');
 
 % save in Data folder ! 
 %% 
-% % block_path = ['T:\EL_experiment\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks'];
+
 % % path where all blocks are stored
 % % block_path     = uigetdir(['T:\EL_experiment\Patients\', subj, '\Data\EL_experiment']); %
 block_files     = dir(block_path);

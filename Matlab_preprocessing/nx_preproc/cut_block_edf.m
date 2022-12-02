@@ -1,12 +1,11 @@
 function [] = cut_block_edf(EEG_block, stim_list,type,block_num, Fs, subj,BP_label, path_pp)
     % function cuts edf file into block based on stimulations (from stim_list) and stores it in a way that Epitome is able to ed it.     
     % labels:
-    inSEEG      = find(contains(string(BP_label.type),'SEEG'));
+    inSEEG      = find(contains(string(BP_label.type),'SEEG')|contains(string(BP_label.type),'GRID')|contains(string(BP_label.type),'STRIP'));
     inScalp     = find(contains(string(BP_label.type),'scalp'));
-    inECG       = find(contains(string(BP_label.type),'EKG')|contains(string(BP_label.type),'emg')|contains(string(BP_label.type),'ecg'));
+    inECG       = find(contains(string(BP_label.type),'EKG')|contains(string(BP_label.type),'ecg'));
 
     labels_all      = table2cell(BP_label);
-    exp =1;
     % cuts block into -5min before first stim and +6s after last stim
     start_sample    = max(1,stim_list.TTL(1)-300*Fs);
     end_sample      = min(size(EEG_block,2),stim_list.TTL(end)+6*Fs);
@@ -16,7 +15,7 @@ function [] = cut_block_edf(EEG_block, stim_list,type,block_num, Fs, subj,BP_lab
     % save EEG blockj
     EEG         = EEG_block(inSEEG, start_sample:end_sample);
     scalpEEG    = EEG_block(inScalp, start_sample:end_sample);
-    % ECG         = EEG_block(inECG, start_sample:end_sample);
+    ECG         = EEG_block(inECG, start_sample:end_sample);
     scalpFs     = Fs;
     % metadata
     [nch,dp]    = size(EEG);

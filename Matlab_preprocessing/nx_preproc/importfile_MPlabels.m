@@ -28,7 +28,7 @@ end
 
 % If row start and end points are not specified, define defaults
 if nargin <= 2
-    dataLines = [2, 116];
+    dataLines = [2, 300];
 end
 
 %% Set up the Import Options and import the data

@@ -974,7 +974,7 @@ def start_subj(subj, sig=0):
 thread = 0
 sig = 0
 # todo: 'EL009',
-for subj in ['EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017']:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'
+for subj in ['EL018', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017']:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'
     if thread:
         _thread.start_new_thread(start_subj, (subj, sig))
     else:

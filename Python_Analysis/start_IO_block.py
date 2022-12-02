@@ -343,7 +343,7 @@ def update_peaks(subj, cond_folder='CR'):
 
 
 # compute_subj('EL004', 'CR')
-for subj in ['EL009']: #["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
+for subj in ['EL018']: #["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
     # compute_subj(subj, 'CR')
     compute_subj(subj, cond_folder='CR')
     # _thread.start_new_thread(compute_subj, (subj,'CR'))

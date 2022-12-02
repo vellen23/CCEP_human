@@ -17,6 +17,7 @@ import _thread
 
 
 def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2):
+    # old version, now use significant_connection.py !
     Fs_rs = 100
     num_rs = int(2000 / Fs * Fs_rs)
     w = 0.25
@@ -58,7 +59,7 @@ def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2
                 EEG_trial = signal.resample(EEG_trial, int(num_rs), axis=1)
                 EEG_trial = stats.zscore(EEG_trial, axis=1)
 
-                _, y, _, _ = Cf.ts_cluster(
+                _, y = Cf.ts_cluster(
                     EEG_trial[:, int((t_0 + t_onset) * Fs_rs):int((t_0 + t_onset + w_cluster) * Fs_rs)], n_cluster,method='euclidean')
                 if ((np.sum(y == 1)) > 2) & ((np.sum(y == 0)) > 2):  # remove outliers
                     re = 0
@@ -199,9 +200,11 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=0):
     # if not os.path.isfile(file_GT):
     if rerun:
         if not os.path.isfile(EEG_CR_file):
+            print('concatenating EEG data')
             EEG_resp, stimlist = concat_resp_condition(subj, folder=folder, cond_folder=cond_folder)
 
         else:
+            print('loading EEG data')
             EEG_resp = np.load(EEG_CR_file)
 
         chan_all = np.unique(con_trial.Chan)
@@ -256,9 +259,9 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
 
 
 ##first you have to have con_trial_alll
-for subj in ["EL011", "EL010", "EL012", 'EL014', "EL015", "EL016",
+for subj in ["EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016",
              "EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
-    for f in ['BrainMapping', 'InputOutput', 'PairedPulse']: # 'BrainMapping', 'InputOutput',
+    for f in ['InputOutput', 'BrainMapping', 'PairedPulse']: # 'BrainMapping', 'InputOutput',
         #if f == 'BrainMapping':
         #    start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)
         #else:

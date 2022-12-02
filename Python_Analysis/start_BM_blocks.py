@@ -147,7 +147,14 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
 
     # path_patient_analysis = 'Y:\\eLab\Projects\EL_experiment\Analysis\Patients\\' + subj
     path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_patient = 'Y:\\eLab\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+
+    path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
+    if not os.path.exists(path_gen):
+        path_gen = 'T:\\EL_experiment\\Patients\\' + subj
+    path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+    path_infos = os.path.join(path_patient, 'infos')
+    if not os.path.exists(path_infos):
+        path_infos = path_gen + '\\infos'
 
     sep = ';'
     Fs = 500
@@ -169,7 +176,7 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
 
     stimlist = pd.read_csv(files_list[0]) #pd.read_csv(path_patient_analysis+'/' + folder + '/data/Stimlist.csv')# pd.read_csv(files_list[i])
     # EEG_resp = np.load(path_patient + '/Analysis/' + folder + '/data/ALL_resps_'+files_list[i][-11:-4]+'.npy')
-    lbls = pd.read_excel(path_patient + "/infos/" + subj + "_labels.xlsx", header=0, sheet_name='BP')
+    lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
         stimlist,
         lbls)
@@ -381,7 +388,7 @@ def update_peaks(subj, cond_folder='CR'):
 
     print(subj + ' ----- Sig Calculations  DONE ------ ')
 #
-for subj in ['EL009']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
+for subj in ['EL018']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
     #if i>0: cal_con_trial(subj, 'CR')
     # _thread.start_new_thread(cal_con_trial, (subj, 'Ph')) # cal_con_trial(subj, 'Ph')
     ####old###get_significance_trial(subj, cond_folder='CR', update_sig=0)

@@ -19,7 +19,7 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
 path = 'Y:\eLab\Patients\';
-subj            = 'EL017'; %% change name if another data is used !!
+subj            = 'EL018'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 % load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
@@ -27,8 +27,9 @@ dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 % load labels
 MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
 BP_label = importfile_BPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels_BP');
-%BP_label= BP_label(~isnan(BP_label.chan_BP_N),:);
-%MP_label= MP_label(~isnan(MP_label.Natus),:);
+
+BP_label = BP_label(~isnan(BP_label.chan_BP_P),:);
+MP_label= MP_label(~isnan(MP_label.Natus),:);
 %% 1. log 
 log_files= dir([dir_files '\*.log']);
 i = 1; % find automated way or select manually
@@ -45,12 +46,12 @@ type                = 'CR';
 files= dir([dir_files '\*CR*.EDF']);
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 %%
-for j=5:length(files)
+for j=1:length(files)
     %% 1. read first raw data
     file = files(j).name;
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
     H                      = Epitome_edfExtractHeader(filepath);
-    [hdr_edf, EEG_all]     = edfread_data(filepath);
+    % [hdr_edf, EEG_all]     = edfread_data(filepath);
     stimlist = stimlist_all;
     stimlist = removevars(stimlist, 'keep');
     %% 2. find triggers

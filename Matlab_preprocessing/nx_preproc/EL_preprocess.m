@@ -7,7 +7,8 @@ function [ppEEG, EEG,Fs, stim_list] = EL_preprocess(EEG_load, stim_list,sclA, sc
     ax      	= (-5:1/Fs:5);
     ax_t        = -3:1/Fs:3;
     %[stim_list] = refine_TTL(EEG, stim_list, Fs);
-    stim_list.TTL = stim_list.TTL+2;
+    TTL_delay  =2;
+    stim_list.TTL = stim_list.TTL+TTL_delay;
     while max(stim_list.TTL)+3*Fs>size(EEG,2)
         stim_list(end, :) = [];
     end

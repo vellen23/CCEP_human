@@ -278,7 +278,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
 
 
 ##first you have to have con_trial_alll "EL010","EL011", "EL012",'EL013',
-for subj in ["EL009"]:  #,"EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" "EL010","EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" ## ,"EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"
+for subj in ["EL018"]:  #,"EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" "EL010","EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" ## ,"EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"
     for f in ['BrainMapping']:  # 'BrainMapping', 'InputOutput',
         # l = 0
         # if subj =='EL011':
