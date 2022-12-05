@@ -3,8 +3,8 @@ clear all
 close all
 %% UPDATE STIMLIST and TTL 
 subj            = 'EL018';
-% block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
-block_path = ['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks'];
+block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
+%block_path = ['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks'];
 
 %% patient specific
 path = 'Y:\eLab\Patients\';
@@ -21,10 +21,13 @@ MP_label= MP_label(~isnan(MP_label.Natus),:);
 
 %% get rescale factor based on one block during 5min baseline
 % load one file, EEG and scalpEEG
-[sclA, sclC]             = get_rescale_factors(EEG, Fs, 0, 250);
-[sclA_scalp, sclC_scalp] = get_rescale_factors(scalpEEG, scalpFs, 1, 250);
-save([block_path '\scale_fac.mat'],'sclA','sclA_scalp', 'sclC','sclC_scalp');
-
+if exist( ['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'], 'file')
+    load(['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'])
+else
+    [sclA, sclC]             = get_rescale_factors(EEG, Fs, 0, 250);
+    [sclA_scalp, sclC_scalp] = get_rescale_factors(scalpEEG, scalpFs, 1, 250);
+    save(['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'],'sclA','sclA_scalp', 'sclC','sclC_scalp');
+end
 % save in Data folder ! 
 %% 
 

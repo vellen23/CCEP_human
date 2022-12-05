@@ -1,4 +1,5 @@
-
+clear all
+close all
 %% Windows
 % not a nice way to change whether I'm working on my mac or insel-pc
 cwp         = pwd;
@@ -18,17 +19,25 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
 
-subj            = 'EL016'; %% change name if another data is used !!
-path_patient    = ['Y:\eLab\Patients\' subj];   
-dir_files       = [path_patient,'\data_raw\LT_experiment'];% folder where raw edf are stored
+subj            = 'EL018'; %% change name if another data is used !!
+% path_patient    = ['Y:\eLab\Patients\' subj];   
+path = 'Y:\eLab\Patients\';
+path_patient    = [path,  subj];  
+dir_files       = [path_patient,'/data_raw/LT_Experiment'];
+% load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
+% dir_files       = [path_patient,'\data_raw\LT_experiment'];% folder where raw edf are stored
 % load labels
-MP_label = importfile_MPlabels([path_patient '\infos\EL016_lookup.xlsx'], 'Channels');
-BP_label = importfile_BPlabels([path_patient '\infos\EL016_lookup.xlsx'], 'Channels_BP');
+MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
+BP_label = importfile_BPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels_BP');
+
+BP_label = BP_label(~isnan(BP_label.chan_BP_P),:);
+MP_label= MP_label(~isnan(MP_label.Natus),:);
+
 
 %% 1. log 
-% log_files = 
+
 log_files= dir([dir_files '\*.log']);
-i = 1; % find automated way or select manually
+i = 2; % find automated way or select manually
 log             = import_logfile([dir_files '\' log_files(i).name]);
 stimlist_all   = read_log(log);
 % based on the log file, the function creates a table with each stimulation
@@ -38,11 +47,12 @@ protocols = ["LTD1","LTD10","LTP50"];
 %% 2. file
 % select only the stimulation of desired protocol
 data_files= dir([dir_files '\*.EDF']);
-i = 1;
+i = 2;
 filepath               = [dir_files '\' data_files(i).name]; % the file you want to open 
 H                      = Epitome_edfExtractHeader(filepath);
 [hdr_edf, EEG_all]     = edfread_data(filepath);
-prot = data_files(i).name(7:end-8); % selected protocol of this data: ["LTD1","LTD10","LTP50"];
+%% protcol specific stimulation table
+prot = "LTP50"; %data_files(i).name(7:end-8); % selected protocol of this data: ["LTD1","LTD10","LTP50"];
 % find stimulations of cselected protocol
 stimlist = stimlist_all(startsWith(string(stimlist_all.type), prot),:); % change to LTP1, LTD10, LTD50 for you protocol
 %% 3. trigger
@@ -60,9 +70,11 @@ stimlist.TTL = zeros(height(stimlist),1);
 i =1;
 stimlist.TTL(i)= TTL_sample(1);
 %% quick fix, find peaks of specific channel to find TTL without triggers
+% needs to be improved
 [pk, locs_stim] = findpeaks(nanmean(EEG_all(75:80,:),1), Fs, 'MinPeakDistance',0.5);
 locs_stim = round(locs_stim*Fs)-7;
 
+%% todo: add protocol to stimulation table and add the triggers (protcol specific, 1Hz, 50Hz, 10Hz)
 
 %% 4. find the TTL_sample for the remaining stimulations based on expected sample and timing
 % timestamp of selected stimulation with known TTL
@@ -107,9 +119,8 @@ disp('TTL aligned');
 %% 5. Test trigger, plot some stimulations
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
-%Fs = 2048;
-n_trig = 21;
-c= 75;
+n_trig = 2;
+c= 117;
 t      = stimlist.TTL(n_trig);
 IPI    = stimlist.IPI_ms(n_trig);
 x_s = 10;
@@ -128,9 +139,25 @@ ix              = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.la
 pos_ChanP       =  ix(:,1);
 pos_ChanN       =  ix(:,2);
 EEG_BP          = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
+%%
+clf(figure(1))
+Fs     = hdr_edf.frequency(1);
+n_trig = 20;
+c= 117;
+t      = stimlist.TTL(n_trig);
+IPI    = stimlist.IPI_ms(n_trig);
+x_s = 10;
+x_ax        = -x_s:1/Fs:x_s;
+
+plot(x_ax,EEG_BP(c,t-x_s*Fs:t+x_s*Fs));
+%hold on
+%plot(x_ax,EEG_mean(1,t-x_s*Fs:t+x_s*Fs));
+xline(0, '--r');
+xline(IPI/1000, '--r');
 
 %% Cut in block
 path_preprocessed = ['Y:\eLab\Patients\' subj '\Data\LT_experiment'];
-cut_block_edf(EEG_BP, stimlist,prot,1, Fs, subj, BP_label, path_preprocessed)
+prot_num = 3;
+cut_block_edf_LT(EEG_BP, stimlist,prot,prot_num, Fs, subj, BP_label, path_preprocessed)
 %(EEG_block, stim_list,type,block_num, Fs, path_patient, subj,BP_label, path_pp)
 
