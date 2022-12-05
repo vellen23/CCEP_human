@@ -14,7 +14,7 @@ addpath(genpath([path '\elab\Epitome'])); % maxime's software to open EEG data a
 
 clearvars cwp idcs
 addpath([pwd '/nx_preproc']);
-ft_defaults;
+% ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
@@ -47,7 +47,7 @@ protocols = ["LTD1","LTD10","LTP50"];
 %% 2. file
 % select only the stimulation of desired protocol
 data_files= dir([dir_files '\*.EDF']);
-i = 2;
+i = 1;
 filepath               = [dir_files '\' data_files(i).name]; % the file you want to open 
 H                      = Epitome_edfExtractHeader(filepath);
 [hdr_edf, EEG_all]     = edfread_data(filepath);
@@ -73,8 +73,6 @@ stimlist.TTL(i)= TTL_sample(1);
 % needs to be improved
 [pk, locs_stim] = findpeaks(nanmean(EEG_all(75:80,:),1), Fs, 'MinPeakDistance',0.5);
 locs_stim = round(locs_stim*Fs)-7;
-
-%% todo: add protocol to stimulation table and add the triggers (protcol specific, 1Hz, 50Hz, 10Hz)
 
 %% 4. find the TTL_sample for the remaining stimulations based on expected sample and timing
 % timestamp of selected stimulation with known TTL
@@ -115,11 +113,13 @@ for s = 1: size(stimlist,1)
 
 end
 disp('TTL aligned');
-
+%%
+prot = "LTD1";
+stimlist = stimlist_LT3(startsWith(string(stimlist_LT3.type), prot),:); % change to LTP1, LTD10, LTD50 for you protocol
 %% 5. Test trigger, plot some stimulations
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
-n_trig = 2;
+n_trig = 10;
 c= 117;
 t      = stimlist.TTL(n_trig);
 IPI    = stimlist.IPI_ms(n_trig);
@@ -142,8 +142,8 @@ EEG_BP          = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
 %%
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
-n_trig = 20;
-c= 117;
+n_trig = 34;
+c= 92;
 t      = stimlist.TTL(n_trig);
 IPI    = stimlist.IPI_ms(n_trig);
 x_s = 10;
@@ -157,7 +157,7 @@ xline(IPI/1000, '--r');
 
 %% Cut in block
 path_preprocessed = ['Y:\eLab\Patients\' subj '\Data\LT_experiment'];
-prot_num = 3;
+prot_num = 2;
 cut_block_edf_LT(EEG_BP, stimlist,prot,prot_num, Fs, subj, BP_label, path_preprocessed)
 %(EEG_block, stim_list,type,block_num, Fs, path_patient, subj,BP_label, path_pp)
 

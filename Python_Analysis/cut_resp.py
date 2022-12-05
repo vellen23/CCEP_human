@@ -27,15 +27,15 @@ class main:
     def __init__(self, subj, path_gen, dur=np.array([-1, 3])):
 
         if not os.path.exists(path_gen):
-            path_gen = 'T:\\EL_experiment\\Patients\\' + subj # if not in hulk check in T drive
+            path_gen = 'T:\\EL_experiment\\Patients\\' + subj  # if not in hulk check in T drive
         path_patient = path_gen + '\Data\EL_experiment'  # path where data is stored
-        path_infos = os.path.join(path_patient, 'infos') # infos is either in Data or in general
+        path_infos = os.path.join(path_patient, 'infos')  # infos is either in Data or in general
         if not os.path.exists(path_infos):
             path_infos = path_gen + '\\infos'
 
         #  basics, get 4s of data for each stimulation, [-2,2]s
         self.Fs = 500
-        self.dur             = np.zeros((1, 2), dtype=np.int32)
+        self.dur = np.zeros((1, 2), dtype=np.int32)
         self.dur[0, :] = dur  # [-1, 3]
         self.dur_tot = np.int32(np.sum(abs(self.dur)))
         self.x_ax = np.arange(self.dur[0, 0], self.dur[0, 1], (1 / self.Fs))
@@ -188,25 +188,119 @@ class main:
         else:
             print('ERROR: no type defined (BM, IO, PP)')
 
-    def cut_resp_IOM(self, path_pp, path_save, prot ='IOM'):
+    def cut_resp_LT(self, path, path_save):
+        types = ['LTD1', 'LTD10', 'LTP50']
+        folder = 'LongTermInduction'
+
+        # Patient specific
+        filename = ntpath.basename(path)
+        data_path = os.path.dirname(os.path.dirname(path))
+        subj = filename[0:5]  # EL000
+
+        t = filename[9:]  # BM, CR_BM, Ph_BM, Ph etc-
+        if filename[-1].isnumeric():
+            if filename[-2].isnumeric():
+                t = filename[9:-3]
+                p = int(filename[-2:])
+            else:
+                t = filename[9:-1]
+                p = int(filename[-1])
+            if t[-1] == '_':
+                t = t[:-1]
+            stim_table = pd.read_excel(data_path + "/" + subj + "_stimlist_" + t + ".xlsx",
+                                       sheet_name='Sheet' + str(p))  #
+        else:
+            stim_table = pd.read_excel(data_path + "/" + subj + "_stimlist_" + t + ".xlsx")  #
+            p = 0
+        print(t)
+        if not os.path.exists(path_save + '\\' + folder):
+            os.makedirs(path_save + '\\' + folder)
+            os.makedirs(path_save + '\\' + folder + '\\data')
+
+        stim_table = stim_table.drop(columns="Num", errors='ignore')
+        stim_table = stim_table.reset_index(drop=True)
+        stim_table.insert(10, "Num", np.arange(0, len(stim_table), True))
+        if len(stim_table) > 0:
+            if not os.path.exists(path_save + '\\' + folder + '/data/'):
+                os.makedirs(path_save + '\\' + folder + '/data/')
+            # Get bad channels
+            if os.path.isfile(path + "/bad_chs.mat"):
+                try:  # load bad channels
+                    matfile = h5py.File(path + "/bad_chs.mat", 'r')['bad_chs']
+                    bad_chan = matfile[()].T
+                except IOError:
+                    bad_chan = scipy.io.loadmat(path + "/bad_chs.mat")['bad_chs']
+                if len(bad_chan) == 0:
+                    bad_chan = np.zeros((len(self.labels), 1))
+            else:
+                bad_chan = np.zeros((len(self.labels), 1))
+            try:
+                badchans = pd.read_csv(path_save + '\\' + folder + '/data/badchan.csv')
+                badchans = badchans.drop(columns=str(p), errors='ignore')
+                badchans.insert(loc=1, column=str(p), value=bad_chan[:, 0])
+                # new_column = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
+                # badchans[str(block)] = bad_chan[:, 0]
+            except FileNotFoundError:
+                badchans = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(p): bad_chan[:, 0]})
+            badchans.to_csv(path_save + '\\' + folder + '/data/badchan.csv', index=False,
+                            header=True)  # scat_plot
+
+            # get data
+            EEG_block = np.zeros((len(self.labels), len(stim_table), self.dur_tot * self.Fs))
+            EEG_block[:, :, :] = np.NaN
+            # load matlab EEG
+            try:
+                matfile = h5py.File(path + "/ppEEG.mat", 'r')['ppEEG']
+                EEGpp = matfile[()].T
+            except IOError:
+                EEGpp = scipy.io.loadmat(path + "/ppEEG.mat")['ppEEG']
+
+            print('ppEEG loaded ')
+            # go through each stim trigger
+            for s in range(len(stim_table)):
+                trig = stim_table.TTL_DS.values[s]
+                if not np.isnan(trig):
+                    if np.int64(trig + self.dur[0, 1] * self.Fs) > EEGpp.shape[1]:
+                        EEG_block[:, s, 0:EEGpp.shape[1] - np.int64(trig + self.dur[0, 0] * self.Fs)] = EEGpp[:,
+                                                                                                        np.int64(
+                                                                                                            trig +
+                                                                                                            self.dur[
+                                                                                                                0, 0] * self.Fs):
+                                                                                                        EEGpp.shape[
+                                                                                                            1]]
+                    elif np.int64(trig + self.dur[0, 0] * self.Fs) < 0:
+                        EEG_block[:, s, abs(np.int64(trig + self.dur[0, 0] * self.Fs)):] = EEGpp[:, 0:np.int64(
+                            trig + self.dur[0, 1] * self.Fs)]
+                    else:
+                        EEG_block[:, s, :] = EEGpp[:, np.int64(trig + self.dur[0, 0] * self.Fs):np.int64(
+                            trig + self.dur[0, 1] * self.Fs)]
+
+            np.save(path_save + '\\' + folder + '/data/All_resps_' + str(p).zfill(
+                2) + '_' + t  + '.npy',
+                    EEG_block)
+            stim_table.to_csv(path_save + '\\' + folder + '/data/Stim_list_' + str(p).zfill(
+                2) + '_' + t  + '.csv', index=False,
+                              header=True)  # scat_plot
+
+    def cut_resp_IOM(self, path_pp, path_save, prot='IOM'):
         # get data
-        num_stim = 20*60 # number of stimulation (20minutes) # hardcoded !
+        num_stim = 20 * 60  # number of stimulation (20minutes) # hardcoded !
         # load matlab EEG
         try:
             matfile = h5py.File(path_pp + "/ppEEG.mat", 'r')['ppEEG']
             EEGpp = matfile[()].T
         except IOError:
             EEGpp = scipy.io.loadmat(path_pp + "/ppEEG.mat")['ppEEG']
-        trig = np.arange(0,self.Fs*(num_stim+1),500).astype('int') # all trigger. every second
+        trig = np.arange(0, self.Fs * (num_stim + 1), 500).astype('int')  # all trigger. every second
         EEG_block = np.zeros((len(self.labels), len(trig), self.dur_tot * self.Fs))
         EEG_block[:, :, :] = np.NaN
         #
         for t, s in zip(trig, np.arange(num_stim)):
             EEG_block[:, s, :] = EEGpp[:,
-                                np.int64(trig + self.dur[0, 0] * self.Fs):np.int64(trig + self.dur[0, 1] * self.Fs)]
+                                 np.int64(trig + self.dur[0, 0] * self.Fs):np.int64(trig + self.dur[0, 1] * self.Fs)]
 
         # todo:
-        np.save(path_save + '\\Epoch_data_' + prot+ '.npy',EEG_block)
+        np.save(path_save + '\\Epoch_data_' + prot + '.npy', EEG_block)
 
     def cut_resp(self, path, block, type):
         ###MAIN FUNCTION

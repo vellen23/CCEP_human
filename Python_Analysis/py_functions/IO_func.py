@@ -270,7 +270,7 @@ def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w
              "Num": data_LL[:, 7],"Num_block": data_LL[:, 7], "Date": data_LL[:, 8]})
     return LL_all
 
-def get_LL_all_LTI(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
+def get_LL_all_LTI_old(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM,StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(stimlist,
                                                                                                           lbls)
     data_LL = np.zeros((1, 12))  # RespChan, Int, LL, LLnorm, State

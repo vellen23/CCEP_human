@@ -40,25 +40,24 @@ def compute_cut_LT(subj):
     # path_patient = 'T:\EL_experiment\Patients\\' + subj  ##'T:\EL_experiment\Patients'#os.path.join('E:\PhD\EL_experiment\Patients',subj) # path_patient    = 'E:\PhD\EL_experiment\Patients\\'+subj ##'T:\EL_experiment\Patients'
     path_patient = os.path.join('Y:\\eLab\\Patients', subj) # path to info
     # script initiation
-    CUT = cut_resp.main(subj, path_patient, dur=[-1,1])
+    CUT = cut_resp.main(subj, path_patient, dur=[-1,3])
     ######run function in CUT :
-    # either define paths yourself (hardcoded)
-    # todo:
-    # path_save = ...
-    # path_pp = .. # where ppEEG.mat is located
+
+    path_save = os.path.join('Y:\eLab\RJB\Human_analysis\Patients\\', subj)
     #.... cut_resp_IOM(path_pp, path_save, prot ='IOM')
 
     # or use an automated way to find folder containing ppEEG data
     path_patient = os.path.join('Y:\\eLab\\Patients', subj, 'Data\\LT_experiment')
     k = 0
-    if cut_blocks:
-        print('Cutting responses into [1,3]s epochs ... ')
-        path_data = os.path.join(path_patient, 'data_blocks')
-        folders = glob.glob(path_data + '/' + subj + '_*')
-        if len(folders) > 0:
-            for i in range(len(folders)):
-                CUT.cut_resp_IOM(folders[i], path_save, 'IOM')
-                k = k + i
+
+    print('Cutting responses into [1,3]s epochs ... ')
+    path_data = os.path.join(path_patient, 'data_blocks')
+    folders = glob.glob(path_data + '/' + subj + '_*')
+    if len(folders) > 0:
+        for i in range(4,len(folders)):
+            # CUT.cut_resp_IOM(folders[i], path_save, 'IOM') ##for IOM, todo:
+            CUT.cut_resp_LT(folders[i], path_save)
+            k = k + i
 
 def compute_list_update(subj):
     print(f'Performing calculations on {subj}')
@@ -87,7 +86,7 @@ def compute_list_update(subj):
     print(subj + ' ---- DONE ------ ')
 #
 # compute_cut('EL014')
-for subj in ["EL016"]:  # , "EL010"
+for subj in ["EL018"]:  # , "EL010"
     # compute_list_update(subj)
     # compute_cut(subj, cut_blocks=1, concat_blocks=1)  # _thread.start_new_thread(compute_list_update, (subj,))
     compute_cut_LT(subj)

@@ -26,7 +26,7 @@ function [] = cut_block_edf_LT(EEG_block, stim_list,type,block_num, Fs, subj,BP_
     st          = datestr(start,'yyyymmdd HH:MM:SS');
     stop        = datenum(st, 'yyyymmdd HH:MM:SS')+seconds(dur);
     % store data
-    mkdir(sprintf('%s/data_blocks%s_BP_%s_%02d',path_pp,subj, type, block_num))
+    mkdir(sprintf('%s/data_blocks/%s_BP_%s_%02d',path_pp,subj, type, block_num))
     labels = labels_all(inSEEG,1);
      %save([path, sprintf('/data_blocks/time/%s_BP_%s_block_%i.mat',subj, type, block_num)],'EEG','labels', 'Fs','start_sample','-v7.3');
     save(sprintf('%s/data_blocks/%s_BP_%s_%02d/%s_BP_%s_%02d.mat',path_pp,subj, type, block_num,subj, type, block_num),'EEG','labels', 'Fs','-v7.3');
