@@ -215,7 +215,7 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
                 # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
                 block_l = files_list[l][-11:-4]
                 file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-                skip = 0
+                skip = 1
                 if os.path.isfile(file)*skip:
                     con_trial_block = pd.read_csv(file)
                 else:

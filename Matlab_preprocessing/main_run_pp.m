@@ -3,8 +3,8 @@ clear all
 close all
 %% UPDATE STIMLIST and TTL 
 subj            = 'EL018';
-block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
-%block_path = ['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks'];
+%block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
+block_path = ['Y:\eLab\Patients\' subj '\Data\EL_experiment\experiment1\data_blocks'];
 
 %% patient specific
 path = 'Y:\eLab\Patients\';
@@ -37,6 +37,7 @@ block_files     = dir(block_path);
 isdir           = [block_files.isdir]; % Get all the codes
 block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
 for i=3:length(block_files)
+    disp(block_files(i).name);
     run_pp_check =1;
     if exist(char([block_path, '\', block_files(i).name, '\', 'ppEEG.mat']), 'file')==2
         pp_date = dir(char([block_path, '\', block_files(i).name, '\', 'ppEEG.mat'])).datenum;

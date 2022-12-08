@@ -54,7 +54,7 @@ def compute_cut_LT(subj):
     path_data = os.path.join(path_patient, 'data_blocks')
     folders = glob.glob(path_data + '/' + subj + '_*')
     if len(folders) > 0:
-        for i in range(4,len(folders)):
+        for i in range(0,len(folders)):
             # CUT.cut_resp_IOM(folders[i], path_save, 'IOM') ##for IOM, todo:
             CUT.cut_resp_LT(folders[i], path_save)
             k = k + i

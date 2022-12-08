@@ -46,12 +46,12 @@ type                = 'CR';
 files= dir([dir_files '\*CR*.EDF']);
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 %%
-for j=1:length(files)
+for j=6:length(files)
     %% 1. read first raw data
     file = files(j).name;
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
     H                      = Epitome_edfExtractHeader(filepath);
-    % [hdr_edf, EEG_all]     = edfread_data(filepath);
+    [hdr_edf, EEG_all]     = edfread_data(filepath);
     stimlist = stimlist_all;
     stimlist = removevars(stimlist, 'keep');
     %% 2. find triggers
@@ -124,17 +124,38 @@ for j=1:length(files)
     stimlist_all = stimlist_all(stimlist_all.keep==1,:);
     stimlist = stimlist(stim_noise(stim_cut(1))+1:stim_noise(stim_cut(end)+1)-1,:);
     disp('TTL aligned');
-
+% %% Manually checked non-trigger stims
+% stimlist_noise = stimlist(stimlist.noise==1,:);
+% for n_trig =1:height(stimlist_noise)
+%     clf(figure(1))
+%     t      = stimlist_noise.TTL(n_trig);
+%     IPI    = stimlist_noise.IPI_ms(n_trig);
+%     x_s = 10;
+%     x_ax        = -x_s:1/Fs:x_s;
+%     c= 120;
+%     plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
+%     hold on
+%     plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
+%     xline(0, '--r');
+%     xline(IPI/1000, '--r');
+%     delay = input('delay:  ');
+%     t_new = round(t+delay*Fs);
+%     block = stimlist_noise.stim_block(n_trig);
+%     num = stimlist_noise.StimNum(n_trig);
+%     cond = (stimlist.stim_block == block)&(stimlist.StimNum==num);
+%     stimlist.TTL(cond) = t_new;
+%     stimlist.noise(cond) = 0;
+% end
     %% 5. Test trigger
     clf(figure(1))
     Fs     = hdr_edf.frequency(1);
     %Fs = 148;
-    n_trig = 35;
+    n_trig = 100;
     t      = stimlist.TTL(n_trig);
     IPI    = stimlist.IPI_ms(n_trig);
     x_s = 10;
     x_ax        = -x_s:1/Fs:x_s;
-    c= 40;
+    c= 50;
     plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
     hold on
     plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
