@@ -55,7 +55,7 @@ from matplotlib.patches import Rectangle
 from pathlib import Path
 import significance_funcs as sig_func
 import freq_funcs as ff
-#from tqdm.notebook import trange, tqdm
+# from tqdm.notebook import trange, tqdm
 # remove some warnings
 import warnings
 
@@ -89,15 +89,16 @@ color_elab[0, :] = np.array([31, 78, 121]) / 255
 color_elab[1, :] = np.array([189, 215, 238]) / 255
 color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
-def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
+
+def update_sleep(subj, prot='BrainMapping', cond_folder='CR'):
     path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     file_con = path_patient_analysis + '\\' + prot + '\\' + cond_folder + '\\data\\con_trial_all.csv'
-    con_trial =pd.read_csv(file_con)
+    con_trial = pd.read_csv(file_con)
     # load hypnogram
-    file_hypno  = path_patient_analysis+'\\stimlist_hypnogram.csv' #path_patient + '/Analysis/stimlist_hypnogram.csv'
+    file_hypno = path_patient_analysis + '\\stimlist_hypnogram.csv'  # path_patient + '/Analysis/stimlist_hypnogram.csv'
     if os.path.isfile(file_hypno):
         stimlist_hypno = pd.read_csv(file_hypno)
-        stimlist_hypno.loc[(stimlist_hypno.sleep == 9),'sleep']=0
+        stimlist_hypno.loc[(stimlist_hypno.sleep == 9), 'sleep'] = 0
         for ss in np.arange(5):
             stimNum = stimlist_hypno.loc[(stimlist_hypno.sleep == ss) & (stimlist_hypno.Prot == prot), 'StimNum']
             con_trial.loc[np.isin(con_trial.Num, stimNum), 'Sleep'] = ss
@@ -106,12 +107,12 @@ def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
     con_trial.loc[(con_trial.Sleep > 0) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
-    con_trial.to_csv(file_con, index=False, header=True) # return con_trial
+    con_trial.to_csv(file_con, index=False, header=True)  # return con_trial
+
 
 def remove_art(con_trial, EEG_resp):
     # remove LL that are much higher than the mean
     # remove trials that have artefacts (high voltage values)
-
 
     chan, trial = np.where(np.max(abs(EEG_resp[0:int(0.5 * Fs)]), 2) > 1500)
     for i in range(len(trial)):
@@ -158,15 +159,15 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
 
     sep = ';'
     Fs = 500
-    Path(path_patient_analysis+'/' + folder + '/' + cond_folder + '/data').mkdir(parents=True, exist_ok=True)
-    Path(path_patient_analysis+'/' + folder + '/' + cond_folder + '/figures/BM_plot_trial').mkdir(parents=True,
+    Path(path_patient_analysis + '/' + folder + '/' + cond_folder + '/data').mkdir(parents=True, exist_ok=True)
+    Path(path_patient_analysis + '/' + folder + '/' + cond_folder + '/figures/BM_plot_trial').mkdir(parents=True,
                                                                                                     exist_ok=True)
-    Path(path_patient_analysis+'/' + folder + '/' + cond_folder + '/figures/BM_plot_trial_sig').mkdir(parents=True,
+    Path(path_patient_analysis + '/' + folder + '/' + cond_folder + '/figures/BM_plot_trial_sig').mkdir(parents=True,
                                                                                                         exist_ok=True)
-    Path(path_patient_analysis+'/' + folder + '/' + cond_folder + '/figures/BM_plot').mkdir(parents=True,
+    Path(path_patient_analysis + '/' + folder + '/' + cond_folder + '/figures/BM_plot').mkdir(parents=True,
                                                                                               exist_ok=True)
-    Path(path_patient_analysis+'/' + folder + '/' + cond_folder + '/surrogate').mkdir(parents=True,
-                                                                                      exist_ok=True)
+    Path(path_patient_analysis + '/' + folder + '/' + cond_folder + '/surrogate').mkdir(parents=True,
+                                                                                        exist_ok=True)
 
     # get labels
     if cond_folder == 'Ph':
@@ -174,7 +175,8 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
     else:
         files_list = glob(path_patient_analysis + '/' + folder + '/data/Stim_list_*CR*')
 
-    stimlist = pd.read_csv(files_list[0]) #pd.read_csv(path_patient_analysis+'/' + folder + '/data/Stimlist.csv')# pd.read_csv(files_list[i])
+    stimlist = pd.read_csv(files_list[
+                               0])  # pd.read_csv(path_patient_analysis+'/' + folder + '/data/Stimlist.csv')# pd.read_csv(files_list[i])
     # EEG_resp = np.load(path_patient + '/Analysis/' + folder + '/data/ALL_resps_'+files_list[i][-11:-4]+'.npy')
     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
@@ -198,30 +200,33 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
             stimlist = pd.read_csv(files_list[l])
             if not ('noise' in stimlist.columns):
                 stimlist.insert(9, 'noise', 0)
-            EEG_resp = np.load(path_patient_analysis+'/' + folder + '/data/ALL_resps_' + files_list[l][-11:-4] + '.npy')
-            if EEG_resp.shape[1] != len(stimlist):
-                print('ERROR number of Stimulations is not correct')
-                print(EEG_resp.shape[1])
-                print(len(stimlist))
-                break
-            else:
-                new_col = ['StimNum', 'Num_block']
-                for col in new_col:
-                    if  col in stimlist:
-                        stimlist = stimlist.drop(col, axis=1)
-                    stimlist.insert(4, col, np.arange(len(stimlist)))
-                stimlist = stimlist.reset_index(drop=True)
 
-                # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
-                block_l = files_list[l][-11:-4]
-                file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-                skip = 1
-                if os.path.isfile(file)*skip:
-                    con_trial_block = pd.read_csv(file)
+            new_col = ['StimNum', 'Num_block']
+            for col in new_col:
+                if col in stimlist:
+                    stimlist = stimlist.drop(col, axis=1)
+                stimlist.insert(4, col, np.arange(len(stimlist)))
+            stimlist = stimlist.reset_index(drop=True)
+
+            # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
+            block_l = files_list[l][-11:-4]
+            file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
+            skip = 1
+            if os.path.isfile(file) * skip:
+                con_trial_block = pd.read_csv(file)
+            else:
+                EEG_resp = np.load(
+                    path_patient_analysis + '/' + folder + '/data/ALL_resps_' + files_list[l][-11:-4] + '.npy')
+                if EEG_resp.shape[1] != len(stimlist):
+                    print('ERROR number of Stimulations is not correct')
+                    print(EEG_resp.shape[1])
+                    print(len(stimlist))
+                    break
                 else:
+
                     con_trial_block = BMf.LL_BM_connection(EEG_resp, stimlist, bad_chans, coord_all,
                                                            labels_clinic, StimChanSM, StimChanIx)
-                    if cond_folder=='CR':
+                    if cond_folder == 'CR':
                         con_trial_block = con_trial_block.drop(columns=['Condition'])
                     else:
                         con_trial_block = con_trial_block.drop(columns=['Sleep'])
@@ -236,25 +241,24 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
                 #     M_N1peaks = np.load(file_MN1)
                 #     con_trial_block = BMf.get_peaks_all(con_trial_block, EEG_resp, M_N1peaks)
                 #     con_trial_block.to_csv(file, index=False, header=True)
-                con_trial_block.Num = con_trial_block.Num_block + mx_across
-                mx_across = mx_across+np.max(stimlist.StimNum)+1#np.max(con_trial_block.Num) + 1
+            con_trial_block.Num = con_trial_block.Num_block + mx_across
+            mx_across = mx_across + np.max(stimlist.StimNum) + 1  # np.max(con_trial_block.Num) + 1
 
-                if l == 0:
-                    con_trial = con_trial_block
-                else:
-                    con_trial = pd.concat([con_trial, con_trial_block])
+            if l == 0:
+                con_trial = con_trial_block
+            else:
+                con_trial = pd.concat([con_trial, con_trial_block])
 
         con_trial.to_csv(file_con, index=False, header=True)
     print(subj + ' ---- DONE ------ ')
 
 
-def get_significance_trial(subj, cond_folder='CR', update_sig = 0):
+def get_significance_trial(subj, cond_folder='CR', update_sig=0):
     ######## General Infos
     print(subj + ' ---- START ------ ')
 
     path_patient_analysis = 'Y:\\eLab\\EvM\\Projects\\EL_experiment\\Analysis\\Patients\\' + subj
     path_patient = 'Y:\\eLab\\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-
 
     sep = ';'
     Fs = 500
@@ -284,10 +288,10 @@ def get_significance_trial(subj, cond_folder='CR', update_sig = 0):
         thr_blocks = np.load(file_thr)
         for sc in tqdm.tqdm(stim_chans, desc='Stimulation Channel'):
             for rc in range(len(labels_all)):
-                con_trial,thr_blocks = sig_func.update_sig_val(sc, rc, thr_blocks, con_trial)
+                con_trial, thr_blocks = sig_func.update_sig_val(sc, rc, thr_blocks, con_trial)
         con_trial.to_csv(file_con, index=False, header=True)
         # update con_trial and threhsold
-        if (cond_folder=='CR')&(np.max(con_trial.Sig)==2):
+        if (cond_folder == 'CR') & (np.max(con_trial.Sig) == 2):
             con_trial_1 = con_trial[(con_trial.Sig > -1) & (con_trial.Sig < 2)]
             con_trial_1 = con_trial_1.groupby(['Stim', 'Chan'])['Sig'].mean().reset_index(name='Prob')
             con_trial_1_1 = con_trial_1[con_trial_1.Prob > 0.2]
@@ -301,17 +305,16 @@ def get_significance_trial(subj, cond_folder='CR', update_sig = 0):
             con_trial.loc[(con_trial.Sig == 2), 'Sig'] = 1
             con_trial.to_csv(file_con, index=False, header=True)
 
-            #np.save(file_thr, thr_blocks)
+            # np.save(file_thr, thr_blocks)
         print(subj + ' ----- Sig Updated ------ ')
         return
 
     print('loading EEG data')
-    #file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
-    #M_N1peaks = np.load(file_MN1)
-    #M_N1peaks[M_N1peaks[:, :, 2] > 1, :] = 0
-    EEG_resp_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_'+cond_folder+'.npy'
+    # file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
+    # M_N1peaks = np.load(file_MN1)
+    # M_N1peaks[M_N1peaks[:, :, 2] > 1, :] = 0
+    EEG_resp_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy'
     EEG_CR = np.load(EEG_resp_CR_file)
-
 
     # Mean across all trials stored
     gt_file = path_patient_analysis + '\\' + folder + '/data/gt_data.npy'
@@ -321,50 +324,57 @@ def get_significance_trial(subj, cond_folder='CR', update_sig = 0):
     else:
         gt_data = np.zeros((len(labels_all), len(labels_all), 2000))
         for sc in tqdm.tqdm(stim_chans, desc='Stimulation Channel'):
-            for rc in range(len(labels_all)):#tqdm.tqdm(stim_chans, desc='Response Channel', leave=False):
-                gt_data = sig_func.get_gt_data(sc, rc, EEG_CR, con_trial,gt_data)
+            for rc in range(len(labels_all)):  # tqdm.tqdm(stim_chans, desc='Response Channel', leave=False):
+                gt_data = sig_func.get_gt_data(sc, rc, EEG_CR, con_trial, gt_data)
         np.save(gt_file, gt_data)
-    repeat =1
+    repeat = 1
     # get pearson for each trial compared to ground truth
     if repeat:
         print('Calculating Pearson Coefficient for each trial')
         new_col = ['LL0', 'PLL', 'Sig']
         for col in new_col:
-            if not col in con_trial: con_trial.insert(4,col,-1)
+            if not col in con_trial: con_trial.insert(4, col, -1)
         for sc in tqdm.tqdm(stim_chans, desc='Stimulation Channel'):
-            for rc in range(len(labels_all)):#tqdm.tqdm(stim_chans, desc='Response Channel', leave=False):
+            for rc in range(len(labels_all)):  # tqdm.tqdm(stim_chans, desc='Response Channel', leave=False):
                 req = (con_trial.Artefact < 1) & (con_trial.Chan == rc) & (con_trial.Stim == sc)
                 dat = con_trial[req]
                 if len(dat) > 0:
-                    con_trial = sig_func.get_trial_Pearson(sc, rc, con_trial, EEG_CR, w_p=0.1,w_LL=0.25, Fs=500,t_0=1, t_resp=M_N1peaks[sc,rc,2],p=abs(M_N1peaks[sc,rc,1]), gt_data=gt_data)
+                    con_trial = sig_func.get_trial_Pearson(sc, rc, con_trial, EEG_CR, w_p=0.1, w_LL=0.25, Fs=500, t_0=1,
+                                                           t_resp=M_N1peaks[sc, rc, 2], p=abs(M_N1peaks[sc, rc, 1]),
+                                                           gt_data=gt_data)
 
-        con_trial.PLL = con_trial.LL0*con_trial.Pearson
+        con_trial.PLL = con_trial.LL0 * con_trial.Pearson
         con_trial.to_csv(file_con, index=False, header=True)
     # 3# get threshold value blockwise
     print('Calculating thresholds for each block')
-    file_thr = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\threshold_blocks.npy' #path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data/threshold_blocks.npy'
+    file_thr = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\threshold_blocks.npy'  # path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data/threshold_blocks.npy'
     blocks = np.unique(con_trial.Block)
     # repeat = 0
     if os.path.isfile(file_thr):
         thr_blocks = np.load(file_thr)
         repeat = 0
-    repeat = 1 # todo: remove
+    repeat = 1  # todo: remove
     if repeat:
         thr_blocks = np.zeros((len(blocks), len(labels_all), len(labels_all), 3))
         for sc in tqdm.tqdm(stim_chans, desc='Stimulation Channel'):
-            for rc in range(len(labels_all)):#for rc in stim_chans:#tqdm.tqdm(stim_chans, desc='Response Channel', leave=True):
-                thr_blocks, con_trial = sig_func.get_surr_connection(sc, rc, EEG_CR, thr_blocks, con_trial, w_LL=0.25, w_p=0.1,
-                        Fs=500,t_0=1, t_resp=0,p=abs(M_N1peaks[sc,rc,1]),gt_data=gt_data)
+            for rc in range(
+                    len(labels_all)):  # for rc in stim_chans:#tqdm.tqdm(stim_chans, desc='Response Channel', leave=True):
+                thr_blocks, con_trial = sig_func.get_surr_connection(sc, rc, EEG_CR, thr_blocks, con_trial, w_LL=0.25,
+                                                                     w_p=0.1,
+                                                                     Fs=500, t_0=1, t_resp=0,
+                                                                     p=abs(M_N1peaks[sc, rc, 1]), gt_data=gt_data)
         np.save(file_thr, thr_blocks)
         con_trial.to_csv(file_con, index=False, header=True)
 
     print(subj + ' ----- Sig Calculations  DONE ------ ')
+
+
 def update_peaks(subj, cond_folder='CR'):
     ######## General Infos
     print(subj + ' ---- START ------ ')
     if platform.system() == 'Windows':
         sep = ','
-        #path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
+        # path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     else:  # 'Darwin' for MAC
@@ -374,7 +384,7 @@ def update_peaks(subj, cond_folder='CR'):
     Fs = 500
 
     print('loading EEG data')
-    EEG_resp_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_'+cond_folder+'.npy'
+    EEG_resp_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy'
     EEG_CR = np.load(EEG_resp_CR_file)
 
     file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
@@ -387,16 +397,18 @@ def update_peaks(subj, cond_folder='CR'):
     con_trial.to_csv(file_con, index=False, header=True)
 
     print(subj + ' ----- Sig Calculations  DONE ------ ')
+
+
 #
 for subj in ['EL018']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
-    #if i>0: cal_con_trial(subj, 'CR')
+    # if i>0: cal_con_trial(subj, 'CR')
     # _thread.start_new_thread(cal_con_trial, (subj, 'Ph')) # cal_con_trial(subj, 'Ph')
     ####old###get_significance_trial(subj, cond_folder='CR', update_sig=0)
     cal_con_trial(subj, cond_folder='CR')
     # update_sleep(subj)
     # cal_con_trial(subj, cond_folder='Ph')
 
-#for subj in ['EL016']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
+# for subj in ['EL016']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
 #     update_peaks(subj, cond_folder='CR')
 # for subj in ['EL008','EL004']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012'
 #     #if i>0: cal_con_trial(subj, 'CR')

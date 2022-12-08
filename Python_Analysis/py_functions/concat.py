@@ -236,8 +236,8 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
 
     EEG_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy'
     # if not os.path.isfile(file_MN1):
-    if not os.path.isfile(EEG_CR_file):
-        EEG_resp, stimlist = concat_resp_condition(subj, folder=folder, cond_folder=cond_folder)
+    # if not os.path.isfile(EEG_CR_file):
+    EEG_resp, stimlist = concat_resp_condition(subj, folder=folder, cond_folder=cond_folder)
     reload = 0
     # else:
     #     reload = 1 #EEG_resp = np.load(EEG_CR_file)
@@ -261,7 +261,7 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
 ##first you have to have con_trial_alll
 for subj in ["EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016",
              "EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
-    for f in ['InputOutput', 'BrainMapping', 'PairedPulse']: # 'BrainMapping', 'InputOutput',
+    for f in ['BrainMapping', 'InputOutput', 'PairedPulse']: # 'BrainMapping', 'InputOutput',
         #if f == 'BrainMapping':
         #    start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)
         #else:
