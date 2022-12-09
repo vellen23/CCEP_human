@@ -957,15 +957,15 @@ def start_subj(subj, sig=0):
                      index=False,
                      header=True)
 
-    general = 0
+    general = 1
     if general:
         run_main.BM_plots_General(M_t_resp, con_trial)
-    blocks = 0
+    blocks = 1
     if blocks:
         # Blockwise BM
         _ = run_main.save_M_block(con_trial, metrics=['LL'], savefig=1)
         # np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\M_B_all.npy', M_B_all)
-    sleep = 1
+    sleep = 0
     sleep_nmf = 0
     if (subj == 'EL013') | (subj == 'EL012'):  # not enough sleep data
         sleep = 0
@@ -988,8 +988,7 @@ def start_subj(subj, sig=0):
 thread = 0
 sig = 0
 # todo: 'EL009',
-for subj in ['EL017', 'EL011', 'EL015', 'EL014',
-             'EL016']:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'
+for subj in ['EL018']:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'
     if thread:
         _thread.start_new_thread(start_subj, (subj, sig))
     else:
