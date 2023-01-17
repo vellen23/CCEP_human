@@ -82,6 +82,7 @@ cond_folder = 'CR'
 def compute_subj(subj, metric='LL'):
     print(f'Performing calculations on {subj}')
 
+    ######## General Infos
     path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
     if not os.path.exists(path_gen):
@@ -144,23 +145,27 @@ def compute_subj(subj, metric='LL'):
     sleepstate_labels = np.unique(con_trial_Ph['SleepState'])[::-1]
     # add path
     stimchans = np.unique(con_trial_Ph.Stim).astype('int')
-    for i_sc,sc in zip(np.arange(len(stimchans)), stimchans):
+    for i_sc, sc in zip(np.arange(len(stimchans)), stimchans):
         # repeat for each stim channel
-        Path(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\NNMF_Stim\\' + labels_all[sc] + '\\figures\\').mkdir(
+        Path(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\NNMF_Stim\\' + labels_all[
+            sc] + '\\figures\\').mkdir(
             parents=True, exist_ok=True)
-        nmf_fig_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\NNMF_Stim\\' + labels_all[sc] + '\\figures\\'
+        nmf_fig_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\NNMF_Stim\\' + labels_all[
+            sc] + '\\figures\\'
         nmf_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\NNMF_Stim\\' + labels_all[sc] + '/'
 
         # todo: create function
         V_path = nmf_path + 'IO_' + metric + '.npy'
-        title_LL = subj + ', Stim: '+labels_all[sc]+', ' + metric + ' as input'
+        title_LL = subj + ', Stim: ' + labels_all[sc] + ', ' + metric + ' as input'
         # todo: remove
-        #run_again = 0
+        # run_again = 0
         if os.path.isfile(V_path):
-            con_trial_nan = con_trial_Ph[(con_trial_Ph.Stim ==sc)& (con_trial_Ph.d > -1)]  # con_trial_Ph.copy(deep=True)
+            con_trial_nan = con_trial_Ph[
+                (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1)]  # con_trial_Ph.copy(deep=True)
             NMF_input = np.load(V_path)
         else:
-            con_trial_nan = con_trial_Ph[(con_trial_Ph.Stim ==sc)& (con_trial_Ph.d > -1)]  # con_trial_Ph.copy(deep=True)
+            con_trial_nan = con_trial_Ph[
+                (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1)]  # con_trial_Ph.copy(deep=True)
 
             if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
                 con_trial_nan.groupby(['Chan', 'Sleep', 'Int'])[metric].transform(
@@ -229,9 +234,9 @@ def compute_subj(subj, metric='LL'):
         # todo: remove later, this is only to rerun for specific ranks
 
         p = 1
-        for rk in [ranks[ix0]]:#rank_sel:  # range(k0, k1 + 1):
-            if rk ==2: rk = 3
-            [W,W0, H] = NMFf.get_nnmf_Epi(NMF_input, rk, it=4000)
+        for rk in [ranks[ix0]]:  # rank_sel:  # range(k0, k1 + 1):
+            if rk == 2: rk = 3
+            [W, W0, H] = NMFf.get_nnmf_Epi(NMF_input, rk, it=4000)
             # columns label
             col0 = ['Stim', 'Int', 'Block', 'Hour', 'Date', 'Sleep']  #  'Hour',
             col = ['Stim', 'Int', 'Block', 'Hour', 'Date', 'Sleep']  #  'Hour',
@@ -310,7 +315,8 @@ def compute_subj(subj, metric='LL'):
 
 print('START')
 metrics = ['LL']  # 'sN2','sN1',
-for subj in ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
+for subj in ["EL019", "EL017",
+             "EL018"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
     for m in metrics:
         compute_subj(subj, m)
 #         try:

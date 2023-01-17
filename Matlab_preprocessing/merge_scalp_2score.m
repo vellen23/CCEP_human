@@ -21,8 +21,12 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %%
 
-subj            = 'EL009';
+subj            = 'EL020';
 %block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
+path = 'Y:\eLab\Patients\';
+path = 'X:\\4 e-Lab\\Patients\\';
+path_patient    = [path,  subj];  
+
 block_path     = uigetdir(['Y:\eLab\Patients\', subj, '\Data\EL_experiment\experiment1']); %
 % block_files     = dir(block_path);
 % isdir           = [block_files.isdir]; % Get all the codes
@@ -45,13 +49,13 @@ while i<= length(block_files)
     end
 end
 %%
-files= dir([dir_files '\*CR*.EDF']);
+% files= dir([dir_files '\*CR*.EDF']);
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 %% split based on selected files
 scalp_all       = [];
 score_all = [];
 Fs1 = 1024;
-for sf=1:height(score_files)      
+for sf=2:height(score_files)-1      
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
     for i=3:length(block_files)
@@ -64,6 +68,7 @@ for sf=1:height(score_files)
     % concat files
     for i=i_start:i_stop
         disp(block_files(i).name);
+        clear Fs
         if i==i_start
             path = char([block_path, sep, block_files(i).name]);
             % load(char([block_files(i).folder, sep, block_files(i).name, sep,'metadata.mat']));
@@ -85,7 +90,11 @@ for sf=1:height(score_files)
             end
         end
         load(char([block_files(i).folder, sep, block_files(i).name, sep,'scalpEEG.mat']));
-        
+        if exist('scalpFs','var') == 1
+            Fs = scalpFs;
+            clear scalpFs
+        end
+
         % score
         try
             load(char([block_files(i).folder, sep, block_files(i).name, sep,'score.mat']));

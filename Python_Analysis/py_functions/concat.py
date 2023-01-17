@@ -158,7 +158,7 @@ def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR'):
         cond = ntpath.basename(file)[idxs[-2] - 2:idxs[-2]]  # ntpath.basename(file)[idxs[-2] + 2:-4]  #
         conds[p] = cond
         EEG_block = np.load(path_patient_analysis + '\\' + folder + '\\data\\All_resps_' + file[-11:-4] + '.npy')
-        print(str(p + 1) + '/' + str(len(files)) + ' -- All_resps_' + file[-11:-4])
+        print(str(p + 1) + '/' + str(len(files)) + ' -- All_resps_' + file[-11:-4], end='\r')
         stim_table = pd.read_csv(file)
         stim_table['type'] = cond
         if len(stimlist) == 0:
@@ -259,9 +259,9 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
 
 
 ##first you have to have con_trial_alll
-for subj in ["EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016",
+for subj in ["EL020","EL019","EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016",
              "EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
-    for f in ['BrainMapping', 'InputOutput', 'PairedPulse']: # 'BrainMapping', 'InputOutput',
+    for f in ['BrainMapping', 'InputOutput']: # 'BrainMapping', 'InputOutput',
         #if f == 'BrainMapping':
         #    start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)
         #else:

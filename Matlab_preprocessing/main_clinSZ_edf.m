@@ -17,29 +17,33 @@ ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
+path = 'Y:\eLab\Patients\';
+subj            = 'EL017'; %% change name if another data is used !!
+path_patient    = [path,  subj];  
+dir_files       = [path_patient,'\data_raw\\Clin_Stim'];% folder where raw edf are stored
 
-subj            = 'EL016'; %% change name if another data is used !!
-path_patient    = ['T:\EL_experiment\Patients\' subj];   
-dir_files       = [path_patient,'\data_raw\\ClinStim'];% folder where raw edf are stored
 % load labels
-MP_label = importfile_MPlabels([path_patient '\infos\EL016_lookup.xlsx'], 'Channels');
-BP_label = importfile_BPlabels([path_patient '\infos\EL016_lookup.xlsx'], 'Channels_BP');
+MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
+BP_label = importfile_BPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels_BP');
+
+BP_label = BP_label(~isnan(BP_label.chan_BP_P),:);
+MP_label= MP_label(~isnan(MP_label.Natus),:);
 
 %% 1. log 
 % log_files = 
 log_files= dir([dir_files '\*.log']);
-i = 1; % find automated way or select manually
+i = 2; % find automated way or select manually
 log             = import_logfile([dir_files '\' log_files(i).name]);
 stimlist_all   = read_log(log);
 
 %% 2. file
 % select only the stimulation of desired protocol
 data_files= dir([dir_files '\*.EDF']);
-i = 1;
+i = 2;
 filepath               = [dir_files '\' data_files(i).name]; % the file you want to open 
 H                      = Epitome_edfExtractHeader(filepath);
 [hdr_edf, EEG_all]     = edfread_data(filepath);
-prot = data_files(i).name(7:end-7); % selected protocol of this data: ["LTD1","LTD10","LTP50"];
+prot = {'Clinic'}; % selected protocol of this data: ["LTD1","LTD10","LTP50"];
 % find stimulations of cselected protocol
 stimlist = stimlist_all(startsWith(string(stimlist_all.type), prot),:); % change to LTP1, LTD10, LTD50 for you protocol
 %% 3. trigger
@@ -48,7 +52,7 @@ c_trig         = find(hdr_edf.label==string('TRIG'));
 trig           = EEG_all(c_trig,:); %  trigger data same size as a EEG channel. consits of zeros except for the stimulation sample
 Fs             = round(hdr_edf.frequency(1)); % recording Fs
 % [pks,locs]   = findpeaks(trig_CR1,'MinPeakDistance',2*Fs,'Threshold',0.9,'MaxPeakWidth', 0.002*Fs);
-[pks,TTL_sample]     = findpeaks(trig,'MinPeakDistance',1*Fs);
+[pks,TTL_sample]     = findpeaks(trig,'MinPeakDistance',2*Fs);
 TTL_sample           = TTL_sample';
 %% add column TTL to your stimlist
 stimlist.TTL = zeros(height(stimlist),1);
@@ -93,13 +97,13 @@ disp('TTL aligned');
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
 %Fs = 2048;
-n_trig = 5;
-c= 50;
+n_trig = 1;
+c= 2;
 t      = stimlist.TTL(n_trig);
 x_s = 30;
 x_ax        = -x_s:1/Fs:x_s;
 
-plot(x_ax,EEG_BP(c,t-x_s*Fs:t+x_s*Fs));
+plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
 hold on
 plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
 xline(0, '--r');
@@ -112,35 +116,50 @@ ix              = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.la
 pos_ChanP       =  ix(:,1);
 pos_ChanN       =  ix(:,2);
 EEG_BP          = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
+%% 5. Test trigger, plot some stimulations
+clf(figure(1))
+Fs     = hdr_edf.frequency(1);
+%Fs = 2048;
+n_trig = 5;
+c= 7;
+t      = stimlist.TTL(n_trig);
+x_s = 30;
+x_ax        = -x_s:1/Fs:x_s;
+
+plot(x_ax,EEG_BP(c,t-x_s*Fs:t+x_s*Fs));
+hold on
+plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
+xline(0, '--r');
+xline(stimlist.dur(n_trig), '--r');
 
 %% Cut in block
 % [path_patient,'\data_raw\\ClinStim'];% folder where raw edf are stored
 path_preprocessed = [path_patient '\Data\Clin_Stim'];
 % path_preprocessed = ['Y:\eLab\Patients\' subj '\Data\Clin_Stim'];
-EEG = cut_block_edf_clin(EEG_BP, stim_list,prot,1, Fs, subj, BP_label, path_preprocessed);
+EEG = cut_block_edf_clin(EEG_BP, stimlist,'BL',2, Fs, subj, BP_label, path_preprocessed);
 %(EEG_block, stim_list,type,block_num, Fs, path_patient, subj,BP_label, path_pp)
 
 % TTL = round(stimlist.TTL/Fs*500);
 %save([path, '/TTL.mat'], 'TTL');
 %% ppEEG
 ppEEG_art = EEG;
-for s=1:height(stim_list) %for each stimulation
-        %tic
-        dur = stim_list.dur(s);
-        n_stim = dur*60;
-        for n=1:n_stim
-            IPI = 0;
-            trig1   = round(stim_list.TTL(s)+(n-1)* stim_list.IPI_ms(s));
-            %trig2   = stim_list.TTL_PP(s);%         
-            trig2   = trig1;
-            stim_list.TTL_PP(s) = trig2;
-            for c=1:size(ppEEG_art,1) %  for each channel      
-                ppEEG_art(c,:) = kriging_artifacts(ppEEG_art(c,:), trig1, trig2, IPI, Fs,0);
-%             plot_raw_filter(c,s,stim_list,EEG,ppEEG_art,Fs);
-            end
-        end
-        %toc
-end
+% for s=1:height(stim_list) %for each stimulation
+%         %tic
+%         dur = stim_list.dur(s);
+%         n_stim = dur*60;
+%         for n=1:n_stim
+%             IPI = 0;
+%             trig1   = round(stim_list.TTL(s)+(n-1)* stim_list.IPI_ms(s));
+%             %trig2   = stim_list.TTL_PP(s);%         
+%             trig2   = trig1;
+%             stim_list.TTL_PP(s) = trig2;
+%             for c=1:size(ppEEG_art,1) %  for each channel      
+%                 ppEEG_art(c,:) = kriging_artifacts(ppEEG_art(c,:), trig1, trig2, IPI, Fs,0);
+% %             plot_raw_filter(c,s,stim_list,EEG,ppEEG_art,Fs);
+%             end
+%         end
+%         %toc
+% end
 %%
 [bBP, aBP]          = butter(4, [0.5 200]/(Fs/2), 'bandpass');
 ppEEG          = filter(bBP, aBP, ppEEG_art')';
@@ -154,20 +173,6 @@ end
 
 fs                 = 500;
 ppEEG               = resample(ppEEG',fs,Fs)';
-TTL_ds             = round((stim_list.TTL(:))/(Fs/fs));
-save(sprintf('%s/data_blocks/%s_BP_%s%02d/ppEEG_art.mat',path_preprocessed,subj, prot, 1),'ppEEG', 'fs','-v7.3');
-%%
-[bBP, aBP]          = butter(4, [0.5 200]/(Fs/2), 'bandpass');
-ppEEG          = filter(bBP, aBP, EEG')';
-%     % notch - find which notch
-f_notch             = [50, 100, 150, 200];
-for n=1:length(f_notch)
-    fn              = f_notch(n);
-    [bN, aN]        = butter(2,[fn-2 fn+2]/(Fs/2),'stop');
-    ppEEG     = filtfilt(bN, aN, ppEEG')'; %filtfilt
-end
-
-fs                 = 500;
-ppEEG               = resample(ppEEG',fs,Fs)';
-TTL_ds             = round((stim_list.TTL(:))/(Fs/fs));
-save(sprintf('%s/data_blocks/%s_BP_%s%02d/ppEEG.mat',path_preprocessed,subj, prot, 1),'ppEEG', 'fs','-v7.3');
+TTL_ds             = round((stimlist.TTL(:))/(Fs/fs));
+stimlist.TTL_DS = TTL_ds;
+save(sprintf('%s/data_blocks/%s_BP_%s%02d/ppEEG.mat',path_preprocessed,subj, 'BL', 2),'ppEEG', 'fs','-v7.3');

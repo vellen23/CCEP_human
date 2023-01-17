@@ -51,6 +51,7 @@ class main:
         self.subj = subj
         self.path_patient = path_patient
         self.path_patient_analysis = os.path.join('Y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients', subj)
+        self.path_patient_analysis = os.path.join('X:\\4 e-Lab\\EvM\\Projects\\EL_experiment\\Analysis\\Patients', subj)
 
     def osc_power(self, path, hgp=True, sop=True):
         try:
@@ -276,10 +277,10 @@ class main:
                             trig + self.dur[0, 1] * self.Fs)]
 
             np.save(path_save + '\\' + folder + '/data/All_resps_' + str(p).zfill(
-                2) + '_' + t  + '.npy',
+                2) + '_' + t + '.npy',
                     EEG_block)
             stim_table.to_csv(path_save + '\\' + folder + '/data/Stim_list_' + str(p).zfill(
-                2) + '_' + t  + '.csv', index=False,
+                2) + '_' + t + '.csv', index=False,
                               header=True)  # scat_plot
 
     def cut_resp_IOM(self, path_pp, path_save, prot='IOM'):
@@ -357,6 +358,9 @@ class main:
                 os.makedirs(self.path_patient_analysis + '\\' + folder + '\\data')
 
             stim_table = stim_table.drop(columns="Num", errors='ignore')
+            stim_table = stim_table.reset_index(drop=True)
+            stim_table = stim_table[stim_table.ChanP > 0]
+            stim_table = stim_table[stim_table.ChanN > 0]
             stim_table = stim_table.reset_index(drop=True)
             stim_table.insert(10, "Num", np.arange(0, len(stim_table), True))
             if len(stim_table) > 0:

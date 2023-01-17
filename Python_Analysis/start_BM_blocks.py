@@ -400,7 +400,7 @@ def update_peaks(subj, cond_folder='CR'):
 
 
 #
-for subj in ['EL018']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
+for subj in ['EL020']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
     # if i>0: cal_con_trial(subj, 'CR')
     # _thread.start_new_thread(cal_con_trial, (subj, 'Ph')) # cal_con_trial(subj, 'Ph')
     ####old###get_significance_trial(subj, cond_folder='CR', update_sig=0)

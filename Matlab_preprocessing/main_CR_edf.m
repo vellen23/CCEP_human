@@ -19,7 +19,8 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
 path = 'Y:\eLab\Patients\';
-subj            = 'EL018'; %% change name if another data is used !!
+path = 'X:\\4 e-Lab\\Patients\\';
+subj            = 'EL020'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 % load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
@@ -30,6 +31,7 @@ BP_label = importfile_BPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Ch
 
 BP_label = BP_label(~isnan(BP_label.chan_BP_P),:);
 MP_label= MP_label(~isnan(MP_label.Natus),:);
+start
 %% 1. log 
 log_files= dir([dir_files '\*.log']);
 i = 1; % find automated way or select manually
@@ -46,9 +48,9 @@ type                = 'CR';
 files= dir([dir_files '\*CR*.EDF']);
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 %%
-for j=6:length(files)
+for j=1:length(files)
     %% 1. read first raw data
-    file = files(j).name;
+    file = files(j).name
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
     H                      = Epitome_edfExtractHeader(filepath);
     [hdr_edf, EEG_all]     = edfread_data(filepath);
@@ -146,16 +148,23 @@ for j=6:length(files)
 %     stimlist.TTL(cond) = t_new;
 %     stimlist.noise(cond) = 0;
 % end
+%%
+A = stimlist.noise;
+a=cumsum(A)+1;
+if a(end)>0.1*length(a)
+    disp('check trigger alignment again');
+end
+
     %% 5. Test trigger
     clf(figure(1))
     Fs     = hdr_edf.frequency(1);
     %Fs = 148;
-    n_trig = 100;
+    n_trig = 10;
     t      = stimlist.TTL(n_trig);
     IPI    = stimlist.IPI_ms(n_trig);
     x_s = 10;
     x_ax        = -x_s:1/Fs:x_s;
-    c= 50;
+    c= 1;
     plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
     hold on
     plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
@@ -165,9 +174,9 @@ for j=6:length(files)
 
     %% 6. get bipolar montage of EEG
     % bipolar
-    ix        = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.labelN_EDF);
-    pos_ChanP =  ix(:,1);
-    pos_ChanN =  ix(:,2);
+%     ix        = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.labelN_EDF);
+%     pos_ChanP =  ix(:,1);
+%     pos_ChanN =  ix(:,2);
     % EEG_all         = [EEG_all; zeros(1,size(EEG_all,2))];
     EEG_all       = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
     
@@ -190,7 +199,7 @@ for j=6:length(files)
         % cut_block_edf(EEG_block, stim_list,type,block_num, Fs, subj,BP_label, path_pp)
         %(EEG_block, stim_list,type,block_num, Fs, subj,BP_label, path_pp)
     end
-    assignin('base',['stimlist' file(end-7:end-4)], stimlist)
+    assignin('base',['stimlist' file(end-8:end-4)], stimlist)
     if height(stimlist_all)<200
         disp('stop');
     end

@@ -92,11 +92,13 @@ def remove_art(con_trial, EEG_resp):
     # remove trials that have artefacts (high voltage values)
     chan, trial = np.where(np.max(abs(EEG_resp), 2) > 3000)
     for i in range(len(trial)):
-        con_trial.loc[(con_trial.Chan == chan[i]) & (con_trial.Num_block == trial[i]), 'Artefact'] = -1
+        con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
+                    con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     chan, trial = np.where(np.max(abs(EEG_resp[0:int(0.5 * Fs)]), 2) > 1500)
     for i in range(len(trial)):
-        con_trial.loc[(con_trial.Chan == chan[i]) & (con_trial.Num_block == trial[i]), 'Artefact'] = -1
+        con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
+                    con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     resp_BL = abs(ff.lp_filter(EEG_resp, 2, Fs))
     resp_BL = resp_BL[:, :, 0:int(Fs)]
@@ -104,10 +106,11 @@ def remove_art(con_trial, EEG_resp):
     AUC_BL = np.trapz(resp_BL, dx=1)
     chan, trial = np.where(AUC_BL > 28000)
     for i in range(len(trial)):
-        con_trial.loc[(con_trial.Chan == chan[i]) & (con_trial.Num_block == trial[i]), 'Artefact'] = -1
+        con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
+                    con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     # remove unrealistic high LL
-    con_trial.loc[con_trial.LL > 40, 'Artefact'] = -1
+    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.LL > 40), 'Artefact'] = -1
 
     return con_trial
 
@@ -242,14 +245,13 @@ def compute_subj(subj, cond_folder='Ph'):
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
 
     ######### Load data
-    rerun = 0
-    if os.path.isfile(file_con):
+    load = 0
+    if os.path.isfile(file_con)*load:
         # con_trial
         con_trial = pd.read_csv(file_con)
     else:
         rerun = 1
-    rerun = 1
-    file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
+    # file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
     if rerun:
         mx_across = 0
         for l in range(0, len(files_list)):
@@ -257,28 +259,25 @@ def compute_subj(subj, cond_folder='Ph'):
             stimlist = pd.read_csv(files_list[l])
             if not ('noise' in stimlist.columns):
                 stimlist.insert(9, 'noise', 0)
-            if ('StimNum' in stimlist.columns):
-                stimlist = stimlist.drop(columns='StimNum')
-            stimlist.insert(5, 'StimNum', np.arange(len(stimlist)))
+            new_col = ['StimNum', 'Num_block']
+            for col in new_col:
+                if col in stimlist:
+                    stimlist = stimlist.drop(col, axis=1)
+                stimlist.insert(4, col, np.arange(len(stimlist)))
+            stimlist = stimlist.reset_index(drop=True)
 
-            EEG_resp = np.load(
-                path_patient_analysis + '\\' + folder + '\\data\\ALL_resps_' + files_list[l][-11:-4] + '.npy')
-            if EEG_resp.shape[1] != np.max(stimlist.StimNum) + 1:
-                print('ERROR number of stimulations is not correct')
-                break
+            # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
+            block_l = files_list[l][-11:-4]
+            file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
+            skip = 1
+            if os.path.isfile(file) * skip:
+                con_trial_block = pd.read_csv(file)
             else:
-                new_col = ['StimNum', 'Num_block']
-                for col in new_col:
-                    if col in stimlist:
-                        stimlist = stimlist.drop(col, axis=1)
-                    stimlist.insert(4, col, np.arange(len(stimlist)))
-                stimlist = stimlist.reset_index(drop=True)
-                # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
-                block_l = files_list[l][-11:-4]
-                file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-                skip = 0
-                if skip*os.path.isfile(file):
-                    con_trial_block = pd.read_csv(file)
+                EEG_resp = np.load(
+                    path_patient_analysis + '\\' + folder + '\\data\\ALL_resps_' + files_list[l][-11:-4] + '.npy')
+                if EEG_resp.shape[1] != np.max(stimlist.StimNum) + 1:
+                    print('ERROR number of stimulations is not correct')
+                    break
                 else:
                     con_trial_block = IOf.get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25,
                                                            Fs=500)
@@ -286,31 +285,24 @@ def compute_subj(subj, cond_folder='Ph'):
                     con_trial_block = remove_art(con_trial_block, EEG_resp)
                     con_trial_block = con_trial_block.reset_index(drop=True)
                     con_trial_block.to_csv(file, index=False, header=True)
-                if (os.path.isfile(file_MN1)) & (
-                        'N1' not in con_trial_block):  # path_patient_analysis + '\\'+protocol+'\\data\\M_N1.npy', M_N1peaks :
-                    # todo: get p2p N1, N2, etc.
-                    M_N1peaks = np.load(file_MN1)
-                    con_trial_block = IOf.get_peaks_all(con_trial_block, EEG_resp, M_N1peaks)
-                    con_trial_block.to_csv(file, index=False, header=True)
-                con_trial_block.Num = con_trial_block.Num_block + mx_across
-                mx_across = mx_across + np.max(stimlist.StimNum) + 1  # np.max(con_trial_block.Num) + 1
-
-                if l == 0:
-                    con_trial = con_trial_block
-                else:
-                    con_trial = pd.concat([con_trial, con_trial_block])
-        if ('zLL' in con_trial.columns):
-            con_trial = con_trial.drop(columns='zLL')
-
-        con_trial.insert(0, 'zLL', con_trial.groupby(['Stim', 'Chan', 'Int'])['LL'].transform(
-            lambda x: (x - x.mean()) / x.std()).values)
-
-        con_trial.loc[(con_trial.zLL > 6), 'Artefact'] = -1
-        con_trial.loc[(con_trial.zLL < -5), 'Artefact'] = -1
+            con_trial_block.Num = con_trial_block.Num_block + mx_across
+            mx_across = mx_across + np.max(stimlist.StimNum) + 1  # np.max(con_trial_block.Num) + 1
+            if l == 0:
+                con_trial = con_trial_block
+            else:
+                con_trial = pd.concat([con_trial, con_trial_block])
+    if ('zLL' in con_trial.columns):
         con_trial = con_trial.drop(columns='zLL')
 
-        con_trial.to_csv(file_con, index=False, header=True)
-        print(subj + ' ---- DONE ------ ')
+    con_trial.insert(0, 'zLL', con_trial.groupby(['Stim', 'Chan', 'Int'])['LL'].transform(
+        lambda x: (x - x.mean()) / x.std()).values)
+
+    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL > 6), 'Artefact'] = -1
+    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL < -5), 'Artefact'] = -1
+    con_trial = con_trial.drop(columns='zLL')
+
+    con_trial.to_csv(file_con, index=False, header=True)
+    print(subj + ' ---- DONE ------ ')
 
 
 def update_peaks(subj, cond_folder='CR'):
@@ -343,7 +335,8 @@ def update_peaks(subj, cond_folder='CR'):
 
 
 # compute_subj('EL004', 'CR')
-for subj in ['EL018']: #["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
+for subj in [
+    'EL020']:  # ["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
     # compute_subj(subj, 'CR')
     compute_subj(subj, cond_folder='CR')
     # _thread.start_new_thread(compute_subj, (subj,'CR'))

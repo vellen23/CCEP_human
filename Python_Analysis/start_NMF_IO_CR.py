@@ -54,12 +54,12 @@ x_ax_LL_bad = np.arange(-1, 0, (1 / Fs))
 cwd = os.getcwd()
 #
 folder = 'InputOutput'
-cond_folder ='CR'
+cond_folder = 'CR'
 if platform.system() == 'Windows':
     # sep = ','
     path = 'Y:\\eLab\\Patients\\'  # + subj
-    #path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
-    #path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+    # path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
+    # path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx",
                              header=0)
     regions = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\elab_labels.xlsx", sheet_name='regions',
@@ -81,13 +81,21 @@ cond_folder = 'CR'
 
 def compute_subj(subj, metric='LL'):
     print(f'Performing calculations on {subj}')
-    path_patient_analysis = 'Y:\\eLab\\Projects\\EL_experiment\\Analysis\\Patients\\' + subj
-    #path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    path_patient = path+ '\\'+subj+'\\Data\\EL_experiment\\' #os.path.join(path, subj,'\\Data\\EL_experiment\\')
 
-    if os.path.isfile(path_patient_analysis+'/InputOutput/' + cond_folder + '/data/EEG_' + cond_folder + '.npy'):
+    ######## General Infos
+    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
+    if not os.path.exists(path_gen):
+        path_gen = 'T:\\EL_experiment\\Patients\\' + subj
+    path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+    path_infos = os.path.join(path_patient, 'infos')
+    if not os.path.exists(path_infos):
+        path_infos = path_gen + '\\infos'
+
+    if os.path.isfile(path_patient_analysis + '/InputOutput/' + cond_folder + '/data/EEG_' + cond_folder + '.npy'):
         # EEG_resp = np.load(path_patient + '/Analysis/InputOutput/'+cond_folder+'/data/EEG_'+cond_folder+'.npy')
-        stimlist = pd.read_csv(path_patient_analysis+'/InputOutput/' + cond_folder + '/data/stimlist_' + cond_folder + '.csv')
+        stimlist = pd.read_csv(
+            path_patient_analysis + '/InputOutput/' + cond_folder + '/data/stimlist_' + cond_folder + '.csv')
     # elif os.path.isfile(path_patient + '/Analysis/InputOutput/' + cond_folder + '/data/EEG_' + cond_folder + '.npy')
     else:
         files_list = glob(path_patient_analysis + '/InputOutput/data/Stim_list_*_CR*')
@@ -101,7 +109,7 @@ def compute_subj(subj, metric='LL'):
     # if len(stimlist) != EEG_resp.shape[1]:
     #    print("WARNING: number of stimulations don't agree!")
 
-    lbls = pd.read_excel(path_patient + "\\infos\\" + subj + "_labels.xlsx", header=0, sheet_name='BP')
+    lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
         stimlist,
         lbls)
@@ -120,7 +128,7 @@ def compute_subj(subj, metric='LL'):
     con_trial_Ph.loc[con_trial_Ph.P2P > 4000, metric] = np.nan
     con_trial_Ph.loc[con_trial_Ph.LL > 40, metric] = np.nan
     con_trial_Ph.loc[
-        con_trial_Ph.Artefact ==1, metric] = np.nan  # con_trial_Ph.loc[con_trial_Ph.Artefact!=0, metric] =np.nan
+        con_trial_Ph.Artefact == 1, metric] = np.nan  # con_trial_Ph.loc[con_trial_Ph.Artefact!=0, metric] =np.nan
     # remove outliers
     con_trial_Ph.insert(0, 'zLL', con_trial_Ph.groupby(['Stim', 'Chan', 'Int'])['LL'].transform(
         lambda x: (x - x.mean()) / x.std()).values)
@@ -141,7 +149,7 @@ def compute_subj(subj, metric='LL'):
             (con_trial_Ph.Sleep == 0) & ((con_trial_Ph.Hour < 9) | (con_trial_Ph.Hour >= 21)), 'SleepState'] = 'Wake_N'
     sleepstate_labels = np.unique(con_trial_Ph['SleepState'])[::-1]
     # add path
-    nmf_fig_path =  path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\NNMF\\' + metric + '\\figures\\'
+    nmf_fig_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\NNMF\\' + metric + '\\figures\\'
     nmf_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\NNMF\\' + metric + '/'
     Path(nmf_fig_path).mkdir(parents=True, exist_ok=True)
 
@@ -149,31 +157,36 @@ def compute_subj(subj, metric='LL'):
     V_path = nmf_path + 'IO_' + metric + '.npy'
     title_LL = subj + ', Stim: all, ' + metric + ' as input'
     # todo: remove
-    run_again = 0
-    if run_again: #os.path.isfile(V_path):
+    load = 0
+    if os.path.isfile(V_path) * load:  # os.path.isfile(V_path):
         NMF_input = np.load(V_path)
     else:
         con_trial_nan = con_trial_Ph[(con_trial_Ph.d > -1)]  # con_trial_Ph.copy(deep=True)
 
         if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
-        con_trial_nan.groupby(['Stim', 'Chan', 'Sleep', 'Int'])[metric].transform(
-            lambda x: x.fillna(x.mean()))
+            con_trial_nan.groupby(['Stim', 'Chan', 'Sleep', 'Int'])[metric].transform(
+                lambda x: x.fillna(x.mean()))
         if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
-        con_trial_nan.groupby(['Stim', 'Chan', 'Block', 'Int'])[metric].transform(
-            lambda x: x.fillna(x.mean()))
+            con_trial_nan.groupby(['Stim', 'Chan', 'Block', 'Int'])[metric].transform(
+                lambda x: x.fillna(x.mean()))
         if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
-        con_trial_nan.groupby(['Stim', 'Chan', 'Int'])[metric].transform(
-            lambda x: x.fillna(x.mean()))
+            con_trial_nan.groupby(['Stim', 'Chan', 'Int'])[metric].transform(
+                lambda x: x.fillna(x.mean()))
         # if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = con_trial_nan.groupby(['Chan', 'Block'])[
         #     metric].transform(
-        chan_nans = np.unique(con_trial_nan.loc[np.isnan(con_trial_nan[metric]),'Chan'])
-        if len(chan_nans>0):
+        chan_nans = np.unique(con_trial_nan.loc[np.isnan(con_trial_nan[metric]), 'Chan'])
+        if len(chan_nans > 0):
             for rc in chan_nans.astype('int'):
-                mn = np.nanmean(con_trial_nan.loc[(con_trial_nan.Int<1)&(con_trial_nan.Chan==rc)&(np.isnan(con_trial_nan[metric])),metric])
+                mn = np.nanmean(con_trial_nan.loc[(con_trial_nan.Int < 1) & (con_trial_nan.Chan == rc) & (
+                    np.isnan(con_trial_nan[metric])), metric])
                 st = np.nanstd(con_trial_nan.loc[(con_trial_nan.Int < 1) & (con_trial_nan.Chan == rc) & (
                     np.isnan(con_trial_nan[metric])), metric])
-                n =  len(con_trial_nan.loc[(con_trial_nan.Chan==rc)&(np.isnan(con_trial_nan[metric])),metric].values)
-                con_trial_nan.loc[(con_trial_nan.Chan==rc)&(np.isnan(con_trial_nan[metric])),metric] = np.random.normal(loc=mn, scale=st, size=n)
+                n = len(
+                    con_trial_nan.loc[(con_trial_nan.Chan == rc) & (np.isnan(con_trial_nan[metric])), metric].values)
+                con_trial_nan.loc[
+                    (con_trial_nan.Chan == rc) & (np.isnan(con_trial_nan[metric])), metric] = np.random.normal(loc=mn,
+                                                                                                               scale=st,
+                                                                                                               size=n)
         # todo:  add random normal distributed value from chan when Int < 1mA (expected value if no response), especially for N peaks
 
         NMF_input = np.zeros((len(labels_all), len(np.unique(con_trial_nan.Num).astype('int'))))
@@ -261,7 +274,7 @@ def compute_subj(subj, metric='LL'):
         NMFf.plot_W(W_clean, title, labels_clean, file)
 
         if np.isin(rk, rank_sel):
-            #NMFf.plot_H_trial(con_nmf, 'Int', 'Block', title_LL, nmf_fig_path)
+            # NMFf.plot_H_trial(con_nmf, 'Int', 'Block', title_LL, nmf_fig_path)
             file = nmf_path + 'IO_CR_' + str(p) + 'rk' + str(rk) + '.csv'
             con_nmf.to_csv(file, index=False, header=True)
 
@@ -302,8 +315,8 @@ def compute_subj(subj, metric='LL'):
 # compute_subj('EL011')
 
 print('START')
-metrics = ['LL'] #'sN2','sN1',
-for subj in ["EL015", "EL004","EL005"]:#["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
+metrics = ['LL']  # 'sN2','sN1',
+for subj in ["EL018"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
     for m in metrics:
         compute_subj(subj, m)
 #         try:

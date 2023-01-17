@@ -11,6 +11,7 @@ root.withdraw()
 def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
     path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     file_con = path_patient_analysis + '\\' + prot + '\\' + cond_folder + '\\data\\con_trial_all.csv'
+    print('loading con_trial')
     con_trial =pd.read_csv(file_con)
     # load hypnogram
     file_hypno  = path_patient_analysis+'\\stimlist_hypnogram.csv' #path_patient + '/Analysis/stimlist_hypnogram.csv'
@@ -27,6 +28,7 @@ def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
     con_trial.to_csv(file_con, index=False, header=True) # return con_trial
+    print('con_trial updated')
 
 def update_stimlist(subj, folder='InputOutput', cond_folder='CR'):
     # is start_cut_resp updated?
@@ -64,16 +66,18 @@ def update_stimlist(subj, folder='InputOutput', cond_folder='CR'):
         header=True)  # scat_plot
     print('data stored')
 
-subj            = "EL012"
+
 update = 1
 
 #subjs = ['EL003', 'EL004', 'EL005', 'EL010', 'EL011']
-subjs = ["EL004", "EL005"]
+subjs = ["EL019"]
 for subj in subjs:
     cwd             = os.getcwd()
     print(subj)
+    folders = ['BrainMapping','InputOutput']
+    update = 1
     if update:
-        for f in ['InputOutput','PairedPulse']:  # 'BrainMapping',
+        for f in folders:  # 'BrainMapping',,'PairedPulse'
             update_stimlist(subj, folder=f, cond_folder='CR')
 
     path_patient = 'Y:\eLab\Patients\\'+subj
@@ -128,6 +132,8 @@ for subj in subjs:
     plt.tick_params(axis="y", labelsize=18)
     plt.savefig(file_hypno_fig)
     plt.show()
-    if update:
-        for f in ['InputOutput', 'PairedPulse']:  #
+    update_contrial = 1
+    folders = ['BrainMapping']
+    if update_contrial:
+        for f in folders:  #
             update_sleep(subj, prot=f, cond_folder='CR')

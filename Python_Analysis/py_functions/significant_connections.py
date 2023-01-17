@@ -112,7 +112,7 @@ def get_CC_surr(rc, LL_CCEP, EEG_resp, n_trials, Fs=500, w_cluster=0.25, n_clust
         for t_0 in [0, 0.6, 1.1]:
             _, _, p_CC, _, y, _, LL_CC = get_GT_trials(trials, real=0, t_0=t_0, Fs=Fs, w=w_cluster,
                                                        n_cluster=n_cluster)
-            if (sum(y==0)>np.max([5, 0.05*len(y)]))&(sum(y==1)>np.max([5, 0.05*len(y)])):
+            if (sum(y == 0) > np.max([5, 0.05 * len(y)])) & (sum(y == 1) > np.max([5, 0.05 * len(y)])):
                 pear_surr = np.concatenate([pear_surr, [p_CC]], 0)
                 LL_surr = np.concatenate([LL_surr, np.expand_dims(LL_CC, 0)], 0)
     return pear_surr, [np.percentile(pear_surr, 95), np.percentile(pear_surr, 99)], LL_surr[1:, :]
@@ -261,7 +261,8 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
         arr = np.concatenate([arr, arr_sc], 0)
     arr = arr[1:, :]
     sig_con = pd.DataFrame(arr,
-                           columns=['Stim', 'Chan', 'Sig_LL', 'Sig_CCp', 't_onset', 't_resp', 'CCp', 'CC_LL1', 'CC_LL2'])
+                           columns=['Stim', 'Chan', 'Sig_LL', 'Sig_CCp', 't_onset', 't_resp', 'CCp', 'CC_LL1',
+                                    'CC_LL2'])
     sig_con.loc[sig_con.Sig_LL == -1, 'Sig_CCp'] = -1
     if update_sig_con:
         sig_con.insert(3, 'Sig_CC_LL', 0)
@@ -273,12 +274,12 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
                        index=False,
                        header=True)
 
-
     print('Done')
 
 
 ##first you have to have con_trial_alll "EL010","EL011", "EL012",'EL013',
-for subj in ["EL018"]:  #,"EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" "EL010","EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" ## ,"EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"
+for subj in [
+    "EL019"]:  # ,"EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" "EL010","EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" ## ,"EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"
     for f in ['BrainMapping']:  # 'BrainMapping', 'InputOutput',
         # l = 0
         # if subj =='EL011':
