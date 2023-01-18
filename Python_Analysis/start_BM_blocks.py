@@ -89,9 +89,9 @@ color_elab[0, :] = np.array([31, 78, 121]) / 255
 color_elab[1, :] = np.array([189, 215, 238]) / 255
 color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
-
+sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
 def update_sleep(subj, prot='BrainMapping', cond_folder='CR'):
-    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     file_con = path_patient_analysis + '\\' + prot + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     con_trial = pd.read_csv(file_con)
     # load hypnogram
@@ -147,9 +147,9 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
     print(subj + ' ---- START ------ ')
 
     # path_patient_analysis = 'Y:\\eLab\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
 
-    path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
+    path_gen = os.path.join(sub_path+'\\Patients\\' + subj)
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
@@ -257,8 +257,8 @@ def get_significance_trial(subj, cond_folder='CR', update_sig=0):
     ######## General Infos
     print(subj + ' ---- START ------ ')
 
-    path_patient_analysis = 'Y:\\eLab\\EvM\\Projects\\EL_experiment\\Analysis\\Patients\\' + subj
-    path_patient = 'Y:\\eLab\\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+    path_patient_analysis = sub_path+'\\EvM\\Projects\\EL_experiment\\Analysis\\Patients\\' + subj
+    path_patient = sub_path+'\\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
 
     sep = ';'
     Fs = 500
@@ -375,7 +375,7 @@ def update_peaks(subj, cond_folder='CR'):
     if platform.system() == 'Windows':
         sep = ','
         # path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
-        path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+        path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     else:  # 'Darwin' for MAC
         path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj

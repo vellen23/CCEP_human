@@ -85,7 +85,7 @@ color_elab[1, :] = np.array([189, 215, 238]) / 255
 color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
 folder = 'InputOutput'
-
+sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
 
 def remove_art(con_trial, EEG_resp):
     # remove LL that are much higher than the mean
@@ -136,7 +136,7 @@ def compute_update_sleep_subj(subj):
 
     if platform.system() == 'Windows':
         sep = ','
-        path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+        path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     else:  # 'Darwin' for MAC
         path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
@@ -211,8 +211,8 @@ def compute_subj(subj, cond_folder='Ph'):
     print(f'Performing calculations on {subj}, Condition: ' + cond_folder)
 
     ######## General Infos
-    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_gen = os.path.join(sub_path+'\\Patients\\' + subj)
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
@@ -310,7 +310,7 @@ def update_peaks(subj, cond_folder='CR'):
     print(subj + ' ---- START ------ ')
     if platform.system() == 'Windows':
         sep = ','
-        path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+        path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     else:  # 'Darwin' for MAC
         path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
