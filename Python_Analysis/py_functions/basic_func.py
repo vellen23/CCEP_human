@@ -1,34 +1,11 @@
-import os
+
 import numpy as np
-import mne
+
 import h5py
 import scipy.fftpack
-import matplotlib
-import pywt
-from matplotlib.ticker import ScalarFormatter
-import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
-from scipy import signal
-from matplotlib.patches import Rectangle
-import time
-import seaborn as sns
+
 import scipy.io as sio
-from scipy.integrate import simps
-import pandas as pd
-from scipy import fft
-import sys
-import freq_funcs as ff
-# import LL_funcs
-import tqdm
-import platform
-from tslearn.clustering import TimeSeriesKMeans
-from tslearn.datasets import CachedDatasets
-from tslearn.preprocessing import TimeSeriesScalerMeanVariance, TimeSeriesResampler
-from scipy.spatial import distance
-import itertools
-from scipy.spatial import distance
-import math
-import LL_funcs as LLf
+
 
 cond_vals = np.arange(4)
 cond_labels = ['BM', 'BL', 'Fuma', 'Benzo']

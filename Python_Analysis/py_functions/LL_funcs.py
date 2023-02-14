@@ -5,8 +5,6 @@ import h5py
 import scipy.fftpack
 import matplotlib
 import pywt
-from matplotlib.ticker import ScalarFormatter
-import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from scipy import signal
 import time

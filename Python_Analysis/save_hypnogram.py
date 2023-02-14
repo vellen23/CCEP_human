@@ -7,9 +7,64 @@ from glob import glob
 import ntpath
 root = Tk()
 root.withdraw()
+sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
+
+def update_contrial_single(subj,cond_folder = 'CR', folder='BrainMapping'):
+    # for subj in ["EL011"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
+    # cwd = os.getcwd()
+    print(f'Performing calculations on {subj}')
+
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+
+    # get labels
+    if cond_folder == 'Ph':
+        files_list = glob(path_patient + '/Analysis/' + folder + '/data/Stim_list_*Ph*')
+    elif cond_folder == 'CR':
+        files_list = glob(path_patient + '/Analysis/' + folder + '/data/Stim_list_*CR*')
+    else:
+        print('not sure which protocol')
+        return
+
+    file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
+
+    for l in range(0, len(files_list)):
+        print('loading ' + files_list[l][-11:-4], end='\r')
+        stimlist = pd.read_csv(files_list[l])
+        if ('StimNum' in stimlist.columns):
+            stimlist = stimlist.drop(columns='StimNum')
+        stimlist.insert(5, 'StimNum', np.arange(len(stimlist)))
+
+        # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
+        block_l = files_list[l][-11:-4]
+        file = path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data/con_trial_' + block_l + '.csv'
+        con_trial_block = pd.read_csv(file)
+        sleep_list = stimlist[['StimNum', 'sleep']].values
+        for s in range(len(sleep_list)):
+            con_trial_block.loc[con_trial_block.Num_block == sleep_list[s, 0], 'Sleep'] = sleep_list[s, 1]
+        con_trial_block.to_csv(file, index=False, header=True)
+        if l == 0:
+            con_trial = con_trial_block
+        else:
+            con_trial = pd.concat([con_trial, con_trial_block])
+    if ('zLL' in con_trial.columns):
+        con_trial = con_trial.drop(columns='zLL')
+
+    #con_trial.insert(0, 'zLL', 0)
+
+    #con_trial.zLL = con_trial.groupby(['Stim', 'Chan', 'Int'])['LL_peak'].transform(
+    #    lambda x: (x - x.mean()) / x.std()).values
+    #con_trial.loc[(con_trial.zLL > 5), 'LL'] = np.nan
+    #con_trial.loc[(con_trial.zLL < -4), 'LL'] = np.nan
+    #con_trial = con_trial.drop(columns='zLL')
+    #con_trial.loc[np.isnan(con_trial.LL), 'LL_peak'] = np.nan
+
+    con_trial.to_csv(file_con, index=False, header=True)
+    print(subj + ' ---- DONE Sleep Update------ ')
 
 def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
-    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    # updates con_trial_all based on  stimlist_hypnogram
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     file_con = path_patient_analysis + '\\' + prot + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     print('loading con_trial')
     con_trial =pd.read_csv(file_con)
@@ -24,15 +79,17 @@ def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
 
     if 'SleepState' not in con_trial:
         con_trial.insert(5, 'SleepState', 'Wake')
-    con_trial.loc[(con_trial.Sleep > 0) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
+    con_trial.loc[(con_trial.Sleep > 1) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
+    con_trial.loc[(con_trial.Sleep == 1), 'SleepState'] = 'NREM1'
     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
     con_trial.to_csv(file_con, index=False, header=True) # return con_trial
     print('con_trial updated')
 
 def update_stimlist(subj, folder='InputOutput', cond_folder='CR'):
-    # is start_cut_resp updated?
-    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    print('is start_cut_resp updated?')
+    # updates concatenates all stimlist (Single blocks) of one specific protocol
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     files = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*' + cond_folder + '*')
     files = np.sort(files)
     # prots           = np.int64(np.arange(1, len(files) + 1))  # 43
@@ -70,22 +127,22 @@ def update_stimlist(subj, folder='InputOutput', cond_folder='CR'):
 update = 1
 
 #subjs = ['EL003', 'EL004', 'EL005', 'EL010', 'EL011']
-subjs = ["EL019"]
+subjs = ["EL012"]
 for subj in subjs:
     cwd             = os.getcwd()
     print(subj)
-    folders = ['BrainMapping','InputOutput']
+    folders = ['BrainMapping','InputOutput','PairedPulse']
     update = 1
     if update:
-        for f in folders:  # 'BrainMapping',,'PairedPulse'
+        for f in folders:  # 'BrainMapping','InputOutput','PairedPulse'
             update_stimlist(subj, folder=f, cond_folder='CR')
 
-    path_patient = 'Y:\eLab\Patients\\'+subj
+    path_patient = sub_path+'\\Patients\\'+subj
     sep =';'
 
-    file_hypno = 'Y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj+ '\\stimlist_hypnogram.csv'
+    file_hypno = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj+ '\\stimlist_hypnogram.csv'
     #file_hypno_all = 'C:\\Users\i0328442\Desktop\hypnograms\\'+subj+'_stimlist_hypnogram.csv'
-    file_hypno_fig = 'Y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj+ '\\stimlist_hypnogram.svg'
+    file_hypno_fig = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj+ '\\stimlist_hypnogram.svg'
     color_elab      = np.zeros((4,3))
     color_elab[0,:] = np.array([31, 78, 121])/255
     color_elab[1,:] = np.array([189, 215, 238])/255
@@ -96,7 +153,7 @@ for subj in subjs:
     stimlist_hypno =[]
     prots = ['BrainMapping', 'PairedPulse', 'InputOutput']
     for p in prots:
-        file = 'Y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj+ '\\'+p+'\\CR\\data\\stimlist_CR.csv'
+        file = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj+ '\\'+p+'\\CR\\data\\stimlist_CR.csv'
         if os.path.isfile(file):
             stimlist = pd.read_csv(file)
             stimlist = stimlist[stimlist.condition==0]
@@ -133,7 +190,6 @@ for subj in subjs:
     plt.savefig(file_hypno_fig)
     plt.show()
     update_contrial = 1
-    folders = ['BrainMapping']
     if update_contrial:
         for f in folders:  #
             update_sleep(subj, prot=f, cond_folder='CR')

@@ -1,19 +1,8 @@
 import os
 import numpy as np
-import mne
-import h5py
-import scipy.fftpack
-import matplotlib
 import pywt
-from matplotlib.ticker import ScalarFormatter
-import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
 from scipy import signal
-import time
-import seaborn as sns
-import scipy.io as sio
-from scipy.integrate import simps
-import pandas as pd
+
 from scipy import fft
 import sys
 from scipy.signal import hilbert, chirp

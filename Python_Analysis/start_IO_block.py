@@ -115,95 +115,6 @@ def remove_art(con_trial, EEG_resp):
     return con_trial
 
 
-def compute_update_sleep_subj(subj):
-    # for subj in ["EL011"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
-    # cwd = os.getcwd()
-    print(f'Performing calculations on {subj}')
-    cond_folder = 'CR'  # Condition = 'Hour', 'Condition', 'Ph'
-
-    if cond_folder == 'Ph':
-        cond_vals = np.arange(4)
-        cond_labels = ['BM', 'BL', 'Fuma', 'BZD']
-        cond_colors = ['#494159', '#594157', "#F1BF98", "#8FB996"]
-        cond1 = 'Condition'  # 'condition', 'h'
-        cond_folder = 'Ph'  # 'Ph', 'Sleep', 'CR'
-        Condition = 'Condition'
-    if cond_folder == 'CR':
-        Condition = 'Hour'  # Condition = 'Hour'
-        cond1 = 'h'  # h (as stored in stimlist)
-
-    ######## General Infos
-
-    if platform.system() == 'Windows':
-        sep = ','
-        path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-        path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    else:  # 'Darwin' for MAC
-        path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
-        sep = ';'
-    sep = ';'
-    Fs = 500
-    Path(path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data').mkdir(parents=True, exist_ok=True)
-    Path(path_patient + '/Analysis/' + folder + '/' + cond_folder + '/figures').mkdir(parents=True, exist_ok=True)
-
-    # get labels
-    if cond_folder == 'Ph':
-        files_list = glob(path_patient + '/Analysis/' + folder + '/data/Stim_list_*Ph*')
-    elif cond_folder == 'CR':
-        files_list = glob(path_patient + '/Analysis/' + folder + '/data/Stim_list_*CR*')
-    else:
-        files_list = glob(path_patient + '/Analysis/' + folder + '/data/Stim_list_*')
-    i = 0
-    stimlist = pd.read_csv(files_list[i])
-    # EEG_resp = np.load(path_patient + '/Analysis/' + folder + '/data/ALL_resps_'+files_list[i][-11:-4]+'.npy')
-    lbls = pd.read_excel(path_patient + "/infos/" + subj + "_labels.xlsx", header=0, sheet_name='BP')
-    labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
-        stimlist,
-        lbls)
-    badchans = pd.read_csv(path_patient + '/Analysis/' + folder + '/data/badchan.csv')
-    bad_chans = np.unique(np.array(np.where(badchans.values[:, 1] == 1))[0, :])
-
-    bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
-
-    file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
-
-    ######### Load data
-
-    for l in range(0, len(files_list)):
-        print('loading ' + files_list[l][-11:-4], end='\r')
-        stimlist = pd.read_csv(files_list[l])
-        if ('StimNum' in stimlist.columns):
-            stimlist = stimlist.drop(columns='StimNum')
-        stimlist.insert(5, 'StimNum', np.arange(len(stimlist)))
-
-        # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
-        block_l = files_list[l][-11:-4]
-        file = path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data/con_trial_' + block_l + '.csv'
-        con_trial_block = pd.read_csv(file)
-        sleep_list = stimlist[['StimNum', 'sleep']].values
-        for s in range(len(sleep_list)):
-            con_trial_block.loc[con_trial_block.Num_block == sleep_list[s, 0], 'Sleep'] = sleep_list[s, 1]
-        con_trial_block.to_csv(file, index=False, header=True)
-        if l == 0:
-            con_trial = con_trial_block
-        else:
-            con_trial = pd.concat([con_trial, con_trial_block])
-    if ('zLL' in con_trial.columns):
-        con_trial = con_trial.drop(columns='zLL')
-
-    con_trial.insert(0, 'zLL', 0)
-
-    con_trial.zLL = con_trial.groupby(['Stim', 'Chan', 'Int'])['LL_peak'].transform(
-        lambda x: (x - x.mean()) / x.std()).values
-    con_trial.loc[(con_trial.zLL > 5), 'LL'] = np.nan
-    con_trial.loc[(con_trial.zLL < -4), 'LL'] = np.nan
-    con_trial = con_trial.drop(columns='zLL')
-    con_trial.loc[np.isnan(con_trial.LL), 'LL_peak'] = np.nan
-
-    con_trial.to_csv(file_con, index=False, header=True)
-    print(subj + ' ---- DONE Sleep Update------ ')
-
-
 ########### Input
 def compute_subj(subj, cond_folder='Ph'):
     # for subj in ["EL011"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
@@ -230,8 +141,7 @@ def compute_subj(subj, cond_folder='Ph'):
         files_list = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*CR*')
     else:
         files_list = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*')
-    i = 0
-    stimlist = pd.read_csv(files_list[i])
+    stimlist = pd.read_csv(files_list[1])
     # EEG_resp = np.load(path_patient + '/Analysis/' + folder + '/data/ALL_resps_'+files_list[i][-11:-4]+'.npy')
     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
 

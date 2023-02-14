@@ -104,7 +104,7 @@ def update_sleep(subj, prot='BrainMapping', cond_folder='CR'):
             con_trial.loc[np.isin(con_trial.Num, stimNum), 'Sleep'] = ss
 
     con_trial.insert(5, 'SleepState', 'Wake')
-    con_trial.loc[(con_trial.Sleep > 0) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
+    con_trial.loc[(con_trial.Sleep > 1) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
     con_trial.to_csv(file_con, index=False, header=True)  # return con_trial

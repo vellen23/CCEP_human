@@ -234,8 +234,6 @@ def get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500, t_0=1):
 
                 data_LL = np.concatenate((data_LL, val), axis=0)
 
-
-
         data_LL = data_LL[1:-1, :]  # remove first row (dummy row)
         LL_all = pd.DataFrame(
             {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "LL_SP": data_LL[:, 3], "Int": data_LL[:, 4],

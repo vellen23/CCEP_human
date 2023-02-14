@@ -44,13 +44,14 @@ for i=3:length(block_files)
     run_pp_check =1;
     if exist(char([block_path, '\', block_files(i).name, '\', 'ppEEG.mat']), 'file')==2
         pp_date = dir(char([block_path, '\', block_files(i).name, '\', 'ppEEG.mat'])).datenum;
+        scalp_date = dir(char([block_path, '\', block_files(i).name, '\', 'scalpEEG.mat'])).datenum;
         raw_date = dir(char([block_path, '\', block_files(i).name, '\', block_files(i).name,'.mat'])).datenum;
-        if pp_date>raw_date
+        if scalp_date>pp_date%if pp_date>raw_date
             run_pp_check = 0;
         end
     end
     if run_pp_check
-        run_pp(char([block_path, '\', block_files(i).name]), sclA, sclC );
+        %run_pp(char([block_path, '\', block_files(i).name]), sclA, sclC );
         run_pp_scalp(char([block_path, '\', block_files(i).name]), sclA_scalp, sclC_scalp, BP_label);
     % %     
         %sanity_checks(char([block_path, sep, block_files(i).name]),BP_label );

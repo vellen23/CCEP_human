@@ -73,12 +73,12 @@ def compute_list_update(subj):
     print(f'Performing calculations on {subj}')
     path_patient = 'Y:\\eLab\\Patients\\' + subj  ##'T:\EL_experiment\Patients'#os.path.join('E:\PhD\EL_experiment\Patients',subj) # path_patient    = 'E:\PhD\EL_experiment\Patients\\'+subj ##'T:\EL_experiment\Patients'
     # path_patient    = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/'+subj
-
+    path_patient = 'X:\\4 e-Lab\\Patients\\' + subj
     CUT = cut_resp.main(subj, path_patient)
     paths = os.listdir(path_patient + '\Data\EL_experiment')
     n_ex = len(paths)
     n_ex = len(paths)
-    k = 1  # todo: 0
+    k = 0  # todo: 0
 
     for n in range(n_ex):
         path_data = os.path.join(path_patient, 'Data\EL_experiment', paths[n], 'data_blocks')
@@ -100,10 +100,10 @@ def compute_list_update(subj):
 
 #
 # compute_cut('EL014')
-for subj in ["EL020"]:  # , "EL010"
+for subj in ["EL012"]:  # , "EL010"
     # compute_list_update(subj)
     # compute_cut(subj, cut_blocks=1, concat_blocks=0)  # _thread.start_new_thread(compute_list_update, (subj,))
-    compute_cut(subj, concat_blocks=0)
-    # compute_list_update(subj)
+    #compute_cut(subj, concat_blocks=0)
+    compute_list_update(subj)
 # while 1:
 #    time.sleep(1)

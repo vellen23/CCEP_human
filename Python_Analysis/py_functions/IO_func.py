@@ -188,7 +188,14 @@ def get_LL_all_LTI(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
 
 def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w_LL=0.25):
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM,StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(stimlist,
-                                                                                                          lbls)
+                                                                                                 lbls)
+    # Num_block is stimulation number specific to block
+    if not 'Num_block' in stimlist.columns:
+        stimlist.insert(0, "Num_block", stimlist.StimNum, True)
+    if not 'condition' in stimlist.columns:
+        stimlist.insert(8, "condition", 0, True)
+    if not 'sleep' in stimlist.columns:
+        stimlist.insert(8, "sleep", 0, True)
     data_LL = np.zeros((1, 12))  # RespChan, Int, LL, LLnorm, State
     stim_spec = stimlist[(stimlist.IPI_ms == 0) ]  # &(stimlist.noise ==0)
     stimNum = stim_spec.StimNum.values  # [:,0]

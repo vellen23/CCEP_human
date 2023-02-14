@@ -50,6 +50,8 @@ import freq_funcs as ff
 from pathlib import Path
 import _thread
 
+sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
+
 regions = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\elab_labels.xlsx", sheet_name='regions', header=0)
 color_regions = regions.color.values
 regions = regions.label.values
@@ -119,8 +121,8 @@ def compute_subj(subj):
 
     ######## General Infos
 
-    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
+    path_patient_analysis = sub_path+'\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_gen = os.path.join(sub_path+'\Patients\\' + subj)
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
@@ -166,40 +168,37 @@ def compute_subj(subj):
             stimlist = pd.read_csv(files_list[l])
             if not ('noise' in stimlist.columns):
                 stimlist.insert(9, 'noise', 0)
-            if ('StimNum' in stimlist.columns):
-                stimlist = stimlist.drop(columns='StimNum')
-            stimlist.insert(5, 'StimNum', np.arange(len(stimlist)))
+            new_col = ['StimNum', 'Num_block']
+            for col in new_col:
+                if col in stimlist:
+                    stimlist = stimlist.drop(col, axis=1)
+                stimlist.insert(4, col, np.arange(len(stimlist)))
+            stimlist = stimlist.reset_index(drop=True)
 
-            EEG_resp = np.load(path_patient_analysis + '\\' +folder +'\\data\\ALL_resps_' + files_list[l][-11:-4] + '.npy')
-            if EEG_resp.shape[1] != np.max(stimlist.StimNum) + 1:
-                print('ERROR number of stimulations is not correct')
-                break
+            # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
+            block_l = files_list[l][-11:-4]
+            file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
+            skip = 1
+            if os.path.isfile(file) * skip:
+                con_trial_block = pd.read_csv(file)
             else:
-                new_col = ['StimNum', 'Num_block']
-                for col in new_col:
-                    if col in stimlist:
-                        stimlist = stimlist.drop(col, axis=1)
-                    stimlist.insert(4, col, np.arange(len(stimlist)))
-                stimlist = stimlist.reset_index(drop=True)
-                # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
-                block_l = files_list[l][-11:-4]
-                file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-                skip = 0
-                if skip * os.path.isfile(file):
-                    con_trial_block = pd.read_csv(file)
+                EEG_resp = np.load(
+                    path_patient_analysis + '\\' + folder + '\\data\\ALL_resps_' + files_list[l][-11:-4] + '.npy')
+                if EEG_resp.shape[1] != np.max(stimlist.StimNum) + 1:
+                    print('ERROR number of stimulations is not correct')
+                    break
                 else:
                     con_trial_block = PPf.get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500)
                     con_trial_block = remove_art(con_trial_block, EEG_resp)
                     con_trial_block = con_trial_block.reset_index(drop=True)
                     con_trial_block.to_csv(file, index=False, header=True)
+            con_trial_block.Num = con_trial_block.Num_block + mx_across
+            mx_across = mx_across + np.max(stimlist.StimNum) + 1  # np.max(con_trial_block.Num) + 1
+            if l == 0:
+                con_trial = con_trial_block
+            else:
+                con_trial = pd.concat([con_trial, con_trial_block])
 
-                con_trial_block.Num = con_trial_block.Num_block + mx_across
-                mx_across = mx_across + np.max(stimlist.StimNum) + 1  # np.max(con_trial_block.Num) + 1
-
-                if l == 0:
-                    con_trial = con_trial_block
-                else:
-                    con_trial = pd.concat([con_trial, con_trial_block])
 
         if ('zLL' in con_trial.columns):
             con_trial = con_trial.drop(columns='zLL')
@@ -218,7 +217,7 @@ def compute_subj(subj):
 ########### Input
 threads = 0
 
-for subj in ["EL009"]: # ["EL005", "EL010", "EL016", "EL015","EL011", "EL004","El014"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
+for subj in ["EL012"]: # ["EL005", "EL010", "EL016", "EL015","EL011", "EL004","El014"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
     if threads:
         _thread.start_new_thread(compute_subj(subj))
     else:

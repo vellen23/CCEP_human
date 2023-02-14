@@ -1,5 +1,5 @@
-clear all
-close all
+% clear all
+% close all
 
 %% merge scalp files to score
 
@@ -21,13 +21,13 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %%
 
-subj            = 'EL020';
+subj            = 'EL005';
 %block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
 path_patient    = [path,  subj];  
 
-block_path     = uigetdir(['Y:\eLab\Patients\', subj, '\Data\EL_experiment\experiment1']); %
+block_path     = uigetdir([path, '\\', subj, '\\Data\\EL_experiment\experiment1']); %
 % block_files     = dir(block_path);
 % isdir           = [block_files.isdir]; % Get all the codes
 % block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
@@ -51,11 +51,12 @@ end
 %%
 % files= dir([dir_files '\*CR*.EDF']);
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
+START
 %% split based on selected files
 scalp_all       = [];
 score_all = [];
-Fs1 = 1024;
-for sf=2:height(score_files)-1      
+Fs1 = 2000; %1024
+for sf=2:height(score_files)   
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
     for i=3:length(block_files)
@@ -93,6 +94,14 @@ for sf=2:height(score_files)-1
         if exist('scalpFs','var') == 1
             Fs = scalpFs;
             clear scalpFs
+        end
+        if Fs~= 200
+            disp(Fs)
+            [bBP, aBP]          = butter(4, [0.5 80]/(Fs/2), 'bandpass');
+            scalpEEG          = filter(bBP, aBP, scalpEEG')';
+             
+            scalpEEG               = resample(scalpEEG',200,Fs)';
+            Fs = 200;
         end
 
         % score
@@ -158,7 +167,7 @@ for sf=2:height(score_files)-1
     score_all   = [];
 end
 %% load updated score file
-for sf=1:height(score_files)      
+for sf=1:height(score_files)-1      
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
     for i=3:length(block_files)
@@ -393,4 +402,150 @@ end
 % block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
 for i=17:length(block_files)
     score2list(char([block_path, sep, block_files(i).name]), 0);
+end
+
+
+%% SCORE from MF
+% 20210126211714
+time0           = datenum('20210223 072938', 'yyyymmdd HHMMSS');
+% check of difference of logfile and recording PC (timestamps) 
+l_epoch         = 30; % 30s or 10s
+start_epoch     = 1;% 0 or 1 
+d2s =24*60*60;
+for i=3:length(block_files)
+    sum = 0;
+    path = char([block_path, sep, block_files(i).name]);
+    [filepath,foldername] = fileparts(path);
+    [filepath] = fileparts(filepath);
+    subj = foldername(1:5);
+    if isnan(str2double(foldername(end))) % non numeric
+        type = foldername(10:end);
+        type_excel = type;
+        block_num = 0;
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)]);
+    elseif isnan(str2double(foldername(end-1)))
+        type = foldername(10:end-1);
+        block_num = str2double(foldername(end));
+        type_excel = type;
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
+    else
+        type = foldername(10:end-2);
+        if type(end)=="_"
+            type_excel = type(1:end-1);
+        else
+            type_excel = type;
+        end
+        block_num = str2double(foldername(end-1:end));
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
+    end
+    for j=1:height(stim_list)
+        time        = datenum(sprintf('%i %i:%i:%i',stim_list.date(j),stim_list.h(j), stim_list.min(j), stim_list.s(j)), 'yyyymmdd HH:MM:SS');
+        d_sec = d2s*time-d2s*time0;
+        if d_sec>0
+            sum = sum+1;
+            ix = datenum(floor(d_sec/l_epoch))+start_epoch;
+            t=score_MF(score_MF.Epoch==ix,:);
+            s = t.Stage(1);
+            if s>0
+                disp(s)
+            end
+            stim_list.sleep(j)=s;
+        end
+        
+    end
+    if sum>0
+        writetable(stim_list,[filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);        
+    end
+end
+
+%% MF scores to individual score (epitome)
+
+for i=3:length(block_files)
+    sum = 0;
+    path = char([block_path, sep, block_files(i).name]);
+    [filepath,foldername] = fileparts(path);
+    [filepath] = fileparts(filepath);
+    subj = foldername(1:5);
+    if isnan(str2double(foldername(end))) % non numeric
+        type = foldername(10:end);
+        type_excel = type;
+        block_num = 0;
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)]);
+    elseif isnan(str2double(foldername(end-1)))
+        type = foldername(10:end-1);
+        block_num = str2double(foldername(end));
+        type_excel = type;
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
+    else
+        type = foldername(10:end-2);
+        if type(end)=="_"
+            type_excel = type(1:end-1);
+        else
+            type_excel = type;
+        end
+        block_num = str2double(foldername(end-1:end))
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
+    end
+    j = 1;
+    time        = datenum(sprintf('%i %i:%i:%i',stim_list.date(j),stim_list.h(j), stim_list.min(j), stim_list.s(j)), 'yyyymmdd HH:MM:SS');
+    sec_start =stim_list.TTL_DS(1)/500;   
+    time = time-seconds(sec_start);
+    d_sec = d2s*time-d2s*time0;
+    if d_sec>0
+        load(char([block_files(i).folder, sep, block_files(i).name, sep,'score.mat']));
+        sum = sum+1;
+        ix_epoch=floor(datenum(d_sec/l_epoch))+start_epoch;
+        for s=1:l_epoch:length(score)
+            t=score_MF(score_MF.Epoch==ix_epoch,:);
+            if t.Stage(1)>0
+                disp(t.Stage(1))
+            end
+            s_epoch = s+l_epoch;
+            if s_epoch>length(score)
+                s_epoch = length(score);
+            end
+            score(s:s_epoch) = t.Stage(1);
+            ix_epoch = ix_epoch+1;
+        end
+        if sum>0
+            save(char([block_files(i).folder, sep, block_files(i).name, sep,'score.mat']),'score','-v7.3');
+        end
+    end
+end
+
+
+%% update long score file
+score_all = [];
+Fs1 = 2000; %1024
+for sf=1:height(score_files)-1 
+    start_file = score_files.start(sf);
+    stop_file = score_files.end(sf);
+    for i=3:length(block_files)
+        if block_files(i).name == start_file
+            i_start = i;
+        elseif block_files(i).name == stop_file
+            i_stop = i;
+        end
+    end
+    % concat files
+    for i=i_start:i_stop
+        disp(block_files(i).name);
+        clear Fs
+        load(char([block_files(i).folder, sep, block_files(i).name, sep,'score.mat']));
+        
+        if isempty(score_all)
+            score_all = score;
+        else
+            score_all = [score_all, score];
+        
+        end
+    end
+   
+    % save data
+        file_name= [subj, '_scalp2score_', num2str(sf)];
+        file_sel = [fileparts(block_path), sep, file_name];
+        score = score_all;
+        save([file_sel, sep, 'score.mat'],'score','-v7.3');
+
+    score_all   = [];
 end

@@ -14,7 +14,7 @@ import scipy.stats as stats
 import tqdm
 import time
 import _thread
-
+sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
 
 def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2):
     # old version, now use significant_connection.py !
@@ -144,7 +144,7 @@ def search_sequence_numpy(arr, seq):
 
 
 def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR'):
-    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     files = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*' + cond_folder + '*')
     files = np.sort(files)
     # prots           = np.int64(np.arange(1, len(files) + 1))  # 43
@@ -189,7 +189,7 @@ def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR'):
 def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=0):
     print(subj + ' -- START --')
     ## path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_patient_analysis = 'y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
 
     file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_tresp.npy'
     file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_CC.npy'
@@ -229,7 +229,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=0):
 
 
 def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
-    path_patient_analysis = 'y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     con_trial = pd.read_csv(file_con)
@@ -262,7 +262,7 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
 for subj in ["EL020","EL019","EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016",
              "EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
     for f in ['BrainMapping', 'InputOutput']: # 'BrainMapping', 'InputOutput',
-        #if f == 'BrainMapping':
+        #if f == 'BrainMapping': OOOOLLLLLDD
         #    start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)
         #else:
         start_subj(subj, folder=f, cond_folder='CR')

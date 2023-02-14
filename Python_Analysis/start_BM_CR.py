@@ -37,17 +37,19 @@ sleepstate_labels = ['NREM', 'REM', 'Wake']
 
 folder = 'BrainMapping'
 cond_folder = 'CR'
-
+sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
 
 class main:
     def __init__(self, subj):
         #  basics, get 4s of data for each stimulation, [-2,2]s
         self.folder = 'BrainMapping'
         self.cond_folder = 'CR'
-        self.path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-        path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
+        self.path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+        path_gen = os.path.join(sub_path+'Patients\\' + subj)
         if not os.path.exists(path_gen):
-            path_gen = 'T:\\EL_experiment\\Patients\\' + subj
+            print("Can't find path")
+            #path_gen = 'T:\\EL_experiment\\Patients\\' + subj
+            return
         self.path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
         path_infos = os.path.join(self.path_patient, 'infos')
         if not os.path.exists(path_infos):
@@ -81,7 +83,7 @@ class main:
         # regions information
         self.CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx",
                                       header=0)
-        regions = pd.read_excel("Y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\Across\elab_labels.xlsx",
+        regions = pd.read_excel(sub_path+"\\EvM\Projects\EL_experiment\Analysis\Patients\Across\elab_labels.xlsx",
                                 sheet_name='regions',
                                 header=0)
         self.color_regions = regions.color.values
@@ -135,7 +137,7 @@ class main:
 
         M[np.isnan(M)] = -1
 
-        fig = plt.figure(figsize=(15, 15))
+        fig = plt.figure(figsize=(25, 25))
         fig.patch.set_facecolor('xkcd:white')
         axmatrix = fig.add_axes([0.15, 0.15, 0.7, 0.7])  # x, y, (start posiion), lenx, leny
         if method == 'LL':
@@ -143,7 +145,7 @@ class main:
             cmap.set_under('#2b2b2b')
             cmap.set_bad('black')
             M = np.ma.masked_equal(M, 0)
-            im = axmatrix.matshow(M, aspect='auto', origin='lower', cmap=cmap, vmin=0, vmax=np.percentile(M, 95))
+            im = axmatrix.matshow(M, aspect='auto', origin='lower', cmap=cmap, vmin=0.5, vmax=6) # np.percentile(M, 95)
         elif method == 'Prob':
             cmap = copy.copy(plt.cm.get_cmap(cmap))  # cmap = copy.copy(mpl.cm.get_cmap(cmap))
             cmap.set_under('black')
@@ -163,8 +165,8 @@ class main:
         plt.suptitle(label + '-- ' + method)
         plt.xlim([-1.5, len(labels) - 0.5])
         plt.ylim([-0.5, len(labels) + 0.5])
-        plt.xticks(range(len(labels)), labels, rotation=90)
-        plt.yticks(range(len(labels)), labels)
+        plt.xticks(range(len(labels)), labels, rotation=90, fontsize=18)
+        plt.yticks(range(len(labels)), labels, fontsize=18)
         for i in range(len(labels)):
             r = areas[i]
             axmatrix.add_patch(Rectangle((i - 0.5, len(labels) - 0.5), 1, 1, alpha=1,
@@ -218,7 +220,7 @@ class main:
             pear_surr = np.sign(pear) * abs(pear ** exp) * LL
             pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
             f = f + 1
-        # other trials
+        # other surr trials
         real_trials = np.unique(
             con_trial.loc[(con_trial.Stim == sc) & (con_trial.Chan == rc), 'Num'].values.astype('int'))
         stim_trials = np.unique(
@@ -250,7 +252,7 @@ class main:
             pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
             f = f + 1
 
-        # real
+        # real trials
         t_test = t_0 + t_resp
         pear = np.zeros((len(EEG_trials[0]),)) - 1
         for n_c in range(len(M_GT)):
@@ -269,6 +271,7 @@ class main:
 
     def save_M_block(self, con_trial, metrics=['LL'], savefig=1):
         con_trial_sig = con_trial[(con_trial.Sleep < 5) & (con_trial.d > -10)]
+        con_trial_sig = con_trial_sig.reset_index(drop=True)
         con_trial_sig.loc[con_trial_sig.Sig < 0, 'Sig'] = np.nan
         con_trial_sig.insert(4, 'LL_sig', np.nan)
         con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
@@ -276,6 +279,8 @@ class main:
         con_trial_sig.insert(4, 'LL', con_trial_sig.LL_sig)
         con_trial_sig.insert(4, 'Prob', con_trial_sig.Sig)
         con_trial_sig = con_trial_sig.drop(columns='LL_sig')
+        con_trial_sig = con_trial_sig[(con_trial_sig.Block >=1)]
+        con_trial_sig = con_trial_sig.reset_index(drop=True)
         # labels:
         labels_sel = np.delete(self.labels_all, self.bad_all, 0)
         areas_sel = np.delete(self.labels_region_L, self.bad_all, 0)
@@ -316,12 +321,12 @@ class main:
                         # self.plot_BM_CR_block(M_resp, labels_sel, areas_sel, ll, t, metric, savefig)
                 np.save(M_dir_path, M_B_all)
             # pearson correlation across all blocks
-            M_B_allp = np.zeros((int(np.max(con_trial.Block) + 1), len(self.labels_all), len(self.labels_all)))
+            M_B_allp = np.zeros((int(np.max(con_trial_sig.Block) + 1), len(self.labels_all), len(self.labels_all)))
             M_B_allp[:, :, :] = M_B_all[:, :, :]
             M_B_allp[np.isnan(M_B_allp)] = 0
-            M_B_pear = np.zeros((int(np.max(con_trial.Block) + 1), int(np.max(con_trial.Block) + 1)))
+            M_B_pear = np.zeros((int(np.max(con_trial_sig.Block) + 1), int(np.max(con_trial_sig.Block) + 1)))
             M_pearson = np.zeros((1, 9))
-            block_all = np.unique(con_trial.Block).astype('int')
+            block_all = np.unique(con_trial_sig.Block).astype('int')
             for b1 in block_all:
                 for b2 in block_all[block_all > b1]:
                     M_B_pear[b1, b2] = np.corrcoef(M_B_allp[b1, :, :].flatten(), M_B_allp[b2, :, :].flatten())[0, 1]
@@ -529,9 +534,10 @@ class main:
                          index=False,
                          header=True)
 
-    def get_sleep_surr(self, con_trial):
+    def get_sleep_surr(self, con_trial, surr=1, again=1):
         file_con_sleep = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\con_sleep_stats.csv'
-        if not os.path.exists(file_con_sleep):
+
+        if again: # not os.path.exists(file_con_sleep):
             con_trial_sig = con_trial.copy()
             con_trial_sig.loc[con_trial_sig.Sig < 0, 'Sig'] = np.nan
             con_trial_sig.insert(4, 'LL_sig', np.nan)
@@ -569,7 +575,7 @@ class main:
                             (dat.Sig == 1) & (dat.SleepState == ss), 'LL'].values
                         p_SS = np.mean(dat.loc[dat.SleepState == ss, 'Prob'])
                         # prob ratio
-                        r = p_SS / p_W
+                        r = np.sign(p_SS-p_W)* (1- np.min([p_SS,p_W]) / np.max([p_SS,p_W]))
                         # sig_thr = BM_stats.R_surr(dat, feature_states=['Wake', ss])
                         con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
                                 con_sleep.Chan == rc), 'P_ratio'] = r
@@ -578,25 +584,29 @@ class main:
                         con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
                                 con_sleep.Chan == rc), 'LL_cd'] = cd
                         # surr
-                        n = 200
-                        p = 1
-                        surr_cd = np.zeros((n, 2))
-                        for i in range(n):
-                            np.random.shuffle(dat['SS'].values)
-                            surr_cd[i, 0] = np.mean(dat.loc[(dat['SS'] == ss), 'Prob']) / np.mean(
-                                dat.loc[(dat['SS'] == 'Wake'), 'Prob'])
-                            surr_cd[i, 1] = BM_stats.cohen_d(dat.loc[
-                                                                 (dat.Sig == 1) & (dat['SS'] == ss), 'LL'].values,
-                                                             dat.loc[
-                                                                 (dat.Sig == 1) & (dat['SS'] == 'Wake'), 'LL'].values)
+                        if surr:
+                            n = 200
+                            p = 1
+                            surr_cd = np.zeros((n, 2))
+                            for i in range(n):
+                                np.random.shuffle(dat['SS'].values)
+                                p_SS_s = np.mean(dat.loc[(dat['SS'] == ss), 'Prob'])
+                                p_W_s = np.mean(
+                                    dat.loc[(dat['SS'] == 'Wake'), 'Prob'])
 
-                        # sig_thr = BM_stats.CD_surr(dat[dat.Sig == 1], feature_states=['Wake', ss])
-                        con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                con_sleep.Chan == rc), 'LL_cd_sig'] = (cd < np.percentile(surr_cd[:, 1], p)) | (
-                                cd > np.percentile(surr_cd[:, 1], 100 - p))
-                        con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                con_sleep.Chan == rc), 'P_ratio_sig'] = (r < np.percentile(surr_cd[:, 0], p)) | (
-                                r > np.percentile(surr_cd[:, 0], 100 - p))
+                                surr_cd[i, 0] = np.sign(p_SS_s-p_W_s)* (1- np.min([p_SS_s,p_W_s]) / np.max([p_SS_s,p_W_s]))
+                                surr_cd[i, 1] = BM_stats.cohen_d(dat.loc[
+                                                                     (dat.Sig == 1) & (dat['SS'] == ss), 'LL'].values,
+                                                                 dat.loc[
+                                                                     (dat.Sig == 1) & (dat['SS'] == 'Wake'), 'LL'].values)
+
+                            # sig_thr = BM_stats.CD_surr(dat[dat.Sig == 1], feature_states=['Wake', ss])
+                            con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
+                                    con_sleep.Chan == rc), 'LL_cd_sig'] = (cd < np.percentile(surr_cd[:, 1], p)) | (
+                                    cd > np.percentile(surr_cd[:, 1], 100 - p))
+                            con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
+                                    con_sleep.Chan == rc), 'P_ratio_sig'] = (r < np.percentile(surr_cd[:, 0], p)) | (
+                                    r > np.percentile(surr_cd[:, 0], 100 - p))
 
                 con_sleep.loc[
                     (con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'P_ratio'] = 1
@@ -688,8 +698,8 @@ class main:
                          group='Sleep')
 
     def save_sleep_nmf(self, con_trial, M_Block, M_t_resp):
-
-        ## nnmf input: vecotize
+        con_trial = con_trial[con_trial.Block>=1]
+        con_trial =con_trial.reset_index(drop=True)
         M_B_nmf = M_Block.reshape(len(M_Block), -1)
         M_B_nmf = M_B_nmf.T
         M_B_nmf[np.isnan(M_B_nmf)] = 0
@@ -882,7 +892,7 @@ class main:
                          index=False,
                          header=True)
 
-    def BM_plots_General(self, M_t_resp, con_trial, reload=1):
+    def BM_plots_General(self, CC_summ, con_trial, reload=1):
         # labels
         # labels:
         labels_sel = np.delete(self.labels_all, self.bad_all, 0)
@@ -895,12 +905,15 @@ class main:
 
         # summary
         con_trial_sig = con_trial[con_trial.d > -10]
+        con_trial_sig = con_trial_sig.reset_index(drop=True)
         con_trial_sig.insert(4, 'LL_sig', np.nan)
-        con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
-        summ = con_trial_sig[(con_trial_sig.Sig > -1)]  # only possible connections
-        summ = summ.groupby(['Stim', 'Chan'], as_index=False)[['Sig', 'LL_sig', 'd']].mean()
 
-        M_dir_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\M_dir.csv'
+        con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
+
+        summ = con_trial_sig[(con_trial_sig.Sig > -1)]  # only possible connections
+        summ = summ.reset_index(drop=True)
+        summ = summ.groupby(['Stim', 'Chan'], as_index=False)[['Sig', 'LL_sig', 'd']].mean()
+        M_dir_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\M_DI.csv' # c M_dir
 
         if os.path.exists(M_dir_path) * reload:
             print('loading Directionality matrix')
@@ -977,23 +990,27 @@ class main:
         asym[asym < -9] = np.nan
 
         ##
-
-        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summary_general.csv'
+        # todo: remove
+        reload = 1
+        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_general.csv' # summary_general
         if os.path.exists(summary_gen_path) * reload:
             # print('loading')
             summ = pd.read_csv(summary_gen_path)
         else:
+            CC_summ = CC_summ[CC_summ.sig_w==1]
+            CC_summ = CC_summ.groupby(['Stim', 'Chan'], as_index=False)[['t_WOI', 'onset']].mean()
             # print('calculating')
             # aymmetry and probability by distance
-
-            summ.insert(4, 't_resp', -1)
+            summ = pd.merge(summ, CC_summ, on=['Stim', 'Chan'])
+            # summ.insert(4, 't_WOI', -1)
             summ.insert(4, 'Dir_B', -1)
             summ.insert(4, 'Dir_index', -1)
             # asym[rc, sc, 1]
 
             for sc in np.unique(summ.Stim).astype('int'):
                 for rc in np.unique(summ.Chan).astype('int'):
-                    summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 't_resp'] = M_t_resp[sc, rc, 2]
+                    # summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 't_WOI'] = M_t_resp[sc, rc, 2]
+                    # summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 't_onset'] = M_t_resp[sc, rc, 1]
                     summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 'Dir_B'] = asym[sc, rc, 0]
                     summ.loc[(summ.Stim == sc) & (summ.Chan == rc), 'Dir_index'] = asym[sc, rc, 1]
                     if asym[sc, rc, 1] == -10:
@@ -1022,19 +1039,21 @@ class main:
         # plt.legend(['Uni-drectional', 'Bi-directional'])
         # plt.show()
         # sns.catplot(x='Dist', y= 't_resp', hue='Dir', data=summ[summ.Dir>0], kind='swarm', aspect=3)
-        fig = plt.figure(figsize=(10, 8))
-        fig.patch.set_facecolor('xkcd:white')
-        sns.histplot(x='Dist', hue='Dir_B', data=summ[summ.Dir_index > 0], multiple="stack",
-                     palette=["#c34f2f", "#1e4e79"])
-        plt.legend(['Bi-directional', 'Uni-drectional'], fontsize=15)
-        plt.ylabel('Number of significant connections', fontsize=25)
-        plt.title('Across all trials', fontsize=25)
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-        plt.xlabel('')
-        plt.savefig(
-            self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\General\\Sym_dist_bar.svg')
-        plt.show()
+        hist=0
+        if hist:
+            fig = plt.figure(figsize=(10, 8))
+            fig.patch.set_facecolor('xkcd:white')
+            sns.histplot(x='Dist', hue='Dir_B', data=summ[summ.Dir_index > 0], multiple="stack",
+                         palette=["#c34f2f", "#1e4e79"])
+            plt.legend(['Bi-directional', 'Uni-drectional'], fontsize=15)
+            plt.ylabel('Number of significant connections', fontsize=25)
+            plt.title('Across all trials', fontsize=25)
+            plt.xticks(fontsize=15)
+            plt.yticks(fontsize=15)
+            plt.xlabel('')
+            plt.savefig(
+                self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\General\\Sym_dist_bar.svg')
+            plt.show()
         ## prob and LL
         M_LL = np.zeros((len(self.labels_all), len(self.labels_all), 2)) - 1
         for sc in np.unique(summ.Stim).astype('int'):
@@ -1061,7 +1080,7 @@ class main:
 def start_subj(subj, sig=0):
     print(subj + ' -- START --')
     run_main = main(subj)
-    path_patient_analysis = 'y:\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
 
     # file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_t_resp.npy'
     file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_tresp.npy'  # for each connection: LLsig (old), t_onset (old), t_resp, CC_p, CC_LL1, CC_LL2
@@ -1069,6 +1088,7 @@ def start_subj(subj, sig=0):
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     file_sig_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\sig_con.csv'
     file_CC_surr = path_patient_analysis + '\\' + folder + '\\data\\M_CC_surr.csv'
+    file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ.csv'
 
     # todo: make clean
     con_trial = pd.read_csv(file_con)
@@ -1076,31 +1096,33 @@ def start_subj(subj, sig=0):
     M_t_resp = np.load(file_t_resp)
     sig_con = pd.read_csv(file_sig_con)
     surr_thr = pd.read_csv(file_CC_surr)
+
+    CC_summ = pd.read_csv(file_CC_summ)
     if "Sig_CC_LL" not in sig_con:
         sig_con.insert(3, 'Sig_CC_LL', 0)
-    sig_con.Sig_CC_LL = 0
-    sig_con.loc[sig_con.Sig_LL == -1, 'Sig_CC_LL'] = -1
-    for rc in range(M_GT_all.shape[0]):
-        thr = 1.1 * surr_thr.loc[surr_thr.Chan == rc, 'CC_LL99'].values[0]
-        # thr = np.min([0.65, thr])
-        sig_con.loc[(sig_con.Chan == rc) & ((sig_con.CC_LL1 >= thr) | (sig_con.CC_LL2 >= thr)), 'Sig_CC_LL'] = 1
-
-    if "LL_onset" not in con_trial:
-        con_trial.insert(4, 'LL_onset', 0)
-
-    if 'd' not in sig_con:
-        # sig_con.insert(3, 'd', 0)
-        summ_d = con_trial.groupby(['Stim', 'Chan'], as_index=False)[['d']].mean()
-        sig_con = pd.merge(sig_con, summ_d, on=['Stim', 'Chan'])
-        sig_con.to_csv(file_sig_con,
-                       index=False,
-                       header=True)
-    # sig =1
-    if "Sig" not in con_trial:
-        sig = 1
-    if "N2" in con_trial:
-        sig = 1
-
+    # sig_con.Sig_CC_LL = 0
+    # sig_con.loc[sig_con.Sig_LL == -1, 'Sig_CC_LL'] = -1
+    # for rc in range(M_GT_all.shape[0]):
+    #     thr = 1.1 * surr_thr.loc[surr_thr.Chan == rc, 'CC_LL99'].values[0]
+    #     # thr = np.min([0.65, thr])
+    #     sig_con.loc[(sig_con.Chan == rc) & ((sig_con.CC_LL1 >= thr) | (sig_con.CC_LL2 >= thr)), 'Sig_CC_LL'] = 1
+    #
+    # if "LL_onset" not in con_trial:
+    #     con_trial.insert(4, 'LL_onset', 0)
+    #
+    # if 'd' not in sig_con:
+    #     # sig_con.insert(3, 'd', 0)
+    #     summ_d = con_trial.groupby(['Stim', 'Chan'], as_index=False)[['d']].mean()
+    #     sig_con = pd.merge(sig_con, summ_d, on=['Stim', 'Chan'])
+    #     sig_con.to_csv(file_sig_con,
+    #                    index=False,
+    #                    header=True)
+    # # sig =1
+    # if "Sig" not in con_trial:
+    #     sig = 1
+    # if "N2" in con_trial:
+    #     sig = 1
+    sig =0
     if sig:
         for col in ['t_N2', 'N2', 'sN1', 'sN2', 'N1', 't_N1', 'Sig', 'PLL', 'Pearson', 'Sig']:
             if col in con_trial: con_trial = con_trial.drop(columns=col)
@@ -1140,33 +1162,41 @@ def start_subj(subj, sig=0):
                          index=False,
                          header=True)
     con_trial.loc[(con_trial.SleepState == 'W'), 'SleepState'] = 'Wake'
-    run_main.get_sleep_surr(con_trial)
+    con_trial.loc[(con_trial.Sleep == 0), 'SleepState'] = 'Wake'
+    con_trial.loc[(con_trial.Sleep > 1) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
+    con_trial.loc[(con_trial.Sleep == 1), 'SleepState'] = 'NREM1'
+    con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
+    con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
+
+    # run_main.get_sleep_surr(con_trial, surr=1)
     # run_main.get_sleep_summary(con_trial, M_t_resp)
     # run_main.get_sleep_ttest_surr(con_trial, load=0)
-    print(subj + ' -- DONE --')
+
     # if not 'SleepState' in con_trial:
     #     con_trial.insert(5, 'SleepState', 'Wake')
     #     con_trial.loc[(con_trial.Sleep == 0), 'SleepState'] = 'Wake'
-    #     con_trial.loc[(con_trial.Sleep > 0) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
+    #     con_trial.loc[(con_trial.Sleep > 1) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
+    #     con_trial.loc[(con_trial.Sleep == 1), 'SleepState'] = 'NREM1'
+    #     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
     #     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
-    #     con_trial.to_csv(file_con,
-    #                      index=False,
-    #                      header=True)
-    #
-    # general = 0
-    # if general:
-    #     run_main.BM_plots_General(M_t_resp, con_trial)
-    # blocks = 1
+    con_trial.to_csv(file_con,
+                     index=False,
+                     header=True)
+    # #
+    general = 1
+    if general:
+        run_main.BM_plots_General(CC_summ, con_trial)
+    # blocks = 0
     # if blocks:
     #     # Blockwise BM
     #     _ = run_main.save_M_block(con_trial, metrics=['LL'], savefig=1)
     #     # np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\M_B_all.npy', M_B_all)
     # sleep = 1
     # sleep_nmf = 1
-    # if (subj == 'EL013') | (subj == 'EL012'):  # not enough sleep data
-    #     sleep = 0
-    #     sleep_nmf = 0
-    #
+    # # if (subj == 'EL013') | (subj == 'EL012'):  # not enough sleep data
+    # #     sleep = 0
+    # #     sleep_nmf = 0
+    # #
     # if sleep:
     #     run_main.save_M_sleep(con_trial, metrics=['LL', 'Prob'], savefig=1)
     #     # sleep ttest
@@ -1177,14 +1207,13 @@ def start_subj(subj, sig=0):
     #     M_dir_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\BM_figures\\Block\\BM_LL.npy'
     #     M_Block = np.load(M_dir_path)
     #     run_main.save_sleep_nmf(con_trial, M_Block, M_t_resp)
-    #
-    # print(subj + ' ----- DONE')
 
+    print(subj + ' ----- DONE')
 
 thread = 0
 sig = 0
 # todo: 'EL009',
-for subj in ['EL010', 'EL011', 'EL015', 'EL014', 'EL016',
+for subj in ['EL020','EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014', 'EL016',
              'EL017', 'EL019']:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'
     if thread:
         _thread.start_new_thread(start_subj, (subj, sig))
@@ -1193,3 +1222,5 @@ for subj in ['EL010', 'EL011', 'EL015', 'EL014', 'EL016',
 if thread:
     while 1:
         time.sleep(1)
+
+

@@ -24,14 +24,15 @@ cwd = os.getcwd()
 
 
 class main:
-    def __init__(self, subj, path_gen, dur=np.array([-1, 3])):
+    def __init__(self, subj, path_patient, dur=np.array([-1, 3])):
 
-        if not os.path.exists(path_gen):
-            path_gen = 'T:\\EL_experiment\\Patients\\' + subj  # if not in hulk check in T drive
-        path_patient = path_gen + '\Data\EL_experiment'  # path where data is stored
+        #if not os.path.exists(path_gen):
+        #    path_gen = 'T:\\EL_experiment\\Patients\\' + subj  # if not in hulk check in T drive
+        # path_patient = path_gen + '\Data\EL_experiment'  # path where data is stored
         path_infos = os.path.join(path_patient, 'infos')  # infos is either in Data or in general
         if not os.path.exists(path_infos):
-            path_infos = path_gen + '\\infos'
+            print('Cant find infos folder in patients folder')
+            # path_infos = path_gen + '\\infos'
 
         #  basics, get 4s of data for each stimulation, [-2,2]s
         self.Fs = 500
