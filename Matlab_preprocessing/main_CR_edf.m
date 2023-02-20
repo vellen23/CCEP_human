@@ -20,7 +20,7 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL020'; %% change name if another data is used !!
+subj            = 'EL021'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 % load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
@@ -34,7 +34,7 @@ MP_label= MP_label(~isnan(MP_label.Natus),:);
 start
 %% 1. log 
 log_files= dir([dir_files '\*.log']);
-i = 1; % find automated way or select manually
+i = 2; % find automated way or select manually
 log             = import_logfile([dir_files '\' log_files(i).name]);
 % file_log =[dir_files '/20220622_EL015_log.log'];
 % file_log = 'T:\EL_experiment\Patients\EL016\infos\20220921_EL016_log.log';
@@ -45,10 +45,23 @@ stimlist_all.keep = ones(height(stimlist_all),1);
 
 %% type
 type                = 'CR';
-files= dir([dir_files '\*CR*.EDF']);
+
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 %%
+dir_files       = [path_patient,'/data_raw/LT_Experiment'];
+files= dir([dir_files '\*LT*.EDF']);
 for j=1:length(files)
+    %% 1. read first raw data
+    file = files(j).name
+    filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
+    H                      = Epitome_edfExtractHeader(filepath);
+    disp(H.startdate);
+    disp(H.starttime);
+end
+%% 
+dir_files       = [path_patient,'/data_raw/EL_Experiment'];
+files= dir([dir_files '\*CR*.EDF']);
+for j=5:length(files)
     %% 1. read first raw data
     file = files(j).name
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
@@ -159,7 +172,7 @@ end
     clf(figure(1))
     Fs     = hdr_edf.frequency(1);
     %Fs = 148;
-    n_trig = 10;
+    n_trig = 220;
     t      = stimlist.TTL(n_trig);
     IPI    = stimlist.IPI_ms(n_trig);
     x_s = 10;
@@ -187,7 +200,6 @@ end
     if height(stimlist(stimlist.b==blocks(3),:))>height(stimlist(stimlist.b==blocks(2),:))+20
         ix = find(stimlist.stim_block==blocks(3),1);
         stimlist.b(1:ix-2) = blocks(3);
-        blocks          = unique(stimlist.b); %
     end
     %%
     blocks          = unique(stimlist.b);
@@ -200,8 +212,20 @@ end
         %(EEG_block, stim_list,type,block_num, Fs, subj,BP_label, path_pp)
     end
     assignin('base',['stimlist' file(end-8:end-4)], stimlist)
-    if height(stimlist_all)<200
-        disp('stop');
+    if height(stimlist_all)<10
+        log_ix = log_ix+1;
+        log             = import_logfile([dir_files '\' log_files(log_ix).name]);
+        % file_log =[dir_files '/20220622_EL015_log.log'];
+        % file_log = 'T:\EL_experiment\Patients\EL016\infos\20220921_EL016_log.log';
+        % log                 = import_logfile(file_log);
+        stimlist_all   = read_log(log);
+        stimlist_all=stimlist_all(startsWith(string(stimlist_all.type), "CR"),:);
+        stimlist_all.keep = zeros(height(stimlist_all),1);
+        % update block number
+      
+        idx = find(stimlist_all.stim_block>0);
+        stimlist_all.stim_block(idx) = stimlist_all.stim_block(idx)+max(stimlist.b);
+
     end
 end
 

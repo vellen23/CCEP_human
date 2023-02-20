@@ -3,7 +3,7 @@ clear all
 close all
 
 %% patient specific
-subj            = 'EL020';
+subj            = 'EL021';
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
 path_patient    = [path,  subj];  
@@ -20,18 +20,17 @@ block_path = [path_patient '\Data\EL_experiment\experiment1\data_blocks'];
 % subj            = 'EL020';
 %block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
 %block_path = [path_patient '\Data\EL_experiment\experiment1\data_blocks'];
-
+start 
 %% get rescale factor based on one block during 5min baseline
 % load one file, EEG and scalpEEG
 if exist( [path_patient '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'], 'file')
     load([path_patient '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'])
 else
-    [sclA, sclC]             = get_rescale_factors(EEG, Fs, 0, 200);
-    [sclA_scalp, sclC_scalp] = get_rescale_factors(scalpEEG, scalpFs, 1, 200);
+    [sclA, sclC]             = get_rescale_factors(EEG, Fs, 0, 280);
+    [sclA_scalp, sclC_scalp] = get_rescale_factors(scalpEEG, scalpFs, 1, 280);
     save([path_patient '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'],'sclA','sclA_scalp', 'sclC','sclC_scalp');
 end
-% save in Data folder ! 
-START
+
 %% 
 
 % % path where all blocks are stored
@@ -51,7 +50,7 @@ for i=3:length(block_files)
         end
     end
     if run_pp_check
-        %run_pp(char([block_path, '\', block_files(i).name]), sclA, sclC );
+        run_pp(char([block_path, '\', block_files(i).name]), sclA, sclC );
         run_pp_scalp(char([block_path, '\', block_files(i).name]), sclA_scalp, sclC_scalp, BP_label);
     % %     
         %sanity_checks(char([block_path, sep, block_files(i).name]),BP_label );

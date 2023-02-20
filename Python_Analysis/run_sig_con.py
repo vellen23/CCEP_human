@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import sys
+
 sys.path.append('T:\\EL_experiment\\Codes\\CCEP_human\\Python_Analysis\\py_functions')
 import pandas as pd
 from glob import glob
@@ -13,6 +14,7 @@ import significance_funcs as sigf
 from pathlib import Path
 
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
+
 
 def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, load_surr=1, surr_plot=1):
     print(subj + ' -- START --')
@@ -40,7 +42,8 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
     file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ.csv'
 
     ## load required data
-    con_trial = pd.read_csv(file_con) # table of each stimulation and for each response channel the corresponding LL value etc.
+    con_trial = pd.read_csv(
+        file_con)  # table of each stimulation and for each response channel the corresponding LL value etc.
     # trials where there is no LL value get an aretfact label (removed from analysis)
     con_trial.loc[con_trial.LL == 0, 'Artefact'] = 1
     # file where epoched data is stored (chan, trial, 2000)
@@ -49,7 +52,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
     ##### 1. get cluster centers and t_resp, t_onset for each possible connection
     EEG_resp = []
     M_GT_all = []
-    if os.path.isfile(file_GT):
+    if os.path.isfile(file_GT) * load_con:
         # print(file_GT + ' -- already exists')
         M_t_resp = np.load(file_t_resp)
         # M_GT_all = np.load(file_GT)
@@ -62,9 +65,10 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
             EEG_resp = np.load(EEG_CR_file)
         print('Calculating CC for each connection ..... ')
         chan_all = np.unique(con_trial.Chan)
-        n_chan = np.max(chan_all).astype('int') + 1 # number of channels. should be the same are len(labels_all)
+        n_chan = np.max(chan_all).astype('int') + 1  # number of channels. should be the same are len(labels_all)
         M_GT_all = np.zeros((n_chan, n_chan, 3, 2000))  # mean and 2 Cluster Centers
-        M_t_resp = np.zeros((n_chan, n_chan, 5))  # LL_sig (general), t_onset (general), t_WOI,2x LL of WOI of CC
+        M_t_resp = np.zeros(
+            (n_chan, n_chan, 5))  # LL_sig (general), t_onset (general), t_WOI,2x LL of WOI of CC, mean of BL
         M_t_resp[:, :, 0] = -1  # sig_LL of mean
         for sc in tqdm.tqdm(np.unique(con_trial.Stim)):
             sc = int(sc)
@@ -73,12 +77,10 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
             for rc in resp_chans:
                 # GT output: M_GT, [r, t_onset, t_WOI], LL_CC
                 M_GT_all[sc, rc, :, :], M_t_resp[sc, rc, :3], M_t_resp[sc, rc, 3:] = SCF.get_GT(sc, rc,
-                                                                                                       con_trial,
-                                                                                                       EEG_resp)
+                                                                                                con_trial,
+                                                                                                EEG_resp)
         np.save(file_GT, M_GT_all)
         np.save(file_t_resp, M_t_resp)
-
-
 
         print(subj + ' -- DONE --')
     fig_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\methods\\CC_surr_hist\\'
@@ -87,7 +89,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
         parents=True, exist_ok=True)
     ###### 2. calculate for each recording channel surrogate CC
     n_surr = 200
-    if os.path.isfile(file_CC_surr)*0:
+    if os.path.isfile(file_CC_surr) * load_surr:
         M_t_resp = np.load(file_t_resp)  ## LL_sig, t_onset, t_resp, pearson of GT
         surr_thr = pd.read_csv(file_CC_surr)
         update_sig_con = 0
@@ -109,7 +111,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
         for rc in tqdm.tqdm(resp_chans):
             n_trials = np.median(summ.loc[summ.Chan == rc, 'LL']).astype('int')
             LL_surr, CC_LL_surr[rc], CC_WOI[rc] = SCF.get_CC_surr(rc, con_trial, EEG_resp,
-                                                  n_trials)  # return LL_surr[1:, :], LL_surr_data[1:, :, :]
+                                                                  n_trials)  # return LL_surr[1:, :], LL_surr_data[1:, :, :]
             M_CC_LL_surr[rc, :] = [np.nanpercentile(LL_surr, 50), np.nanpercentile(LL_surr, 95),
                                    np.nanpercentile(LL_surr, 99)]
 
@@ -141,8 +143,9 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
                         index=False,
                         header=True)
         update_sig_con = 1
+
     # SUMMARY
-    if os.path.isfile(file_CC_summ)*0:
+    if os.path.isfile(file_CC_summ):
         CC_summ = pd.read_csv(file_CC_summ)
     else:
         files_list = glob(path_patient_analysis + '\\' + folder + '/data/Stim_list_*')
@@ -159,7 +162,6 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
         CC_summ.insert(0, 'Subj', subj)
         CC_summ.to_csv(file_CC_summ, header=True, index=False)
 
-
     trial_sig_labeling = 1
     if trial_sig_labeling:
         if len(M_GT_all) == 0:
@@ -169,32 +171,53 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
         if len(EEG_resp) == 0:
             print('loading EEG data ..... ')
             EEG_resp = np.load(EEG_CR_file)
-        if 'Sig' in con_trial:
-            con_trial = con_trial.drop(columns='Sig')
-        con_trial.insert(5, 'Sig', -1)
-        con_trial.insert(5, 'LL_WOI', np.nan)
+        new_col = ['Sig', 'LL_WOI', 'LL_pre']
+        for col in new_col:
+            if col in con_trial:
+                con_trial = con_trial.drop(columns=col)
+            con_trial.insert(5, col, -1)
+
         for sc in tqdm.tqdm(np.unique(con_trial.Stim), desc='Stimulation Channel'):
             sc = int(sc)
             resp_chans = np.unique(con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Stim == sc), 'Chan']).astype(
                 'int')
             for rc in resp_chans:
-                dat = CC_summ.loc[(CC_summ.Stim == sc) & (CC_summ.Chan == rc)& (CC_summ.sig_w == 1)& (CC_summ.art == 0)]
+                dat = CC_summ.loc[
+                    (CC_summ.Stim == sc) & (CC_summ.Chan == rc) & (CC_summ.sig_w == 1) ] # & (CC_summ.art == 0)
                 # if there is a significant CC in this connection
-                if len(dat)>0:
+                if len(dat) > 0:
                     ix_cc = dat.CC.values.astype('int')
-                    M_GT = M_GT_all[sc, rc,ix_cc, :]
+                    M_GT = M_GT_all[sc, rc, ix_cc, :]
                     t_WOI = dat.t_WOI.values[0]
                     con_trial = SCF.get_sig_trial(sc, rc, con_trial, M_GT, t_WOI, EEG_resp, p=90, exp=2,
-                                                 w_cluster=0.25)
-                    #get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, p=95, exp=2, w_cluster=0.25, t_0=1, Fs=500)
+                                                  w_cluster=0.25)
+                    # get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, p=95, exp=2, w_cluster=0.25, t_0=1, Fs=500)
                 else:
+                    con_trial = SCF.get_sig_trial(sc, rc, con_trial, M_GT, t_WOI, EEG_resp, test=0, p=90, exp=2,
+                                                  w_cluster=0.25)
                     con_trial.loc[(con_trial.Chan == rc) & (con_trial.Stim == sc), 'Sig'] = 0
         con_trial.to_csv(file_con,
                          index=False,
                          header=True)
+    get_SNR = 1
 
+    if get_SNR:
+        con_trial.loc[con_trial.Artefact != 0, 'LL_pre'] = np.nan
+        con_trial_SNR = con_trial.groupby(['Stim', 'Chan'], as_index=False)[['LL_pre']].mean()
+        CC_summ.insert(4, 'SNR', np.nan)
+        for sc in tqdm.tqdm(np.unique(con_trial.Stim)):
+            sc = int(sc)
+            resp_chans = np.unique(con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Stim == sc), 'Chan']).astype(
+                'int')
+            for rc in resp_chans:
+                m = con_trial_SNR.loc[(con_trial_SNR.Stim == sc) & (con_trial_SNR.Chan == rc), 'LL_pre'].values[0]
+                CC_summ.loc[(CC_summ.Stim == sc) & (CC_summ.Chan == rc), 'SNR'] = CC_summ.loc[(CC_summ.Stim == sc) & (
+                            CC_summ.Chan == rc), 'LL_WOI'].values / m
+        CC_summ.to_csv(file_CC_summ, header=True, index=False)
     print('Done')
 
-for subj in ["EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017","EL019","EL020"]:  # ,"EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" "EL010","EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" ## ,"EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"
+
+for subj in ["EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016", "EL017", "EL019",
+             "EL020"]:  # ,"EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" "EL010","EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" ## ,"EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"
     for f in ['BrainMapping']:  # 'BrainMapping', 'InputOutput',
-        start_subj_GT(subj, folder=f, cond_folder='CR', load_con=1, load_surr=0)
+        start_subj_GT(subj, folder=f, cond_folder='CR', load_con=1, load_surr=1)

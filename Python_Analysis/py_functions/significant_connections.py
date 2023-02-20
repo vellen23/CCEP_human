@@ -9,7 +9,6 @@ from scipy.spatial import distance
 
 import significance_funcs as sf
 
-
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 
@@ -54,6 +53,8 @@ def get_GT_trials(trials, real=1, t_0=1, Fs=500, w=0.25, n_cluster=2):
     M_GT[0, :] = ff.lp_filter(np.nanmean(trials, 0), 45, Fs)
     for c in range(n_cluster):
         M_GT[c + 1, :] = ff.lp_filter(np.nanmean(trials[y == c, :], 0), 45, Fs)
+
+    # pearson correlation of the two CC
     p_CC = np.corrcoef(M_GT[1, int((t_0 + t_WOI) * Fs):int((t_0 + t_WOI + 2 * w) * Fs)],
                        M_GT[2, int((t_0 + t_WOI) * Fs):int((t_0 + t_WOI + 2 * w) * Fs)])[0, 1]
 
@@ -61,6 +62,7 @@ def get_GT_trials(trials, real=1, t_0=1, Fs=500, w=0.25, n_cluster=2):
     LL_CC = LLf.get_LL_all(np.expand_dims(M_GT[1:, int((t_0 + t_WOI) * Fs):int((t_0 + t_WOI + w) * Fs)], 0), Fs, w)
     LL_CC = np.max(LL_CC[0, :, :], 1)
     return [r, t_onset, t_WOI], LL_mean[0, 0], p_CC, M_GT, y, thr, LL_CC
+
 
 
 def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2):
@@ -80,8 +82,8 @@ def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2
         if len(stimNum_all) > 15:
             trials = EEG_resp[rc, stimNum_all, :]
             [r, t_onset, t_WOI], _, _, M_GT, y, _, LL_CC = get_GT_trials(trials, real=1, t_0=t_0, Fs=Fs,
-                                                                            w=w_cluster,
-                                                                            n_cluster=n_cluster)
+                                                                         w=w_cluster,
+                                                                         n_cluster=n_cluster)
     return M_GT, [r, t_onset, t_WOI], LL_CC
 
 
@@ -101,7 +103,7 @@ def get_CC_surr(rc, LL_CCEP, EEG_resp, n_trials, Fs=500, w_cluster=0.25, n_clust
     # pear_surr = np.zeros((1,)) - 1
     # epoch: [-1,3]s: switch [-1,1] and [1,3] to have non stimulating data after onset at 0
     LL_surr = np.zeros((n_surr, 2))
-    WOI_surr = np.zeros((n_surr, ))
+    WOI_surr = np.zeros((n_surr,))
     LL_surr_data = np.zeros((n_surr, 2, 2000))
     for i in range(n_surr):
         StimNum_surr = np.random.choice(StimNum, size=n_trials).astype('int')
@@ -114,7 +116,7 @@ def get_CC_surr(rc, LL_CCEP, EEG_resp, n_trials, Fs=500, w_cluster=0.25, n_clust
         trials[:, 1000:] = np.flip(EEG_resp[rc, StimNum_surr, 1000:], 1)  # put response in the beginning of the epoch
         for t_0 in [1]:
             [r, t_onset, t_WOI], _, p_CC, M_GT, y, _, LL_CC = get_GT_trials(trials, real=0, t_0=t_0, Fs=Fs, w=w_cluster,
-                                                          n_cluster=n_cluster)
+                                                                            n_cluster=n_cluster)
             # return [r, t_onset, t_WOI], LL_mean[0, 0], p_CC, M_GT, y, thr, LL_CC
             if (sum(y == 0) > np.max([5, 0.05 * len(y)])) & (sum(y == 1) > np.max([5, 0.05 * len(y)])):
                 # pear_surr = np.concatenate([pear_surr, [p_CC]], 0)
@@ -141,7 +143,7 @@ def get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, Fs=500):
             if M_t_resp[sc, rc, 0] > -1:
                 thr = surr_thr.loc[surr_thr.Chan == rc, 'CC_LL95'].values[0]
                 thr50 = surr_thr.loc[surr_thr.Chan == rc, 'CC_LL50'].values[0]
-                # thr50 = thr / 2  # todo: adapt
+                # thr50 = thr / 2  # todo: NEW way to get onset time (2nd derivative) and define artefacts
                 for i in range(1, 3):
                     t_onset = np.nan
                     LL_WOI = LL_CC[i, int((t_0 + WOI + w / 2) * Fs)]
@@ -150,10 +152,10 @@ def get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, Fs=500):
                     LL_t[:int((t_0 - w / 2) * Fs)] = 0
                     LL_t[int((t_0 + 0.4 + w / 2) * Fs):] = 0
 
-                    t_resp_all = sf.search_sequence_numpy(LL_t, np.ones((int((3/2*w) * Fs),)))
+                    t_resp_all = sf.search_sequence_numpy(LL_t, np.ones((int((3 / 2 * w) * Fs),)))
                     if len(t_resp_all) > 0:
                         t_onset = t_resp_all[0] / Fs - t_0 + w / 2
-                        if t_onset<0: t_onset = 0
+                        if t_onset < 0: t_onset = 0
 
                     #### Check whether LL surpasses the threshold for some time
                     LL_t_pk = np.array(LL_CC[i] >= thr) * 1
@@ -183,72 +185,81 @@ def get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, Fs=500):
     return CC_summ
 
 
-def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, p=95, exp=2, w_cluster=0.25, t_0=1, Fs=500):
-    # for each trial get significance level based on surrogate (Pearson^2 * LL)
+def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test = 1, p=90, exp=2, w_cluster=0.25, t_0=1, t_0_BL=0.48, Fs=500):
     dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)]
     EEG_trials = ff.lp_filter(EEG_CR[[[rc]], dat.Num.values.astype('int'), :], 45, Fs)
     LL_trials = LLf.get_LL_all(EEG_trials, Fs, w_cluster)
-    #### first get surrogate data
-    pear_surr_all = []
-    for t_test in [0.3, 0.7, 1.8, 2.2, 2.6]:  # surrogates times, todo: in future blockwise
-        pear = np.zeros((len(EEG_trials[0]),)) - 1 # pearson to each CC
-        for n_c in range(len(M_GT)):
-            pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
-                                                       win=w_cluster,
-                                                       Fs=500)], 0)
-        LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
-        pear_surr = np.sign(pear) * abs(pear ** exp) * LL
-        pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
+    if test:
+        # for each trial get significance level based on surrogate (Pearson^2 * LL)
+        #### first get surrogate data
+        pear_surr_all = []
+        for t_test in [0.3, 0.7, 1.8, 2.2, 2.6]:  # surrogates times, todo: in future blockwise
+            pear = np.zeros((len(EEG_trials[0]),)) - 1  # pearson to each CC
+            for n_c in range(len(M_GT)):
+                pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
+                                                         win=w_cluster,
+                                                         Fs=500)], 0)
+            LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
+            pear_surr = np.sign(pear) * abs(pear ** exp) * LL
+            pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
 
-    # other surr trials
-    real_trials = np.unique(
-        con_trial.loc[(con_trial.Stim == sc) & (con_trial.Chan == rc), 'Num'].values.astype('int'))
-    stim_trials = np.unique(
-        con_trial.loc[(con_trial.Stim >= rc - 1) & (con_trial.Stim <= rc + 1), 'Num'].values.astype('int'))
-    StimNum = np.random.choice(np.unique(con_trial.Num), size=400)
-    StimNum = [i for i in StimNum if i not in stim_trials]
-    StimNum = [i for i in StimNum if i not in stim_trials + 1]
-    StimNum = [i for i in StimNum if i not in real_trials]
+        # other surr trials
+        real_trials = np.unique(
+            con_trial.loc[(con_trial.Stim == sc) & (con_trial.Chan == rc), 'Num'].values.astype('int'))
+        stim_trials = np.unique(
+            con_trial.loc[(con_trial.Stim >= rc - 1) & (con_trial.Stim <= rc + 1), 'Num'].values.astype('int'))
+        StimNum = np.random.choice(np.unique(con_trial.Num), size=400)
+        StimNum = [i for i in StimNum if i not in stim_trials]
+        StimNum = [i for i in StimNum if i not in stim_trials + 1]
+        StimNum = [i for i in StimNum if i not in real_trials]
 
-    StimNum = np.unique(StimNum).astype('int')
-    EEG_surr = ff.lp_filter(EEG_CR[[[rc]], StimNum, :], 45, Fs)
-    bad_StimNum = np.where(np.max(abs(EEG_surr[0]), 1) > 1000)
-    if (len(bad_StimNum[0]) > 0):
-        StimNum = np.delete(StimNum, bad_StimNum)
+        StimNum = np.unique(StimNum).astype('int')
         EEG_surr = ff.lp_filter(EEG_CR[[[rc]], StimNum, :], 45, Fs)
-    LL_surr = LLf.get_LL_all(EEG_surr, Fs, w_cluster)
-    f = 1
-    for t_test in [0.3, 0.7, 1.8, 2.2, 2.6]:  # surrogates times, todo: in future blockwise
-        s = (-1) ** f
-        pear = np.zeros((len(EEG_surr[0]),)) - 1
+        bad_StimNum = np.where(np.max(abs(EEG_surr[0]), 1) > 1000)
+        if (len(bad_StimNum[0]) > 0):
+            StimNum = np.delete(StimNum, bad_StimNum)
+            EEG_surr = ff.lp_filter(EEG_CR[[[rc]], StimNum, :], 45, Fs)
+        LL_surr = LLf.get_LL_all(EEG_surr, Fs, w_cluster)
+        f = 1
+        for t_test in [0.3, 0.7, 1.8, 2.2, 2.6]:  # surrogates times, todo: in future blockwise
+            s = (-1) ** f
+            pear = np.zeros((len(EEG_surr[0]),)) - 1
+            for n_c in range(len(M_GT)):
+                pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], s * EEG_surr[0], tx=t_0 + t_resp, ty=t_test,
+                                                         win=w_cluster,
+                                                         Fs=500)], 0)
+
+            LL = LL_surr[0, :, int((t_test + w_cluster / 2) * Fs)]
+            # pear_surr = np.arctanh(np.max([pear,pear2],0))*LL
+            pear_surr = np.sign(pear) * abs(pear ** exp) * LL
+            pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
+            f = f + 1
+
+        ##### real trials
+        t_test = t_0 + t_resp  # timepoint that i tested is identical to WOI
+        pear = np.zeros((len(EEG_trials[0]),)) - 1
         for n_c in range(len(M_GT)):
-            pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], s * EEG_surr[0], tx=t_0 + t_resp, ty=t_test,
-                                                       win=w_cluster,
-                                                       Fs=500)], 0)
+            pear = np.max(
+                [pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
+                                           Fs=500)], 0)
 
-        LL = LL_surr[0, :, int((t_test + w_cluster / 2) * Fs)]
-        # pear_surr = np.arctanh(np.max([pear,pear2],0))*LL
-        pear_surr = np.sign(pear) * abs(pear ** exp) * LL
-        pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
-        f = f + 1
+        LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
+        pear = np.sign(pear) * abs(pear ** exp) * LL
+        sig = (pear > np.nanpercentile(pear_surr_all, p)) * 1
 
-    ##### real trials
-    t_test = t_0 + t_resp # timepoint that i tested is identical to WOI
-    pear = np.zeros((len(EEG_trials[0]),)) - 1
-    for n_c in range(len(M_GT)):
-        pear = np.max(
-            [pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test, win=w_cluster,
-                                         Fs=500)], 0)
 
-    LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
-    pear = np.sign(pear) * abs(pear ** exp) * LL
-    sig = (pear > np.nanpercentile(pear_surr_all, p)) * 1
+        con_trial.loc[
+            (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'Sig'] = sig  # * sig_mean
+        con_trial.loc[
+            (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'LL_WOI'] = LL
+
+    ##### real trials, LL pre stim
+    t_test = t_0_BL + t_resp  # timepoint that i tested is identical to WOI
+
+    LL_pre = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
     con_trial.loc[
-        (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'Sig'] = sig  # * sig_mean
-    con_trial.loc[
-        (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'LL_WOI'] = LL
+        (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'LL_pre'] = LL_pre
     return con_trial
-
 
 # def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, load_surr=1, surr_plot=1):
 #     print(subj + ' -- START --')
@@ -437,4 +448,4 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, p=95, exp=2, w_cluste
 #         #         start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=1)
 #         # if thread:
 #         #     while 1:
-        #         time.sleep(1)
+#         time.sleep(1)

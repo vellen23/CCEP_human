@@ -100,10 +100,10 @@ def compute_list_update(subj):
 
 #
 # compute_cut('EL014')
-for subj in ["EL012"]:  # , "EL010"
+for subj in ["EL021"]:  # , "EL010"
     # compute_list_update(subj)
     # compute_cut(subj, cut_blocks=1, concat_blocks=0)  # _thread.start_new_thread(compute_list_update, (subj,))
-    #compute_cut(subj, concat_blocks=0)
-    compute_list_update(subj)
+    compute_cut(subj, concat_blocks=0)
+    #compute_list_update(subj)
 # while 1:
 #    time.sleep(1)
