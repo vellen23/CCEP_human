@@ -183,7 +183,8 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
                 'int')
             for rc in resp_chans:
                 dat = CC_summ.loc[
-                    (CC_summ.Stim == sc) & (CC_summ.Chan == rc) & (CC_summ.sig_w == 1) ] # & (CC_summ.art == 0)
+                    (CC_summ.Stim == sc) & (CC_summ.Chan == rc) & (CC_summ.sig_w == 1) & (
+                                CC_summ.art == 0)]  # & (CC_summ.art == 0)
                 # if there is a significant CC in this connection
                 if len(dat) > 0:
                     ix_cc = dat.CC.values.astype('int')
@@ -212,12 +213,12 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
             for rc in resp_chans:
                 m = con_trial_SNR.loc[(con_trial_SNR.Stim == sc) & (con_trial_SNR.Chan == rc), 'LL_pre'].values[0]
                 CC_summ.loc[(CC_summ.Stim == sc) & (CC_summ.Chan == rc), 'SNR'] = CC_summ.loc[(CC_summ.Stim == sc) & (
-                            CC_summ.Chan == rc), 'LL_WOI'].values / m
+                        CC_summ.Chan == rc), 'LL_WOI'].values / m
         CC_summ.to_csv(file_CC_summ, header=True, index=False)
     print('Done')
 
 
-for subj in ["EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016", "EL017", "EL019",
-             "EL020"]:  # ,"EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" "EL010","EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" ## ,"EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"
+for subj in [
+    "EL020"]:  # "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016", "EL017", "EL019","EL020"
     for f in ['BrainMapping']:  # 'BrainMapping', 'InputOutput',
         start_subj_GT(subj, folder=f, cond_folder='CR', load_con=1, load_surr=1)

@@ -3,7 +3,7 @@ clear all
 close all
 
 %% patient specific
-subj            = 'EL021';
+subj            = 'EL022';
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
 path_patient    = [path,  subj];  
@@ -11,16 +11,16 @@ dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 % load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
 % dir_files       = [path_patient,'\data_raw\LT_experiment'];% folder where raw edf are stored
 % load labels
-MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
-BP_label = importfile_BPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels_BP');
-BP_label= BP_label(~isnan(BP_label.chan_BP_N),:);
-MP_label= MP_label(~isnan(MP_label.Natus),:);
-block_path = [path_patient '\Data\EL_experiment\experiment1\data_blocks'];
-% UPDATE STIMLIST and TTL 
-% subj            = 'EL020';
-%block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
-%block_path = [path_patient '\Data\EL_experiment\experiment1\data_blocks'];
-start 
+% MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
+% BP_label = importfile_BPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels_BP');
+% BP_label= BP_label(~isnan(BP_label.chan_BP_N),:);
+% MP_label= MP_label(~isnan(MP_label.Natus),:);
+% block_path = [path_patient '\Data\EL_experiment\experiment1\data_blocks'];
+% % UPDATE STIMLIST and TTL 
+% % subj            = 'EL020';
+% %block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
+% %block_path = [path_patient '\Data\EL_experiment\experiment1\data_blocks'];
+% start 
 %% get rescale factor based on one block during 5min baseline
 % load one file, EEG and scalpEEG
 if exist( [path_patient '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'], 'file')
@@ -34,7 +34,7 @@ end
 %% 
 
 % % path where all blocks are stored
-% % block_path     = uigetdir(['T:\EL_experiment\Patients\', subj, '\Data\EL_experiment']); %
+block_path     = uigetdir([path_patient, '\Data\EL_experiment']); %
 block_files     = dir(block_path);
 isdir           = [block_files.isdir]; % Get all the codes
 block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest

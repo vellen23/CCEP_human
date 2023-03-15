@@ -6,6 +6,7 @@ import freq_funcs as ff
 import LL_funcs as LLf
 import Cluster_func as Cf
 from scipy.spatial import distance
+import scipy
 
 import significance_funcs as sf
 
@@ -62,7 +63,6 @@ def get_GT_trials(trials, real=1, t_0=1, Fs=500, w=0.25, n_cluster=2):
     LL_CC = LLf.get_LL_all(np.expand_dims(M_GT[1:, int((t_0 + t_WOI) * Fs):int((t_0 + t_WOI + w) * Fs)], 0), Fs, w)
     LL_CC = np.max(LL_CC[0, :, :], 1)
     return [r, t_onset, t_WOI], LL_mean[0, 0], p_CC, M_GT, y, thr, LL_CC
-
 
 
 def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2):
@@ -132,47 +132,63 @@ def get_CC_surr(rc, LL_CCEP, EEG_resp, n_trials, Fs=500, w_cluster=0.25, n_clust
     # return pear_surr, [np.percentile(pear_surr, 95), np.percentile(pear_surr, 99)], LL_surr[1:, :]
 
 
-def get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, Fs=500):
+def get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, w_LL_onset=0.1, smooth_win=0.1, Fs=500):
     # creates a table for each stim-chan pair with the two CC found indicating the WOI, LL and whether it's signficant
     start = 1
+
+    smooth_win = int(smooth_win * Fs)
+    if np.mod(smooth_win, 2) == 0:
+        smooth_win = smooth_win + 1
+
     for sc in range(M_GT_all.shape[0]):
         for rc in range(M_GT_all.shape[0]):
             d = np.round(distance.euclidean(coord_all[sc], coord_all[rc]), 2)
             LL_CC = LLf.get_LL_all(np.expand_dims(M_GT_all[sc, rc, :], 0), Fs, 0.25)[0]
+            LL_CC_onset = LLf.get_LL_all(np.expand_dims(ff.lp_filter(M_GT_all[sc, rc, :], 45, Fs), 0), Fs, w_LL_onset)[
+                0]
+
             WOI = M_t_resp[sc, rc, 2]
             if M_t_resp[sc, rc, 0] > -1:
                 thr = surr_thr.loc[surr_thr.Chan == rc, 'CC_LL95'].values[0]
                 thr50 = surr_thr.loc[surr_thr.Chan == rc, 'CC_LL50'].values[0]
-                # thr50 = thr / 2  # todo: NEW way to get onset time (2nd derivative) and define artefacts
+                thr50 = thr50 + (thr - thr50) / 2
                 for i in range(1, 3):
                     t_onset = np.nan
+                    art = 0
                     LL_WOI = LL_CC[i, int((t_0 + WOI + w / 2) * Fs)]
-                    #### Response onset: when LL surpasses 50th percentile for at least 250ms
-                    LL_t = np.array(LL_CC[i] >= thr50) * 1
-                    LL_t[:int((t_0 - w / 2) * Fs)] = 0
-                    LL_t[int((t_0 + 0.4 + w / 2) * Fs):] = 0
-
-                    t_resp_all = sf.search_sequence_numpy(LL_t, np.ones((int((3 / 2 * w) * Fs),)))
-                    if len(t_resp_all) > 0:
-                        t_onset = t_resp_all[0] / Fs - t_0 + w / 2
-                        if t_onset < 0: t_onset = 0
+                    #### Response onset: peak of second derivative
+                    # dy_y = scipy.signal.savgol_filter(LL_CC_onset[i], smooth_win, 2, 0)
+                    d1_LL = scipy.signal.savgol_filter(LL_CC_onset[i], smooth_win, 2, 1)
+                    d2_LL = scipy.signal.savgol_filter(LL_CC_onset[i], smooth_win, 2, 2)
+                    d2_LL[d1_LL < 0] = 0
+                    d2_LL[int((t_0 + WOI + w_LL_onset / 2) * Fs):] = 0
+                    d2_LL[:int((t_0 - w_LL_onset / 2) * Fs)] = 0
+                    t_onset = np.argmax(d2_LL)
+                    t_onset = t_onset / Fs - t_0
+                    t_onset = t_onset + w_LL_onset / 2  # realign
+                    if t_onset < 0:
+                        t_onset = 0
 
                     #### Check whether LL surpasses the threshold for some time
-                    LL_t_pk = np.array(LL_CC[i] >= thr) * 1
+                    LL_t_pk = np.array(LL_CC[i] >= thr50) * 1
                     LL_t_pk[:int((t_0 - w / 2) * Fs)] = 0
-                    LL_t_pk[int((t_0 + 0.4 + w / 2) * Fs):] = 0
+                    LL_t_pk[int((t_0 + WOI+3*w/2) * Fs):] = 0
                     t_pk = sf.search_sequence_numpy(LL_t_pk, np.ones((int((w) * Fs),)))
 
                     LL_peak = np.max(LL_CC[i, int((t_0 + w / 2) * Fs):int((t_0 + 0.5 - w / 2) * Fs)])
 
-                    ### artefact:
-                    LL_t_pk = np.array(LL_CC[i] >= thr) * 1
+                    # artefact: when LL during baseline is already quite high and there is no increase during "response", post stim period
+                    LL_t_pk = np.array(LL_CC[i] >= 3 * thr) * 1
                     LL_t_pk[int((t_0) * Fs):] = 0
-                    t_art = sf.search_sequence_numpy(LL_t_pk, np.ones((int((w) * Fs),)))
+                    t_pk_art = sf.search_sequence_numpy(LL_t_pk, np.ones((int((w / 3 * 2) * Fs),)))
+                    art_thr = np.mean(LL_CC[i, int((t_0 - 0.25) * Fs):int((t_0) * Fs)]) + 3 * np.std(
+                        LL_CC[i, int((t_0 - 0.25) * Fs):int((t_0) * Fs)])
+                    if (len(t_pk_art) > 0) & (LL_WOI < art_thr):
+                        art = 1
 
                     sig = np.array(LL_WOI > thr) * 1
                     sig_w = np.array((len(t_pk) > 0)) * 1
-                    art = np.array((len(t_art) > 0)) * 1
+
                     arr = np.array([[sc, rc, i, LL_WOI, WOI, LL_peak, t_onset, sig, sig_w, art, d]])
                     arr = pd.DataFrame(arr, columns=['Stim', 'Chan', 'CC', 'LL_WOI', 't_WOI', 'LL_pk', 'onset', 'sig',
                                                      'sig_w', 'art', 'd'])
@@ -185,7 +201,8 @@ def get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, Fs=500):
     return CC_summ
 
 
-def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test = 1, p=90, exp=2, w_cluster=0.25, t_0=1, t_0_BL=0.48, Fs=500):
+def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, w_cluster=0.25, t_0=1, t_0_BL=0.48,
+                  Fs=500):
     dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)]
     EEG_trials = ff.lp_filter(EEG_CR[[[rc]], dat.Num.values.astype('int'), :], 45, Fs)
     LL_trials = LLf.get_LL_all(EEG_trials, Fs, w_cluster)
@@ -247,7 +264,6 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test = 1, p=90, exp=2
         pear = np.sign(pear) * abs(pear ** exp) * LL
         sig = (pear > np.nanpercentile(pear_surr_all, p)) * 1
 
-
         con_trial.loc[
             (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'Sig'] = sig  # * sig_mean
         con_trial.loc[
@@ -260,192 +276,3 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test = 1, p=90, exp=2
     con_trial.loc[
         (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1), 'LL_pre'] = LL_pre
     return con_trial
-
-# def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, load_surr=1, surr_plot=1):
-#     print(subj + ' -- START --')
-#     ## path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
-#     path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-#     path_gen = os.path.join(sub_path, 'Patients', subj)
-#     if not os.path.exists(path_gen):
-#         print("Can't find path")
-#         # path_gen = 'T:\\EL_experiment\\Patients\\' + subj
-#         return
-#     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-#     path_infos = os.path.join(path_patient, 'infos')
-#     if not os.path.exists(path_infos):
-#         path_infos = path_gen + '\\infos'
-#
-#     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
-#     labels_all = lbls.label.values
-#
-#     # files of interests
-#     file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_tresp.npy'  # for each connection: LLsig (old), t_onset (old), t_resp, CC_p, CC_LL1, CC_LL2
-#     file_CC_surr = path_patient_analysis + '\\' + folder + '\\data\\M_CC_surr.csv'
-#     file_CC_LL_surr = path_patient_analysis + '\\' + folder + '\\data\\LL_CC_surr.npz'
-#     file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_CC.npy'
-#     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
-#     file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ.csv'
-#
-#     # load required data
-#     con_trial = pd.read_csv(file_con)
-#     con_trial.loc[np.isnan(con_trial.P2P), 'Artefact'] = 1
-#     con_trial.loc[con_trial.LL == 0, 'Artefact'] = 1
-#     EEG_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy'
-#     # if not os.path.isfile(file_GT):
-#     ##### 1. get cluster centers and t_resp, t_onset for each possible connection
-#     EEG_resp = []
-#     if os.path.isfile(file_GT) * load_con:
-#         # print(file_GT + ' -- already exists')
-#         M_t_resp = np.load(file_t_resp)
-#         # M_GT_all = np.load(file_GT)
-#     else:
-#         if not os.path.isfile(EEG_CR_file):
-#             print('Run concat.py first to get concatenated EEG data')
-#             return
-#         else:
-#             print('loading EEG data ..... ')
-#             EEG_resp = np.load(EEG_CR_file)
-#
-#         chan_all = np.unique(con_trial.Chan)
-#         n_chan = np.max(chan_all).astype('int') + 1
-#         M_GT_all = np.zeros((n_chan, n_chan, 3, 2000))  # mean and 3 Cluster Centers
-#         M_t_resp = np.zeros((n_chan, n_chan, 7))  # LL_sig (r), t_onset, t_WOI, pearson of GT (p_CC)
-#         M_t_resp[:, :, 0] = -1  # sig_LL of mean
-#         M_t_resp[:, :, 4] = -1  # sig_CCp
-#         for sc in tqdm.tqdm(np.unique(con_trial.Stim)):
-#             sc = int(sc)
-#             resp_chans = np.unique(con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Stim == sc), 'Chan']).astype(
-#                 'int')
-#             for rc in resp_chans:
-#                 # GT output: [r, t_onset, t_WOI, p_CC]
-#                 M_GT_all[sc, rc, :, :], M_t_resp[sc, rc, :4], con_trial, M_t_resp[sc, rc, 5:] = get_GT(sc, rc,
-#                                                                                                        con_trial,
-#                                                                                                        EEG_resp)
-#         np.save(file_GT, M_GT_all)
-#         np.save(file_t_resp, M_t_resp)
-#         con_trial.to_csv(file_con,
-#                          index=False,
-#                          header=True)
-#         print(subj + ' -- DONE --')
-#     fig_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\methods\\CC_surr_hist\\'
-#
-#     Path(fig_path).mkdir(
-#         parents=True, exist_ok=True)
-#     ###### 2. calculate for each recording channel surrogate CC
-#     n_surr = 200
-#     if os.path.isfile(file_CC_surr) * load_surr:
-#         M_t_resp = np.load(file_t_resp)  ## LL_sig, t_onset, t_resp, pearson of GT
-#         surr_thr = pd.read_csv(file_CC_surr)
-#         update_sig_con = 0
-#     else:
-#         # M_CCp_surr = np.zeros((len(labels_all), 2))
-#         M_CC_LL_surr = np.zeros((len(labels_all), 3))
-#         CC_LL_surr = np.zeros((len(labels_all), n_surr, 2, 2000))
-#         CC_WOI = np.zeros((len(labels_all), n_surr))
-#         stims = np.zeros((len(labels_all), 1))
-#         stims[:, 0] = np.arange(len(labels_all))
-#
-#         con_trial_n = con_trial[(con_trial.Artefact < 1) & (con_trial.LL > 0)]
-#         summ = con_trial_n.groupby(['Stim', 'Chan'], as_index=False)[['LL']].count()
-#         if len(EEG_resp) == 0:
-#             print('loading EEG data ..... ')
-#             EEG_resp = np.load(EEG_CR_file)
-#         resp_chans = np.unique(con_trial.loc[(con_trial.Artefact == 0), 'Chan']).astype(
-#             'int')
-#         for rc in tqdm.tqdm(resp_chans):
-#             n_trials = np.median(summ.loc[summ.Chan == rc, 'LL']).astype('int')
-#             LL_surr, CC_LL_surr[rc], CC_WOI[rc] = get_CC_surr(rc, con_trial, EEG_resp,
-#                                                   n_trials)  # return LL_surr[1:, :], LL_surr_data[1:, :, :]
-#             # pear_surr, M_CCp_surr[rc, :], LL_surr = get_CC_surr(rc, con_trial, EEG_resp, n_trials)
-#             M_CC_LL_surr[rc, :] = [np.nanpercentile(LL_surr, 50), np.nanpercentile(LL_surr, 95),
-#                                    np.nanpercentile(LL_surr, 99)]
-#             ## pearson's surr test
-#             # M_t_resp[M_t_resp[:, rc, 3] >= M_CCp_surr[rc, 1], rc, 4] = 1
-#             # M_t_resp[M_t_resp[:, rc, 3] < M_CCp_surr[rc, 1], rc, 4] = 0
-#             # plot
-#             if surr_plot:
-#                 fig = plt.figure(figsize=(10, 10))
-#                 fig.patch.set_facecolor('xkcd:white')
-#                 plt.title(labels_all[rc] + ' Surrogate Testing of CC LL', fontsize=20)
-#                 plt.hist(LL_surr.reshape(-1), color=[0, 0, 0], alpha=0.3, label='surrogates, n: ' + str(len(LL_surr)))
-#                 plt.xlim([0, np.max([np.nanpercentile(LL_surr, 99) * 1.5, 1])])
-#                 plt.axvline(np.nanpercentile(LL_surr, 99), color=[1, 0, 0], label='99th')
-#                 plt.axvline(np.nanpercentile(LL_surr, 95), color=[1, 0, 0], label='95th')
-#                 plt.axvline(np.nanpercentile(LL_surr, 50), color=[0, 0, 0], label='50th')
-#                 plt.legend(fontsize=15)
-#                 plt.xticks(fontsize=15)
-#                 plt.yticks(fontsize=15)
-#                 plt.xlabel('LL of CC', fontsize=20)
-#                 plt.ylabel('Number of Tests', fontsize=20)
-#                 plt.savefig(fig_path + subj + '_' + labels_all[rc] + '_LL.svg')
-#                 plt.savefig(fig_path + subj + '_' + labels_all[rc] + '.jpg')
-#                 plt.close()
-#
-#         # np.save(file_t_resp, M_t_resp)
-#         np.savez('mat.npz', name1=M_CC_LL_surr, name2=CC_WOI)
-#         # np.save(file_CC_LL_surr, M_CC_LL_surr)
-#         # np.save(file_CCp_surr, M_CCp_surr)
-#         surr_thr = pd.DataFrame(np.concatenate([stims, M_CC_LL_surr], 1),
-#                                 columns=['Chan', 'CC_LL50', 'CC_LL95', 'CC_LL99'])
-#         surr_thr.to_csv(file_CC_surr,
-#                         index=False,
-#                         header=True)
-#         update_sig_con = 1
-#     # SUMMARY, M_GT_all = np.load(file_GT)
-#     files_list = glob(path_patient_analysis + '\\' + folder + '/data/Stim_list_*')
-#     stimlist = pd.read_csv(files_list[0])
-#     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
-#     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
-#         stimlist,
-#         lbls)
-#     CC_summ = get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, Fs=500)
-#     CC_summ.insert(0, 'Subj', subj)
-#     CC_summ.to_csv(file_CC_summ, header=True, index=False)
-#     # file_sig_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\sig_con.csv'
-#
-#     # arr = np.zeros((1, 9))
-#     # for sc in range(len(M_t_resp)):
-#     #     arr_sc = np.zeros((len(M_t_resp), 9))
-#     #     arr_sc[:, 0] = sc
-#     #     arr_sc[:, 1] = np.arange(len(M_t_resp))
-#     #     arr_sc[:, 2:] = M_t_resp[sc, :, [0, 4, 1, 2, 3, 5, 6]].T
-#     #     arr = np.concatenate([arr, arr_sc], 0)
-#     # arr = arr[1:, :]
-#     # sig_con = pd.DataFrame(arr,
-#     #                        columns=['Stim', 'Chan', 'Sig_LL', 'Sig_CCp', 't_onset', 't_resp', 'CCp', 'CC_LL1',
-#     #                                 'CC_LL2'])
-#     # sig_con.loc[sig_con.Sig_LL == -1, 'Sig_CCp'] = -1
-#     # if update_sig_con:
-#     #     sig_con.insert(3, 'Sig_CC_LL', 0)
-#     #     for rc in range(len(M_t_resp)):
-#     #         thr = 1.1 * surr_thr.loc[surr_thr.Chan == rc, 'CC_LL99'].values[0]
-#     #         sig_con.loc[(sig_con.Chan == rc) & ((sig_con.CC_LL1 >= thr) | (sig_con.CC_LL2 >= thr)), 'Sig_CC_LL'] = 1
-#     #     sig_con.loc[sig_con.Sig_LL == -1, 'Sig_CC_LL'] = -1
-#     #     sig_con.to_csv(file_sig_con,
-#     #                    index=False,
-#     #                    header=True)
-#
-#     print('Done')
-#
-#
-# ##first you have to have con_trial_alll "EL010","EL011", "EL012",'EL013',
-# for subj in [
-#     "EL010"]:  # ,"EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" "EL010","EL011", "EL012",'EL013','EL014',"EL015","EL016","EL017" ## ,"EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"
-#     for f in ['BrainMapping']:  # 'BrainMapping', 'InputOutput',
-#         # l = 0
-#         # if subj =='EL011':
-#         #    l = 1
-#         start_subj_GT(subj, folder=f, cond_folder='CR', load_con=1, load_surr=0)
-#
-#         # thread = 0
-#         # sig = 0
-#         # for subj in ["EL016"]:  # 'EL015','EL014',
-#         #
-#         #     if thread:
-#         #         _thread.start_new_thread(start_subj_GT, (subj,'BrainMapping', 'CR', 1))
-#         #     else:
-#         #         print('start -- ' + subj)
-#         #         start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=1)
-#         # if thread:
-#         #     while 1:
-#         time.sleep(1)

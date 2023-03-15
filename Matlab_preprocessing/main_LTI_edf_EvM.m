@@ -19,7 +19,7 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
 
-subj            = 'EL020'; %% change name if another data is used !!
+subj            = 'EL021'; %% change name if another data is used !!
 % path_patient    = ['Y:\eLab\Patients\' subj];   
 path = 'X:\\4 e-Lab\\Patients\\';
 path_patient    = [path,  subj];  
@@ -38,7 +38,7 @@ MP_label= MP_label(~isnan(MP_label.Natus),:);
 %% 1. log file to stimlist, only LT protocol related
 
 log_files= dir([dir_files '\*.log']);
-i = 2; % find automated way or select manually
+i = 1; % find automated way or select manually
 log             = import_logfile([dir_files '\' log_files(i).name]);
 stimlist_all   = read_log(log);
 stimlist = stimlist_all(startsWith(string(stimlist_all.type), "LTD1")|startsWith(string(stimlist_all.type), "LTD10")|startsWith(string(stimlist_all.type), "LTP50"),:);
@@ -49,7 +49,7 @@ protocols = ["LTD1","LTD10","LTP50"];
 %% 2. Load EDF file
 % select only the stimulation of desired protocol
 data_files= dir([dir_files '\*.EDF']);
-i = 3;
+i = 1;
 filepath               = [dir_files '\' data_files(i).name]; % the file you want to open 
 H                      = Epitome_edfExtractHeader(filepath);
 [hdr_edf, EEG_all]     = edfread_data(filepath);
@@ -63,20 +63,24 @@ Fs             = round(hdr_edf.frequency(1)); % recording Fs
 [pks,TTL_sample]     = findpeaks(trig,'MinPeakDistance',1*Fs);
 TTL_sample           = TTL_sample';
 %% 4.1 IMPORTANT TTL alignment - 
-prot = "LTP50"; %["LTD1","LTD10","LTP50"];
+prot = "LTD1"; %["LTD1","LTD10","LTP50"];
 % find first trigger that is more than 9s apart: SP starts
 ix_start_SP_all  = find(diff(TTL_sample)/Fs>7); 
 stimlist.TTL = zeros(height(stimlist),1); % add column TTL to your stimlist
 stimlist.noise = zeros(height(stimlist),1); % add column TTL to your stimlist
 
 i_start_SP_stimlist =find((stimlist.type == prot+'_SP')&(stimlist.StimNum ==1 )&(stimlist.stim_block ==1 ));
+%%
+prot = "LTP50"; %["LTD1","LTD10","LTP50"];
+% find first trigger that is more than 9s apart: SP starts
+ix_start_SP_all  = find(diff(TTL_sample)/Fs<7); 
+stimlist.TTL = zeros(height(stimlist),1); % add column TTL to your stimlist
+stimlist.noise = zeros(height(stimlist),1); % add column TTL to your stimlist
+
+i_start_SP_stimlist =find((stimlist.type == prot+'_IO')&(stimlist.StimNum ==1 )&(stimlist.stim_block == 5 ));
 %% check if it makes sense to take the first of both 
 i =i_start_SP_stimlist(1);
 stimlist.TTL(i)= TTL_sample(ix_start_SP_all(1)); % here it is usually the first one, but now we took the second one, because the protocol was restarted with a new stim channel
-%% 4.2 quick fix, find peaks of specific channel to find TTL without triggers
-% needs to be improved
-[pk, locs_stim] = findpeaks(nanmean(EEG_all(75:80,:),1), Fs, 'MinPeakDistance',0.5);
-locs_stim = round(locs_stim*Fs)-7;
 
 %% 4.3 find the TTL_sample for the remaining stimulations based on expected sample and timing
 
@@ -85,7 +89,6 @@ size_log        = size(stimlist);
 ttl_1            = stimlist.TTL(i);% TTL1(1);
 day  =0;
 TTL_copy = TTL_sample;
-locs_copy = locs_stim;
 for s = 1: size(stimlist,1)
     if stimlist.date(s)<stimlist.date(i)
         day = -24;
@@ -104,28 +107,14 @@ for s = 1: size(stimlist,1)
         TTL_copy(ix) = - max(TTL_copy); % remove used TTL that they don't appear several times
         stimlist.noise(s)   = 0;
     else % if no TTL was found, just keep the calculated one. it is marked as "noise" 
-        [ d, ix ]              = min(abs(locs_copy-sample_cal));
-        if d< 0.5*Fs
-            stimlist.TTL(s)   = locs_copy(ix); 
-            locs_copy(ix) = - max(locs_copy); % remove used TTL that they don't appear several times
-            stimlist.noise(s)   = 1;
-        else
             stimlist.TTL(s)     = round(sample_cal);
-            stimlist.noise(s)   = 2;
-        end
+            stimlist.noise(s)   = 1;
+
     end
 
 end
 disp('TTL aligned');
-%% check if trigger is correctly aligned:
-% if there are many noise==1 in the talbe, it's not corretly aligned:
-% repeat steps 4.1 -4.3
-A = stimlist.noise;
-A = A(A<2);
-a=cumsum(A)+1;
-if a(end)>0.1*length(a)
-    disp('check trigger alignment again');
-end
+
 %% 5. remove all stimlulations from stimlist if noise ==2 --> there are not in
 % this EDF file! 
 stimlist_EDF = stimlist(stimlist.noise<2,:);
@@ -142,15 +131,16 @@ stimlist_prot.prot_ID(ix_prot_start(end):end) =length(ix_prot_start);
 %% 5. Test trigger, plot some stimulations
 clf(figure(1))
 Fs     = hdr_edf.frequency(1);
-n_trig = 90; % trigge rnumber
-c= 20; % channel
+n_trig = 167; % trigge rnumber
+c= 60; % channel
 t      = stimlist_prot.TTL(n_trig);
 IPI    = stimlist_prot.IPI_ms(n_trig);
 x_s = 10;
 x_ax        = -x_s:1/Fs:x_s;
 
 plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
-%hold on
+hold on
+plot(x_ax,EEG_all(c_trig,t-x_s*Fs:t+x_s*Fs)*50);
 %plot(x_ax,EEG_mean(1,t-x_s*Fs:t+x_s*Fs));
 xline(0, '--r');
 xline(IPI/1000, '--r');
@@ -166,7 +156,9 @@ EEG_BP          = EEG_all(pos_ChanN,:)-EEG_all(pos_ChanP,:);
 
 %% Cut in block
 path_preprocessed = ['X:\\4 e-Lab\\Patients\' subj '\Data\LT_experiment\EvM'];
-for prot_num = unique(stimlist_prot.prot_ID)
-    cut_block_edf_LT(EEG_BP, stimlist_prot(stimlist_prot.prot_ID==prot_num,:),prot,prot_num, Fs, subj, BP_label, path_preprocessed)
+prton_num_all = unique(stimlist_prot.cut_ID);
+for i =1:length(prton_num_all)
+    prot_num = prton_num_all(i);
+    cut_block_edf_LT(EEG_BP, stimlist_prot(stimlist_prot.cut_ID==prot_num,:),prot,prot_num, Fs, subj, BP_label, path_preprocessed)
 end%(EEG_block, stim_list,type,block_num, Fs, path_patient, subj,BP_label, path_pp)
 

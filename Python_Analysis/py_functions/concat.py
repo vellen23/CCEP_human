@@ -259,8 +259,7 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
 
 
 ##first you have to have con_trial_alll
-for subj in ["EL020","EL019","EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016",
-             "EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
+for subj in ["EL021"]:#["EL020","EL019","EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
     for f in ['BrainMapping', 'InputOutput']: # 'BrainMapping', 'InputOutput',
         #if f == 'BrainMapping': OOOOLLLLLDD
         #    start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)

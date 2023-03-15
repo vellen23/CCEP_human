@@ -21,7 +21,7 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %%
 
-subj            = 'EL005';
+subj            = 'EL021';
 %block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
@@ -56,7 +56,7 @@ START
 scalp_all       = [];
 score_all = [];
 Fs1 = 2000; %1024
-for sf=2:height(score_files)   
+for sf=1:height(score_files)   
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
     for i=3:length(block_files)

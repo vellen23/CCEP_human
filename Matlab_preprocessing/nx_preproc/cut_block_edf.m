@@ -14,8 +14,8 @@ function [] = cut_block_edf(EEG_block, stim_list,type,block_num, Fs, subj,BP_lab
     fprintf('%s %s. block: %s min\n', type, string(block_num), string(blocklength));
     % save EEG blockj
     EEG         = EEG_block(inSEEG, start_sample:end_sample);
-    scalpEEG    = EEG_block(inScalp, start_sample:end_sample);
-    ECG         = EEG_block(inECG, start_sample:end_sample);
+    % scalpEEG    = EEG_block(inScalp, start_sample:end_sample);
+    % ECG         = EEG_block(inECG, start_sample:end_sample);
     scalpFs     = Fs;
     % metadata
     [nch,dp]    = size(EEG);
@@ -30,8 +30,11 @@ function [] = cut_block_edf(EEG_block, stim_list,type,block_num, Fs, subj,BP_lab
     labels = labels_all(inSEEG,1);
      %save([path, sprintf('/data_blocks/time/%s_BP_%s_block_%i.mat',subj, type, block_num)],'EEG','labels', 'Fs','start_sample','-v7.3');
     save(sprintf('%s/data_blocks/%s_BP_%s%02d/%s_BP_%s%02d.mat',path_pp,subj, type, block_num,subj, type, block_num),'EEG','labels', 'Fs','-v7.3');
-    labels = labels_all(inScalp,1);
-    save(sprintf('%s/data_blocks/%s_BP_%s%02d/scalpEEG.mat',path_pp,subj, type, block_num),'scalpEEG','scalpFs','labels','-v7.3');
+    if ~isempty(inScalp)
+        scalpEEG    = EEG_block(inScalp, start_sample:end_sample);
+        labels = labels_all(inScalp,1);
+        save(sprintf('%s/data_blocks/%s_BP_%s%02d/scalpEEG.mat',path_pp,subj, type, block_num),'scalpEEG','scalpFs','labels','-v7.3');
+    end
     if ~isempty(inECG)
         EMG    = EEG_block(inECG,:);
         EMG_label = labels_all(inECG);

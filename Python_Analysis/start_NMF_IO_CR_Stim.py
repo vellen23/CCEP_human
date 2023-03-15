@@ -55,9 +55,12 @@ cwd = os.getcwd()
 #
 folder = 'InputOutput'
 cond_folder = 'CR'
+
+sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
+
 if platform.system() == 'Windows':
     # sep = ','
-    path = 'Y:\\eLab\\Patients\\'  # + subj
+    path = sub_path+'\\Patients\\'  # + subj
     # path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
     # path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx",
@@ -83,8 +86,8 @@ def compute_subj(subj, metric='LL'):
     print(f'Performing calculations on {subj}')
 
     ######## General Infos
-    path_patient_analysis = 'y:\\eLab\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_gen = os.path.join('y:\\eLab\Patients\\' + subj)
+    path_patient_analysis = sub_path+'\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_gen = os.path.join(sub_path+'\Patients\\' + subj)
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
@@ -165,8 +168,8 @@ def compute_subj(subj, metric='LL'):
             NMF_input = np.load(V_path)
         else:
             con_trial_nan = con_trial_Ph[
-                (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1)]  # con_trial_Ph.copy(deep=True)
-
+                (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1) & (con_trial_Ph.Artefact <1)]  # con_trial_Ph.copy(deep=True)
+            con_trial_nan = con_trial_nan.reset_index(drop=True)
             if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
                 con_trial_nan.groupby(['Chan', 'Sleep', 'Int'])[metric].transform(
                     lambda x: x.fillna(x.mean()))
@@ -315,8 +318,7 @@ def compute_subj(subj, metric='LL'):
 
 print('START')
 metrics = ['LL']  # 'sN2','sN1',
-for subj in ["EL019", "EL017",
-             "EL018"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
+for subj in ["EL020", "EL021"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
     for m in metrics:
         compute_subj(subj, m)
 #         try:
