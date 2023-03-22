@@ -40,8 +40,8 @@ opts.ConsecutiveDelimitersRule = "join";
 
 % Specify variable properties
 opts = setvaropts(opts, ["date", "type", "run"], "EmptyFieldRule", "auto");
-opts = setvaropts(opts, ["hour", "ISI_s", "Int_p", "Int_c", "IPI_ms", "currentflow"], "TrimNonNumeric", true);
-opts = setvaropts(opts, ["hour", "ISI_s", "Int_p", "Int_c", "IPI_ms", "currentflow"], "ThousandsSeparator", ",");
+opts = setvaropts(opts, ["hour", "ISI_s", "Int_prob", "Int_cond", "IPI_ms", "currentflow"], "TrimNonNumeric", true);
+opts = setvaropts(opts, ["hour", "ISI_s", "Int_prob", "Int_cond", "IPI_ms", "currentflow"], "ThousandsSeparator", ",");
 
 % Import the data
 log = readtable(filename, opts);

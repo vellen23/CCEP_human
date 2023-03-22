@@ -153,7 +153,9 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    path_infos = os.path.join(path_patient, 'infos')
+    path_infos = os.path.join(path_gen, 'Electrodes')
+    if not os.path.exists(os.path.join(path_infos, subj + "_labels.xlsx")):
+        path_infos = os.path.join(path_gen, 'infos')
     if not os.path.exists(path_infos):
         path_infos = path_gen + '\\infos'
 
@@ -400,7 +402,7 @@ def update_peaks(subj, cond_folder='CR'):
 
 
 #
-for subj in ['EL021']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
+for subj in ['EL022']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
     # if i>0: cal_con_trial(subj, 'CR')
     # _thread.start_new_thread(cal_con_trial, (subj, 'Ph')) # cal_con_trial(subj, 'Ph')
     ####old###get_significance_trial(subj, cond_folder='CR', update_sig=0)

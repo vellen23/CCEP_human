@@ -42,7 +42,9 @@ class main:
         self.x_ax = np.arange(self.dur[0, 0], self.dur[0, 1], (1 / self.Fs))
 
         # load patient specific information
-        lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
+        lbls = pd.read_excel(os.path.join(path_patient, 'Electrodes', subj + "_labels.xlsx"), header=0, sheet_name='BP')
+        lbls = lbls[lbls.type == 'SEEG']
+        lbls = lbls.reset_index(drop=True)
         self.labels = lbls.label.values
         self.labels_C = lbls.Clinic.values
 

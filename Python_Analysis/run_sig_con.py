@@ -78,7 +78,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
                 # GT output: M_GT, [r, t_onset, t_WOI], LL_CC
                 M_GT_all[sc, rc, :, :], M_t_resp[sc, rc, :3], M_t_resp[sc, rc, 3:] = SCF.get_GT(sc, rc,
                                                                                                 con_trial,
-                                                                                                EEG_resp)
+                                                                                                EEG_resp) ## CC
         np.save(file_GT, M_GT_all)
         np.save(file_t_resp, M_t_resp)
 
@@ -184,7 +184,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', load_con=1, loa
             for rc in resp_chans:
                 dat = CC_summ.loc[
                     (CC_summ.Stim == sc) & (CC_summ.Chan == rc) & (CC_summ.sig_w == 1) & (
-                                CC_summ.art == 0)]  # & (CC_summ.art == 0)
+                            CC_summ.art == 0)]  # & (CC_summ.art == 0)
                 # if there is a significant CC in this connection
                 if len(dat) > 0:
                     ix_cc = dat.CC.values.astype('int')

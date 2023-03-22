@@ -51,7 +51,7 @@ def compute_cut(subj, cut_blocks=1, concat_blocks=1):
                 path_data = os.path.join(path_patient, 'Data\EL_experiment', paths[n], 'data_blocks')
                 folders = glob.glob(path_data + '\\' + subj + '_*')
                 if len(folders) > 0:
-                    for i in range(9, len(folders)): # todo: change back to 0
+                    for i in range(3, len(folders)): # todo: change back to 0
                         CUT.cut_resp(folders[i], k + i + 1, 'BM')
                         CUT.cut_resp(folders[i], k + i + 1, 'IO')
                         # CUT.cut_resp(folders[i], k + i + 1, 'PP')
@@ -100,10 +100,11 @@ def compute_list_update(subj):
 
 #
 # compute_cut('EL014')
-for subj in ["EL021"]:  # , "EL010"
+for subj in ["EL022"]:  # , "EL010"
     # compute_list_update(subj)
     # compute_cut(subj, cut_blocks=1, concat_blocks=0)  # _thread.start_new_thread(compute_list_update, (subj,))
     compute_cut(subj, concat_blocks=0)
     #compute_list_update(subj)
 # while 1:
 #    time.sleep(1)
+
