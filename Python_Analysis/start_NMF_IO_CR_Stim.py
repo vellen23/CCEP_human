@@ -87,11 +87,13 @@ def compute_subj(subj, metric='LL'):
 
     ######## General Infos
     path_patient_analysis = sub_path+'\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_gen = os.path.join(sub_path+'\Patients\\' + subj)
+    path_gen = os.path.join(sub_path + '\\Patients\\' + subj)
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    path_infos = os.path.join(path_patient, 'infos')
+    path_infos = os.path.join(path_gen, 'Electrodes')
+    if not os.path.exists(os.path.join(path_infos, subj + "_labels.xlsx")):
+        path_infos = os.path.join(path_gen, 'infos')
     if not os.path.exists(path_infos):
         path_infos = path_gen + '\\infos'
 
@@ -113,6 +115,11 @@ def compute_subj(subj, metric='LL'):
     #    print("WARNING: number of stimulations don't agree!")
 
     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
+    # load patient specific information
+    lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
+    lbls = lbls[lbls.type == 'SEEG']
+    lbls = lbls.reset_index(drop=True)
+
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
         stimlist,
         lbls)
@@ -127,9 +134,6 @@ def compute_subj(subj, metric='LL'):
     Stims_Ph = np.unique(con_trial_Ph['Stim'])
     con_trial_Ph = con_trial_Ph[np.isin(con_trial_Ph.Stim, Stims_Ph)]
     con_trial_Ph.loc[con_trial_Ph.Sleep == 9, 'Sleep'] = 0
-    # con_trial_Ph=con_trial_Ph[con_trial_Ph.Artefact<1]
-    con_trial_Ph.loc[con_trial_Ph.P2P > 5000, metric] = np.nan
-    con_trial_Ph.loc[con_trial_Ph.LL > 40, metric] = np.nan
     con_trial_Ph.loc[
         con_trial_Ph.Artefact == 1, metric] = np.nan  # con_trial_Ph.loc[con_trial_Ph.Artefact!=0, metric] =np.nan
     # remove outliers
@@ -294,7 +298,7 @@ def compute_subj(subj, metric='LL'):
                 W_save.insert(0, 'Label', labels_all)
                 file = nmf_path + 'W_' + str(p) + 'rk' + str(rk) + '.csv'
                 W_save.to_csv(file, index=False, header=True)
-                # plot AUC¬
+                # plot AUC
                 # ssave H
                 file = nmf_fig_path + 'NMF_H_rk' + str(rk)
                 NMFf.plot_H(H, subj + ' -- Activation Function H ', file=file)
@@ -318,7 +322,7 @@ def compute_subj(subj, metric='LL'):
 
 print('START')
 metrics = ['LL']  # 'sN2','sN1',
-for subj in ["EL020", "EL021"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
+for subj in ["EL022", "EL021"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
     for m in metrics:
         compute_subj(subj, m)
 #         try:

@@ -10,12 +10,12 @@ function [] = score2list(path, badtimes)
         type = foldername(10:end);
         type_excel = type;
         block_num = 0;
-        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)]);
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'NumHeaderLines',0);
     elseif isnan(str2double(foldername(end-1)))
         type = foldername(10:end-1);
         block_num = str2double(foldername(end));
         type_excel = type;
-        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'NumHeaderLines',0,'Sheet',block_num);
     else
         type = foldername(10:end-2);
         if type(end)=="_"
@@ -24,7 +24,7 @@ function [] = score2list(path, badtimes)
             type_excel = type;
         end
         block_num = str2double(foldername(end-1:end));
-        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'Sheet',block_num);
+        stim_list       =  readtable([filepath, sprintf('/%s_stimlist_%s.xlsx',subj, type_excel)],'NumHeaderLines',0,'Sheet',block_num);
     end
     Fs = load([path, '/' foldername '.mat'], 'Fs');
     Fs = Fs.Fs;

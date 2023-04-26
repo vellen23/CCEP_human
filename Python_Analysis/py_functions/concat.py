@@ -13,6 +13,7 @@ import Cluster_func as Cf
 import scipy.stats as stats
 import tqdm
 import time
+import h5py
 import _thread
 sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
 
@@ -143,7 +144,7 @@ def search_sequence_numpy(arr, seq):
         return []  # No match found
 
 
-def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR'):
+def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR', skip = 1):
     path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     files = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*' + cond_folder + '*')
     files = np.sort(files)
@@ -151,38 +152,44 @@ def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR'):
     stimlist = []
     EEG_resp = []
     conds = np.empty((len(files),), dtype=object)
-    for p in range(len(files)):
-        file = files[p]
-        # file = glob(self.path_patient + '/Analysis/'+folder+'/data/Stim_list_' + str(p) + '_*')[0]
-        idxs = [i for i in range(0, len(ntpath.basename(file))) if ntpath.basename(file)[i].isdigit()]
-        cond = ntpath.basename(file)[idxs[-2] - 2:idxs[-2]]  # ntpath.basename(file)[idxs[-2] + 2:-4]  #
-        conds[p] = cond
-        EEG_block = np.load(path_patient_analysis + '\\' + folder + '\\data\\All_resps_' + file[-11:-4] + '.npy')
-        print(str(p + 1) + '/' + str(len(files)) + ' -- All_resps_' + file[-11:-4], end='\r')
-        stim_table = pd.read_csv(file)
-        stim_table['type'] = cond
-        if len(stimlist) == 0:
-            EEG_resp = EEG_block
-            stimlist = stim_table
-        else:
-            EEG_resp = np.concatenate([EEG_resp, EEG_block], axis=1)
-            stimlist = pd.concat([stimlist, stim_table])
-    stimlist = stimlist.drop(columns="StimNum", errors='ignore')
-    stimlist = stimlist.fillna(0)
-    stimlist = stimlist.reset_index(drop=True)
-    col_drop = ["StimNum", 'StimNum.1', 's', 'us', 'ISI_s', 'TTL', 'TTL_PP', 'TTL_DS', 'TTL_PP_DS', 'currentflow']
-    for d in range(len(col_drop)):
-        if (col_drop[d] in stimlist.columns):
-            stimlist = stimlist.drop(columns=col_drop[d])
-    stimlist.insert(0, "StimNum", np.arange(len(stimlist)), True)
-    np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy',
-            EEG_resp)
-    stimlist.to_csv(
-        path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\stimlist_' + cond_folder + '.csv',
-        index=False,
-        header=True)  # scat_plot
-    print('data stored')
-    return EEG_resp, stimlist
+    h5_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.h5'
+    if os.path.isfile(h5_file)*skip:
+        print('concatenated file already exists')
+    else:
+        for p in range(len(files)):
+            file = files[p]
+            # file = glob(self.path_patient + '/Analysis/'+folder+'/data/Stim_list_' + str(p) + '_*')[0]
+            idxs = [i for i in range(0, len(ntpath.basename(file))) if ntpath.basename(file)[i].isdigit()]
+            cond = ntpath.basename(file)[idxs[-2] - 2:idxs[-2]]  # ntpath.basename(file)[idxs[-2] + 2:-4]  #
+            conds[p] = cond
+            EEG_block = np.load(path_patient_analysis + '\\' + folder + '\\data\\All_resps_' + file[-11:-4] + '.npy')
+            print(str(p + 1) + '/' + str(len(files)) + ' -- All_resps_' + file[-11:-4], end='\r')
+            stim_table = pd.read_csv(file)
+            stim_table['type'] = cond
+            if len(stimlist) == 0:
+                EEG_resp = EEG_block
+                stimlist = stim_table
+            else:
+                EEG_resp = np.concatenate([EEG_resp, EEG_block], axis=1)
+                stimlist = pd.concat([stimlist, stim_table])
+        stimlist = stimlist.drop(columns="StimNum", errors='ignore')
+        stimlist = stimlist.fillna(0)
+        stimlist = stimlist.reset_index(drop=True)
+        col_drop = ["StimNum", 'StimNum.1', 's', 'us', 'ISI_s', 'TTL', 'TTL_PP', 'TTL_DS', 'TTL_PP_DS', 'currentflow']
+        for d in range(len(col_drop)):
+            if (col_drop[d] in stimlist.columns):
+                stimlist = stimlist.drop(columns=col_drop[d])
+        stimlist.insert(0, "StimNum", np.arange(len(stimlist)), True)
+        # np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy',
+        #         EEG_resp) https://stackoverflow.com/questions/20928136/input-and-output-numpy-arrays-to-h5py
+        with h5py.File(h5_file, 'w') as hf:
+            hf.create_dataset("EEG_resp", data=EEG_resp)
+        stimlist.to_csv(
+            path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\stimlist_' + cond_folder + '.csv',
+            index=False,
+            header=True)  # scat_plot
+
+        print('data stored')
 
 
 
@@ -244,27 +251,27 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
     # if not os.path.isfile(file_MN1):
     #     if reload:
     #         EEG_resp = np.load(EEG_CR_file)
-    peaks = 0
-    if peaks:
-        StimChanIx = np.unique(con_trial.Stim)
-        chan_all = np.unique(con_trial.Chan)
-        n_chan = np.max(chan_all).astype('int') + 1
-        M_N1peaks = np.zeros((n_chan, n_chan, 3))
-        for s in range(len(StimChanIx)):
-            sc = StimChanIx[s].astype('int')
-            for rc in range(n_chan):
-                M_N1peaks[sc, rc, :] = get_N1peaks_mean(sc, rc, con_trial, EEG_resp)
-        np.save(file_MN1, M_N1peaks)
+    # peaks = 0
+    # if peaks:
+    #     StimChanIx = np.unique(con_trial.Stim)
+    #     chan_all = np.unique(con_trial.Chan)
+    #     n_chan = np.max(chan_all).astype('int') + 1
+    #     M_N1peaks = np.zeros((n_chan, n_chan, 3))
+    #     for s in range(len(StimChanIx)):
+    #         sc = StimChanIx[s].astype('int')
+    #         for rc in range(n_chan):
+    #             M_N1peaks[sc, rc, :] = get_N1peaks_mean(sc, rc, con_trial, EEG_resp)
+    #     np.save(file_MN1, M_N1peaks)
     print(subj + ' -- DONE --')
 
 
-##first you have to have con_trial_alll
-for subj in ["EL022"]:#["EL020","EL019","EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
-    for f in ['BrainMapping']: # 'BrainMapping', 'InputOutput',
-        #if f == 'BrainMapping': OOOOLLLLLDD
-        #    start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)
-        #else:
-        start_subj(subj, folder=f, cond_folder='CR')
+# ##first you have to have con_trial_alll
+# for subj in ["EL022"]:#["EL020","EL019","EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
+#     for f in ['BrainMapping']: # 'BrainMapping', 'InputOutput',
+#         #if f == 'BrainMapping': OOOOLLLLLDD
+#         #    start_subj_GT(subj, folder=f, cond_folder='CR', rerun=1)
+#         #else:
+#         start_subj(subj, folder=f, cond_folder='CR')
 
 # thread = 0
 # sig = 0

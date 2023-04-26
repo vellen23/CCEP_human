@@ -13,7 +13,7 @@ import significance_funcs as sf
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 
-def get_GT_trials(trials, real=1, t_0=1, Fs=500, w=0.25, n_cluster=2):
+def get_GT_trials(trials, real=1, t_0=1, Fs=500, w=0.25, n_cluster=2, cluster_type= 'Kmeans'):
     # t_0 stimulation time in epoched data, changed in surrogate data
     # trials = EEG_resp[rc, stimNum_all, :], shape (n,2000)
     # 1. z-score trials and get LL for t_onset and t_max
@@ -43,10 +43,16 @@ def get_GT_trials(trials, real=1, t_0=1, Fs=500, w=0.25, n_cluster=2):
         thr = 0
     # cluster trials based on specific window (where highest LL is, WOI) on zs-cored data (not affectd by amplitude)
     # EEG_trial = stats.zscore(EEG_trial, axis=1)
-    EEG_trial = bf.zscore_CCEP(EEG_trial, t_0, Fs)
-    cc, y = Cf.ts_cluster(
-        EEG_trial[:, int((t_0 + t_WOI) * Fs):int((t_0 + t_WOI + w) * Fs)], n=n_cluster,
-        method='euclidean')
+    if cluster_type =='Kmeans':
+        EEG_trial = bf.zscore_CCEP(EEG_trial, t_0, Fs)
+        cc, y = Cf.ts_cluster(
+            EEG_trial[:, int((t_0 + t_WOI) * Fs):int((t_0 + t_WOI + w) * Fs)], n=n_cluster,
+            method='euclidean')
+    else: #similarity measure
+        # EEG_trial = bf.zscore_CCEP(EEG_trial, t_0, Fs)
+        cc, y = Cf.ts_cluster(
+            EEG_trial[:, int((t_0 + t_WOI) * Fs):int((t_0 + t_WOI + w) * Fs)], n=n_cluster,
+            method='similarity')
     # p_CC = np.corrcoef(cc[0], cc[1])[0, 1]  # pearson correlation of two clusters
 
     ## store mean across all trials and mean for specific cluster (CC)
@@ -83,7 +89,7 @@ def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2
             trials = EEG_resp[rc, stimNum_all, :]
             [r, t_onset, t_WOI], _, _, M_GT, y, _, LL_CC = get_GT_trials(trials, real=1, t_0=t_0, Fs=Fs,
                                                                          w=w_cluster,
-                                                                         n_cluster=n_cluster)
+                                                                         n_cluster=n_cluster, cluster_type= 'similarity')
     return M_GT, [r, t_onset, t_WOI], LL_CC
 
 
@@ -106,7 +112,7 @@ def get_CC_surr(rc, LL_CCEP, EEG_resp, n_trials, Fs=500, w_cluster=0.25, n_clust
     WOI_surr = np.zeros((n_surr,))
     LL_surr_data = np.zeros((n_surr, 2, 2000))
     for i in range(n_surr):
-        StimNum_surr = np.random.choice(StimNum, size=n_trials).astype('int')
+        StimNum_surr = np.unique(np.random.choice(StimNum, size=n_trials).astype('int'))
         t_nan = np.where(np.isnan(np.mean(EEG_resp[rc, StimNum_surr, :], 1)) * 1)  # [0][0]
         if len(t_nan[0]) > 0:
             StimNum_surr = np.delete(StimNum_surr, t_nan[0])
@@ -116,7 +122,7 @@ def get_CC_surr(rc, LL_CCEP, EEG_resp, n_trials, Fs=500, w_cluster=0.25, n_clust
         trials[:, 1000:] = np.flip(EEG_resp[rc, StimNum_surr, 1000:], 1)  # put response in the beginning of the epoch
         for t_0 in [1]:
             [r, t_onset, t_WOI], _, p_CC, M_GT, y, _, LL_CC = get_GT_trials(trials, real=0, t_0=t_0, Fs=Fs, w=w_cluster,
-                                                                            n_cluster=n_cluster)
+                                                                            n_cluster=n_cluster,cluster_type= 'similarity')
             # return [r, t_onset, t_WOI], LL_mean[0, 0], p_CC, M_GT, y, thr, LL_CC
             if (sum(y == 0) > np.max([5, 0.05 * len(y)])) & (sum(y == 1) > np.max([5, 0.05 * len(y)])):
                 # pear_surr = np.concatenate([pear_surr, [p_CC]], 0)
@@ -204,7 +210,7 @@ def get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, w_LL_ons
 def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, w_cluster=0.25, t_0=1, t_0_BL=0.48,
                   Fs=500):
     dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)]
-    EEG_trials = ff.lp_filter(EEG_CR[[[rc]], dat.Num.values.astype('int'), :], 45, Fs)
+    EEG_trials = ff.lp_filter(np.expand_dims(EEG_CR[rc, dat.Num.values.astype('int'), :],0), 45, Fs)
     LL_trials = LLf.get_LL_all(EEG_trials, Fs, w_cluster)
     if test:
         # for each trial get significance level based on surrogate (Pearson^2 * LL)
@@ -231,11 +237,11 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
         StimNum = [i for i in StimNum if i not in real_trials]
 
         StimNum = np.unique(StimNum).astype('int')
-        EEG_surr = ff.lp_filter(EEG_CR[[[rc]], StimNum, :], 45, Fs)
+        EEG_surr = ff.lp_filter(np.expand_dims(EEG_CR[rc, StimNum, :], 0), 45, Fs)
         bad_StimNum = np.where(np.max(abs(EEG_surr[0]), 1) > 1000)
         if (len(bad_StimNum[0]) > 0):
             StimNum = np.delete(StimNum, bad_StimNum)
-            EEG_surr = ff.lp_filter(EEG_CR[[[rc]], StimNum, :], 45, Fs)
+            EEG_surr = ff.lp_filter(np.expand_dims(EEG_CR[rc, StimNum, :], 0), 45, Fs)
         LL_surr = LLf.get_LL_all(EEG_surr, Fs, w_cluster)
         f = 1
         for t_test in [0.3, 0.7, 1.8, 2.2, 2.6]:  # surrogates times, todo: in future blockwise

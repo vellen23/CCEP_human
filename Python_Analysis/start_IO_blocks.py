@@ -116,49 +116,56 @@ def remove_art(con_trial, EEG_resp):
 
 
 ########### Input
-def compute_subj(subj, cond_folder='Ph'):
+def cal_con_trial(subj, cond_folder='Ph', skip_block = 0,skip_single=1):
     # for subj in ["EL011"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
     # cwd = os.getcwd()
     print(f'Performing calculations on {subj}, Condition: ' + cond_folder)
 
     ######## General Infos
-    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_gen = os.path.join(sub_path+'\\Patients\\' + subj)
+    print(subj + ' ---- START ------ ')
+
+    # path_patient_analysis = 'Y:\\eLab\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+
+    path_gen = os.path.join(sub_path + '\\Patients\\' + subj)
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    path_infos = os.path.join(path_patient, 'infos')
+    path_infos = os.path.join(path_gen, 'Electrodes')
+    if not os.path.exists(os.path.join(path_infos, subj + "_labels.xlsx")):
+        path_infos = os.path.join(path_gen, 'infos')
     if not os.path.exists(path_infos):
         path_infos = path_gen + '\\infos'
+
     Fs = 500
     Path(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\').mkdir(parents=True, exist_ok=True)
     Path(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\').mkdir(parents=True, exist_ok=True)
 
     # get labels
     if cond_folder == 'Ph':
-        files_list = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*Ph*')
-    elif cond_folder == 'CR':
-        files_list = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*CR*')
+        files_list = glob(path_patient_analysis + '/' + folder + '/data/Stim_list_*Ph*')
     else:
-        files_list = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*')
-    stimlist = pd.read_csv(files_list[1])
+        files_list = glob(path_patient_analysis + '/' + folder + '/data/Stim_list_*CR*')
+
+    stimlist = pd.read_csv(files_list[
+                               0])  # pd.read_csv(path_patient_analysis+'/' + folder + '/data/Stimlist.csv')# pd.read_csv(files_list[i])
     # EEG_resp = np.load(path_patient + '/Analysis/' + folder + '/data/ALL_resps_'+files_list[i][-11:-4]+'.npy')
     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
-
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
         stimlist,
         lbls)
     badchans = pd.read_csv(path_patient_analysis + '/BrainMapping/data/badchan.csv')
     bad_chans = np.unique(np.array(np.where(badchans.values[:, 1:] == 1))[0, :])
-    # bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
-    # file_con = path_patient + '/Analysis/' + folder + '/' + cond_folder + '/data/con_trial_all.csv'
+
+    bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
+    # if condition is PHh, store concatenated file, since its only two blocks and not too large
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
 
     ######### Load data
-    load = 0
-    if os.path.isfile(file_con)*load:
+    if os.path.isfile(file_con)*skip_block:
         # con_trial
         con_trial = pd.read_csv(file_con)
+        rerun = 0
     else:
         rerun = 1
     # file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
@@ -179,8 +186,8 @@ def compute_subj(subj, cond_folder='Ph'):
             # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
             block_l = files_list[l][-11:-4]
             file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-            skip = 1
-            if os.path.isfile(file) * skip:
+            skip_single = 1
+            if os.path.isfile(file) * skip_single:
                 con_trial_block = pd.read_csv(file)
             else:
                 EEG_resp = np.load(
@@ -189,7 +196,7 @@ def compute_subj(subj, cond_folder='Ph'):
                     print('ERROR number of stimulations is not correct')
                     break
                 else:
-                    con_trial_block = IOf.get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25,
+                    con_trial_block = IOf.get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w_LL=0.25,
                                                            Fs=500)
 
                     con_trial_block = remove_art(con_trial_block, EEG_resp)
@@ -204,12 +211,21 @@ def compute_subj(subj, cond_folder='Ph'):
     if ('zLL' in con_trial.columns):
         con_trial = con_trial.drop(columns='zLL')
 
+    ## too high LL
+    con_trial.loc[(con_trial.LL_BL > 20), 'Artefact'] = 1
     con_trial.insert(0, 'zLL', con_trial.groupby(['Stim', 'Chan', 'Int'])['LL'].transform(
         lambda x: (x - x.mean()) / x.std()).values)
-
-    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL > 6), 'Artefact'] = -1
+    # most likely artefact
+    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL > 7), 'Artefact'] = -1
     con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL < -5), 'Artefact'] = -1
     con_trial = con_trial.drop(columns='zLL')
+
+    con_trial.insert(0, 'zLL_BL', con_trial.groupby(['Stim', 'Chan'])['LL_BL'].transform(
+        lambda x: (x - x.mean()) / x.std()).values)
+
+    con_trial.loc[(con_trial.Artefact < 1) & (con_trial.zLL_BL > 6), 'Artefact'] = -1
+
+    con_trial = con_trial.drop(columns='zLL_BL')
 
     con_trial.to_csv(file_con, index=False, header=True)
     print(subj + ' ---- DONE ------ ')
@@ -244,12 +260,12 @@ def update_peaks(subj, cond_folder='CR'):
     print(subj + ' -----Peaks updated  DONE ------ ')
 
 
-# compute_subj('EL004', 'CR')
-for subj in [
-    'EL020']:  # ["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
-    # compute_subj(subj, 'CR')
-    compute_subj(subj, cond_folder='CR')
-    # _thread.start_new_thread(compute_subj, (subj,'CR'))
-#
-while 1:
-    time.sleep(1)
+# # compute_subj('EL004', 'CR')
+# for subj in [
+#     'EL022']:  # ["EL016","EL011", "EL012", "El014", "EL010", "EL005", "EL004", "EL013", "EL015"]:  # "EL015","EL004",
+#     # compute_subj(subj, 'CR')
+#     compute_subj(subj, cond_folder='CR')
+#     # _thread.start_new_thread(compute_subj, (subj,'CR'))
+# #
+# while 1:
+#     time.sleep(1)

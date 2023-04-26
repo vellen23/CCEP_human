@@ -46,13 +46,13 @@ class main:
         self.folder = 'BrainMapping'
         self.cond_folder = 'CR'
         self.path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-        path_gen = os.path.join(sub_path + 'Patients\\' + subj)
+        path_gen = os.path.join(sub_path + '\\Patients\\' + subj)
         if not os.path.exists(path_gen):
-            print("Can't find path")
-            # path_gen = 'T:\\EL_experiment\\Patients\\' + subj
-            return
-        self.path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-        path_infos = os.path.join(self.path_patient, 'infos')
+            path_gen = 'T:\\EL_experiment\\Patients\\' + subj
+        path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
+        path_infos = os.path.join(path_gen, 'Electrodes')
+        if not os.path.exists(os.path.join(path_infos, subj + "_labels.xlsx")):
+            path_infos = os.path.join(path_gen, 'infos')
         if not os.path.exists(path_infos):
             path_infos = path_gen + '\\infos'
 
@@ -64,6 +64,9 @@ class main:
 
         # load patient specific information
         lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
+        if "type" in lbls:
+            lbls = lbls[lbls.type == 'SEEG']
+            lbls = lbls.reset_index(drop=True)
         self.labels_all = lbls.label.values
         self.labels_C = lbls.Clinic.values
 
@@ -103,6 +106,7 @@ class main:
         # self.path_patient_analysis = os.path.join(os.path.dirname(os.path.dirname(self.path_patient)), 'Projects\EL_experiment\Analysis\Patients', subj)
         ##bad channels
         non_stim = np.arange(len(self.labels_all))
+        StimChanIx = np.unique(np.array(StimChanIx).astype('int'))
         non_stim = np.delete(non_stim, StimChanIx, 0)
         WM_chans = np.where(self.labels_region == 'WM')[0]
         self.bad_all = np.unique(np.concatenate([WM_chans, bad_region, self.bad_chans, non_stim])).astype('int')
@@ -981,14 +985,14 @@ class main:
             self.plot_BM(M_resp, labels_sel, areas_sel, ll, 0, method, save=1, circ=0, group='General')
 
 
-def start_subj(subj, sig=0):
+def start_subj(subj, cluster_method='similarity', sig=0):
     print(subj + ' -- START --')
     run_main = main(subj)
     path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     # load data
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
-    file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ.csv'
-
+    # file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ.csv'
+    file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ_' + cluster_method + '.csv'
     # todo: make clean
     con_trial = pd.read_csv(file_con)
     CC_summ = pd.read_csv(file_CC_summ)
@@ -1002,28 +1006,18 @@ def start_subj(subj, sig=0):
     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
 
-    #
-    # run_main.get_sleep_summary(con_trial, M_t_resp)
-    # run_main.get_sleep_ttest_surr(con_trial, load=0)
 
-    # con_trial.to_csv(file_con,
-    #                  index=False,
-    #                  header=True)
-    # # #
-    ll = 0
-    general = 0
-    if subj == 'EL010':
-        general = 0
+    general = 1
     if general:
-        run_main.BM_plots_General(CC_summ, con_trial, 1)
-    blocks = 0
+        run_main.BM_plots_General(CC_summ, con_trial, 0)
+    blocks = 1
     if blocks:
         # Blockwise BM
         _ = run_main.save_M_block(con_trial, metrics=['LL'], savefig=1)
         # np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\M_B_all.npy', M_B_all)
     sleep = 1
-    sleep_nmf = 0
-    if (subj == 'EL013') | (subj == 'EL012') | (subj == 'EL021'):  # not enough sleep data
+    sleep_nmf = 1
+    if (subj == 'EL013') | (subj == 'EL012') | (subj == 'EL021')| (subj == 'EL022'):  # not enough sleep data
         sleep = 0
         sleep_nmf = 0
 
@@ -1042,15 +1036,14 @@ def start_subj(subj, sig=0):
     print(subj + ' ----- DONE')
 
 
-thread = 0
-sig = 0
-# todo: 'EL009',
-for subj in [ "EL017", "EL019",
-             "EL020"]:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
-    if thread:
-        _thread.start_new_thread(start_subj, (subj, sig))
-    else:
-        start_subj(subj, 0)
-if thread:
-    while 1:
-        time.sleep(1)
+# thread = 0
+# sig = 0
+# # todo: 'EL009',
+# for subj in [ 'EL013', 'EL014', "EL015", "EL016", "EL017", "EL019","EL020", "EL021"]:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
+#     if thread:
+#         _thread.start_new_thread(start_subj, (subj, sig))
+#     else:
+#         start_subj(subj,'similarity', 0)
+# if thread:
+#     while 1:
+#         time.sleep(1)

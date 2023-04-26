@@ -142,7 +142,7 @@ def remove_art(con_trial, EEG_resp):
 ########### Input
 # for subj in ["EL004","EL005", "EL008", "EL010"]:  # "EL004","EL005","EL008",
 
-def cal_con_trial(subj, cond_folder='Ph', skip=0):
+def cal_con_trial(subj, cond_folder='Ph',skip_block=0, skip_single = 1):
     ######## General Infos
     print(subj + ' ---- START ------ ')
 
@@ -213,8 +213,7 @@ def cal_con_trial(subj, cond_folder='Ph', skip=0):
             # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
             block_l = files_list[l][-11:-4]
             file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-            skip = 1
-            if os.path.isfile(file) * skip:
+            if os.path.isfile(file) * skip_single:
                 con_trial_block = pd.read_csv(file)
             else:
                 EEG_resp = np.load(
@@ -401,12 +400,11 @@ def update_peaks(subj, cond_folder='CR'):
     print(subj + ' ----- Sig Calculations  DONE ------ ')
 
 
-#
-for subj in ['EL022']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
+#for subj in ['EL022']:  # 'EL004', 'EL005', 'EL008', 'EL010','EL012',,,,,, 'EL015','EL011', 'EL013',
     # if i>0: cal_con_trial(subj, 'CR')
     # _thread.start_new_thread(cal_con_trial, (subj, 'Ph')) # cal_con_trial(subj, 'Ph')
     ####old###get_significance_trial(subj, cond_folder='CR', update_sig=0)
-    cal_con_trial(subj, cond_folder='CR')
+    # cal_con_trial(subj, cond_folder='CR')
     # update_sleep(subj)
     # cal_con_trial(subj, cond_folder='Ph')
 

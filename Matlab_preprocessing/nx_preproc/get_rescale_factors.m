@@ -3,8 +3,9 @@ function [sclA, sclC] = get_rescale_factors(EEG_data, Fs, scalp, bl)
     % fig: true if figure should be printed
     % bl normally 5 min, 300s
     %labels          = table2cell(BP_label);
-    EEG             = EEG_data(:,40*Fs:bl*Fs);
-    if scalp
+   % EEG             = EEG_data(:,10*Fs:bl*Fs);
+    EEG             = EEG_data(:,962989:end); 
+   if scalp
         %[bBP, aBP]      = butter(2, [0.5 80]/(Fs/2), 'bandpass');
         [bBP, aBP]      = butter(2, [4 30]/(Fs/2), 'bandpass');
         EEG             = filter(bBP, aBP, EEG')';

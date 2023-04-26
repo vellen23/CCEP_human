@@ -186,7 +186,8 @@ def get_LL_all_LTI(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
 
     return LL_all
 
-def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w_LL=0.25):
+def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25):
+    t_bl = t_0 - 0.5 -0.01
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM,StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(stimlist,
                                                                                                  lbls)
     # Num_block is stimulation number specific to block
@@ -210,11 +211,15 @@ def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w
         LL_peak = np.max(LL_trial, 2)
         t_peak = np.argmax(LL_trial, 2) + int((t_0 - w_LL / 2) * Fs)
         t_peak[t_peak < (t_0 * Fs)] = t_0 * Fs
-        inds = np.repeat(np.expand_dims(t_peak, 2), int(w_LL * Fs), 2)
-        inds = inds + np.arange(int(w_LL * Fs))
-        pN = np.min(np.take_along_axis(resps, inds, axis=2), 2)
-        pP = np.max(np.take_along_axis(resps, inds, axis=2), 2)
-        p2p = abs(pP - pN)
+        ## Baseline LL (control, no stim)
+        LL_trial = LLf.get_LL_all(resps[:, :, int(t_bl * Fs):int((t_bl + 0.5) * Fs)], Fs, w_LL)
+        LL_peak_bl = np.max(LL_trial, 2)
+
+        # inds = np.repeat(np.expand_dims(t_peak, 2), int(w_LL * Fs), 2)
+        # inds = inds + np.arange(int(w_LL * Fs))
+        # pN = np.min(np.take_along_axis(resps, inds, axis=2), 2)
+        # pP = np.max(np.take_along_axis(resps, inds, axis=2), 2)
+        # p2p = abs(pP - pN)
         for c in range(len(LL_peak)):
             val = np.zeros((LL_peak.shape[1], 12))
             val[:, 0] = c  # response channel
@@ -228,10 +233,11 @@ def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w
             val[:, 8] = stim_spec.date.values
             val[:, 9] = stim_spec.sleep.values
             val[:, 10] = stim_spec.stim_block.values
-            val[:, 11] =  p2p[c, :]  # LL_peak_ratio[c, :]  # ratio
-            # set stimulation channels to nan
+            val[:, 11] =  LL_peak_bl[c, :]  # LL_peak_ratio[c, :]  # ratio
+            # set stimulation channels to nan, artefact = 1
             val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 3] = 1
             val[np.where(bf.check_inStimChan(c, ChanP1, labels_clinic) == 1), 2] = np.nan
+
             # if its the recovery channel, check if strange peak is appearing
             pks = np.max(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1)
             pks_loc = np.argmax(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1) + np.int64(
@@ -249,8 +255,7 @@ def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w
 
         data_LL = data_LL[1:-1, :]  # remove first row (dummy row)
         LL_all = pd.DataFrame(
-            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "P2P": data_LL[:, 11], "Artefact": data_LL[:, 3],
-             "nLL": data_LL[:, 2], "Int": data_LL[:, 4],
+            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "LL_BL": data_LL[:, 11], "Artefact": data_LL[:, 3], "Int": data_LL[:, 4],
              'Condition': data_LL[:, 5], 'Hour': data_LL[:, 6], "Block": data_LL[:, 10], "Sleep": data_LL[:, 9],
              "Num": data_LL[:, 7],"Num_block": data_LL[:, 7], "Date": data_LL[:, 8]})
 
@@ -271,8 +276,7 @@ def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500,t_0=1,w
         data_LL = np.zeros((1, 12))
         data_LL[:,2:4] = np.nan
         LL_all = pd.DataFrame(
-            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "P2P": data_LL[:, 2], "Noise": data_LL[:, 3],
-             "nLL": data_LL[:, 2], "Int": data_LL[:, 4],
+            {"Chan": data_LL[:, 0], "Stim": data_LL[:, 1], "LL": data_LL[:, 2], "LL_BL": data_LL[:, 2], "Artefact": data_LL[:, 3], "Int": data_LL[:, 4],
              'Condition': data_LL[:, 5], 'Hour': data_LL[:, 6], "Block": data_LL[:, 10], "Sleep": data_LL[:, 9],
              "Num": data_LL[:, 7],"Num_block": data_LL[:, 7], "Date": data_LL[:, 8]})
     return LL_all

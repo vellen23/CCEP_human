@@ -1,7 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="10edf9b2-f843-41cd-b0c3-fed1acf56faa" name="Changes" comment="" />
+    <list default="true" id="10edf9b2-f843-41cd-b0c3-fed1acf56faa" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../Matlab_preprocessing/main_CR_edf.m" beforeDir="false" afterPath="$PROJECT_DIR$/../Matlab_preprocessing/main_CR_edf.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Matlab_preprocessing/main_run_pp.m" beforeDir="false" afterPath="$PROJECT_DIR$/../Matlab_preprocessing/main_run_pp.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Matlab_preprocessing/merge_scalp_2score.m" beforeDir="false" afterPath="$PROJECT_DIR$/../Matlab_preprocessing/merge_scalp_2score.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Matlab_preprocessing/nx_preproc/get_rescale_factors.m" beforeDir="false" afterPath="$PROJECT_DIR$/../Matlab_preprocessing/nx_preproc/get_rescale_factors.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Matlab_preprocessing/nx_preproc/score2list.m" beforeDir="false" afterPath="$PROJECT_DIR$/../Matlab_preprocessing/nx_preproc/score2list.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/EvM/.ipynb_checkpoints/BM_blockwise_NMF-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/EvM/.ipynb_checkpoints/BM_blockwise_NMF-checkpoint.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/EvM/.ipynb_checkpoints/BM_sig_con_pipeline-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/EvM/.ipynb_checkpoints/BM_sig_con_pipeline-checkpoint.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/EvM/.ipynb_checkpoints/BM_single-checkpoint.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/EvM/.ipynb_checkpoints/BM_single-checkpoint.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/EvM/BM_blockwise_NMF.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/EvM/BM_blockwise_NMF.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/EvM/BM_sig_con_pipeline.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/EvM/BM_sig_con_pipeline.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/EvM/BM_single.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/EvM/BM_single.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cut_resp.py" beforeDir="false" afterPath="$PROJECT_DIR$/cut_resp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/py_functions/Cluster_func.py" beforeDir="false" afterPath="$PROJECT_DIR$/py_functions/Cluster_func.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/py_functions/IO_func.py" beforeDir="false" afterPath="$PROJECT_DIR$/py_functions/IO_func.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/py_functions/concat.py" beforeDir="false" afterPath="$PROJECT_DIR$/py_functions/concat.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/py_functions/significant_connections.py" beforeDir="false" afterPath="$PROJECT_DIR$/py_functions/significant_connections.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/run_sig_con.py" beforeDir="false" afterPath="$PROJECT_DIR$/run_sig_con.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/save_hypnogram.py" beforeDir="false" afterPath="$PROJECT_DIR$/save_hypnogram.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start_BM_CR.py" beforeDir="false" afterPath="$PROJECT_DIR$/start_BM_CR.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start_BM_blocks.py" beforeDir="false" afterPath="$PROJECT_DIR$/start_BM_blocks.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start_IO_block.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/start_NMF_IO_CR_Stim.py" beforeDir="false" afterPath="$PROJECT_DIR$/start_NMF_IO_CR_Stim.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start_cut_resp.py" beforeDir="false" afterPath="$PROJECT_DIR$/start_cut_resp.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -38,7 +63,7 @@
     <property name="last_opened_file_path" value="$PROJECT_DIR$/../../NELS/EL_venv_public" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
-  <component name="RunManager" selected="Python.start_BM_blocks">
+  <component name="RunManager" selected="Python.main_analysis">
     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
       <module name="Python_Analysis" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -83,7 +108,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="start_BM_blocks" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="cut_resp" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Python_Analysis" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -91,12 +116,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="WORKING_DIRECTORY" value="X:/4 e-Lab/EvM/Projects/EPIOS/epios/Preprocessing/Python" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/start_BM_blocks.py" />
+      <option name="SCRIPT_NAME" value="X:/4 e-Lab/EvM/Projects/EPIOS/epios/Preprocessing/Python/cut_resp.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="true" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -105,7 +130,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="start_cut_resp" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="main_analysis" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Python_Analysis" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -118,7 +143,51 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/start_cut_resp.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main_analysis.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="run_sig_con" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Python_Analysis" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/run_sig_con.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="start_IO_block" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Python_Analysis" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/start_IO_block.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="true" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -129,9 +198,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.start_BM_blocks" />
+        <item itemvalue="Python.main_analysis" />
+        <item itemvalue="Python.run_sig_con" />
         <item itemvalue="Python.concat" />
-        <item itemvalue="Python.start_cut_resp" />
+        <item itemvalue="Python.start_IO_block" />
+        <item itemvalue="Python.cut_resp" />
       </list>
     </recent_temporary>
   </component>
@@ -159,7 +230,11 @@
       <workItem from="1676241013557" duration="39705000" />
       <workItem from="1678120874238" duration="29980000" />
       <workItem from="1678902889340" duration="6800000" />
-      <workItem from="1679470921440" duration="444000" />
+      <workItem from="1679470921440" duration="11187000" />
+      <workItem from="1680597906267" duration="11781000" />
+      <workItem from="1681722205391" duration="3758000" />
+      <workItem from="1682417935477" duration="933000" />
+      <workItem from="1682499745591" duration="1740000" />
     </task>
     <servers />
   </component>
@@ -202,23 +277,13 @@
           <option name="timeStamp" value="246" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/py_functions/significant_connections.py</url>
-          <line>427</line>
-          <option name="timeStamp" value="250" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/start_IO_block.py</url>
-          <line>121</line>
-          <option name="timeStamp" value="273" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/../../NELS/Source/create_lookup.py</url>
           <line>177</line>
           <option name="timeStamp" value="279" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/py_functions/concat.py</url>
-          <line>263</line>
+          <line>267</line>
           <option name="timeStamp" value="296" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -281,6 +346,26 @@
           <line>126</line>
           <option name="timeStamp" value="380" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/run_sig_con.py</url>
+          <line>83</line>
+          <option name="timeStamp" value="389" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/run_sig_con.py</url>
+          <line>75</line>
+          <option name="timeStamp" value="390" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://X:/4 e-Lab/EvM/Projects/EPIOS/epios/Preprocessing/Python/cut_resp.py</url>
+          <line>71</line>
+          <option name="timeStamp" value="394" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/run_sig_con.py</url>
+          <line>229</line>
+          <option name="timeStamp" value="407" />
+        </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
           <url>notebook://T:/EL_experiment/Codes/CCEP_human/Python_Analysis/EvM/BM_sleep_networks_across.ipynb</url>
           <line>388</line>
@@ -303,27 +388,29 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/Python_Analysis$run_AUC_all.coverage" NAME="run_AUC_all Coverage Results" MODIFIED="1669301753169" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$significant_connections.coverage" NAME="significant_connections Coverage Results" MODIFIED="1676231627412" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/py_functions" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$run_sig_con.coverage" NAME="run_sig_con Coverage Results" MODIFIED="1676394668186" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$conectogram_GUI.coverage" NAME="conectogram_GUI Coverage Results" MODIFIED="1676485718385" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/visualization/connectogarm" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$create_lookup.coverage" NAME="create_lookup Coverage Results" MODIFIED="1673451355305" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$start_BM_CR.coverage" NAME="start_BM_CR Coverage Results" MODIFIED="1678172289002" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$cut_resp.coverage" NAME="cut_resp Coverage Results" MODIFIED="1679577976134" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="X:/4 e-Lab/EvM/Projects/EPIOS/epios/Preprocessing/Python" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$run_sig_con.coverage" NAME="run_sig_con Coverage Results" MODIFIED="1680703819785" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$BM_sleep.coverage" NAME="BM_sleep Coverage Results" MODIFIED="1678300297947" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/EvM/Across" />
     <SUITE FILE_PATH="coverage/Python_Analysis$BM_func.coverage" NAME="BM_func Coverage Results" MODIFIED="1669973537390" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/py_functions" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$start_NMF_IO_CR.coverage" NAME="start_NMF_IO_CR Coverage Results" MODIFIED="1671696096115" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$NELS.coverage" NAME="NELS Coverage Results" MODIFIED="1676308609121" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
     <SUITE FILE_PATH="coverage/Python_Analysis$main_plot.coverage" NAME="main_plot Coverage Results" MODIFIED="1676560480174" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/visualization/connectogarm" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$start_BM_blocks.coverage" NAME="start_BM_blocks Coverage Results" MODIFIED="1678981564671" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$get_clinic_table.coverage" NAME="get_clinic_table Coverage Results" MODIFIED="1673948950409" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$start_BM_blocks.coverage" NAME="start_BM_blocks Coverage Results" MODIFIED="1679565333475" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$start_cut_resp_LT.coverage" NAME="start_cut_resp_LT Coverage Results" MODIFIED="1670489098861" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$start_cut_resp.coverage" NAME="start_cut_resp Coverage Results" MODIFIED="1678951593688" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$concat.coverage" NAME="concat Coverage Results" MODIFIED="1678952150551" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/py_functions" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$NELS__1_.coverage" NAME="NELS (1) Coverage Results" MODIFIED="1670057984292" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$concat.coverage" NAME="concat Coverage Results" MODIFIED="1680601890290" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/py_functions" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$main_analysis.coverage" NAME="main_analysis Coverage Results" MODIFIED="1682418122579" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$main.coverage" NAME="main Coverage Results" MODIFIED="1678311062747" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../Connectogram" />
     <SUITE FILE_PATH="coverage/Python_Analysis$start_NMF_IO_CR_Stim.coverage" NAME="start_NMF_IO_CR_Stim Coverage Results" MODIFIED="1671695711544" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$BM_general.coverage" NAME="BM_general Coverage Results" MODIFIED="1678197614796" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/EvM/Across" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$start_PP_block.coverage" NAME="start_PP_block Coverage Results" MODIFIED="1674665894027" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$save_hypnogram.coverage" NAME="save_hypnogram Coverage Results" MODIFIED="1674716763383" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$start_IO_block.coverage" NAME="start_IO_block Coverage Results" MODIFIED="1674045728927" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$start_IO_block.coverage" NAME="start_IO_block Coverage Results" MODIFIED="1680600571926" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$significant_connections.coverage" NAME="significant_connections Coverage Results" MODIFIED="1676231627412" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/py_functions" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$conectogram_GUI.coverage" NAME="conectogram_GUI Coverage Results" MODIFIED="1676485718385" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/visualization/connectogarm" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$create_lookup.coverage" NAME="create_lookup Coverage Results" MODIFIED="1673451355305" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$start_BM_CR.coverage" NAME="start_BM_CR Coverage Results" MODIFIED="1678172289002" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$start_NMF_IO_CR.coverage" NAME="start_NMF_IO_CR Coverage Results" MODIFIED="1671696096115" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$NELS.coverage" NAME="NELS Coverage Results" MODIFIED="1676308609121" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$get_clinic_table.coverage" NAME="get_clinic_table Coverage Results" MODIFIED="1673948950409" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$start_cut_resp.coverage" NAME="start_cut_resp Coverage Results" MODIFIED="1679561535364" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$NELS__1_.coverage" NAME="NELS (1) Coverage Results" MODIFIED="1670057984292" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$start_PP_block.coverage" NAME="start_PP_block Coverage Results" MODIFIED="1674665894027" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

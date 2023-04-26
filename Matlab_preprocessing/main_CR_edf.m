@@ -20,21 +20,21 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL022'; %% change name if another data is used !!
+subj            = 'EL023'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 % load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
 % dir_files       = [path_patient,'\data_raw\LT_experiment'];% folder where raw edf are stored
 % load labels
 % MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
-BP_label = importfile_BPlabels([path_patient '\Electrodes\' subj '_lookup.xlsx'], 'BP');
-
-BP_label = BP_label(~isnan(BP_label.chan_BP_P),:);
-MP_label= MP_label(~isnan(MP_label.Natus),:);
-start
+% BP_label = importfile_BPlabels([path_patient '\Electrodes\' subj '_lookup.xlsx'], 'BP');
+% 
+% BP_label = BP_label(~isnan(BP_label.chan_BP_P),:);
+% MP_label= MP_label(~isnan(MP_label.Natus),:);
+% start
 %% 1. log 
 log_files= dir([dir_files '\*.log']);
-i = 6; % find automated way or select manually
+i = 2; % find automated way or select manually
 log             = importfile_log_2([dir_files '\' log_files(i).name]);
 stimlist_all = log(log.date~="WAIT",:);
 % stimlist_all = stimlist_all(stimlist_all.type=="BMCT",:);
@@ -46,7 +46,7 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date = 20230320;
+date = 20230425;
 midnight = find(stimlist_all.h==0);
 if ~isempty(midnight)
     midnight = midnight(1);
@@ -56,7 +56,7 @@ else
     stimlist_all.date(:) = date;
 end
 %% update block number
-n_block = 56;
+n_block = 41;
 stimlist_all.stim_block = stimlist_all.stim_block+n_block;
 
 %% type
@@ -65,8 +65,8 @@ path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 
 %% 
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
-files= dir([dir_files '\*CR*.EDF']);
-for j=13:length(files)
+files= dir([dir_files '\*BM*.EDF']);
+for j=2:length(files)
     %% 1. read first raw data
     file = files(j).name
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
@@ -177,12 +177,12 @@ end
     clf(figure(1))
     Fs     = hdr_edf.frequency(1);
     %Fs = 148;
-    n_trig = 10;
+    n_trig = 30;
     t      = stimlist.TTL(n_trig);
     IPI    = stimlist.IPI_ms(n_trig);
     x_s = 10;
     x_ax        = -x_s:1/Fs:x_s;
-    c= stimlist.ChanP(n_trig);
+    c= 20;% stimlist.ChanP(n_trig);
     plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
     hold on
     plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
