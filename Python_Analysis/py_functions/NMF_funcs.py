@@ -39,7 +39,7 @@ def get_nnmf_Epi(X, rank, it=2000):
     return W, W0, H
 
 
-def get_nnmf(X, rank, it=2000):
+def get_nnmf(X, rank, init='nndsvda',it=2000):
     # remove rows that are completly equal zero
     # model = NMF(n_components=rank, init='random', random_state=50, max_iter=it)
     # W = model.fit_transform(X)
@@ -47,7 +47,7 @@ def get_nnmf(X, rank, it=2000):
     W = np.zeros((X.shape[0], rank))
     X0 = np.delete(X, np.where(np.mean(X, 1) == 0)[0], 0)
 
-    model = NMF(n_components=rank, init='nndsvd', max_iter=it)
+    model = NMF(n_components=rank, init=init, max_iter=it)
     W0 = model.fit_transform(X0)
     H = model.components_
     W[np.where(np.mean(X, 1) > 0)[0], :] = W0
