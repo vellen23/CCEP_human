@@ -18,16 +18,16 @@ sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
 
 
 ### Preparation
-subjs = ["EL023"]
+subjs = ["EL024"]
 for subj in subjs:
     ### cut data in epochs
-    start_cut_resp.compute_cut(subj, skip_exist=1, prots = ['BM', 'IO'])
+    #start_cut_resp.compute_cut(subj, skip_exist=1, prots = ['BM']) # , 'IO'
 
     ### get con_trial
     BM_blocks.cal_con_trial(subj, cond_folder='CR',skip_block=1, skip_single = 1)
     # IO_blocks.cal_con_trial(subj, cond_folder='CR',skip_block=0, skip_single = 1)
     ### concat epoched data into h5py file, all responses accessible
-    for f in ['BrainMapping', 'InputOutput']:
+    for f in ['BrainMapping']: # , 'InputOutput'
         concat.concat_resp_condition(subj, folder=f, cond_folder='CR', skip = 0)
 
 ###### BM Analysis

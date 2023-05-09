@@ -8,6 +8,7 @@ path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
+block_path = [path_patient,'/data_raw/EL_Experiment/experiment1'];
 % load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
 % dir_files       = [path_patient,'\data_raw\LT_experiment'];% folder where raw edf are stored
 % load labels
@@ -34,10 +35,10 @@ end
 %% 
 
 % % path where all blocks are stored
-% block_path     = uigetdir([path_patient, '\Data\EL_experiment']); %
-% block_files     = dir(block_path);
-% isdir           = [block_files.isdir]; % Get all the codes
-% block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
+block_path     = uigetdir([path_patient, '\Data\EL_experiment']); %
+block_files     = dir(block_path);
+isdir           = [block_files.isdir]; % Get all the codes
+block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
 for i=3:length(block_files)
     disp(block_files(i).name);
     run_pp_check =1;
