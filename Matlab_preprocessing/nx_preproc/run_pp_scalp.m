@@ -23,10 +23,13 @@ function [] = rerun_pp_scalp(path, sclA_scalp, sclC_scalp, BP_label )
     % PREPROCESS EEG
 
     EEG_load                 = load([path, '\scalpEEG.mat']);
-    labels                   = cellstr(BP_label.label_BP(contains(string(BP_label.type),'scalp')));%cellstr(BP_label.label(contains(BP_label.type,'scalp')));
-    [scalpEEG, Fs, ~] = EL_preprocess_scalp(EEG_load,stim_list,sclA_scalp, sclC_scalp);
-    %save([path_patient, sprintf('/Data/experiment%i/data_blocks/%s_BP_%s%i/scalpEEG.mat',exp,subj, type,b)],'scalpEEG','Fs','scalpTTL', 'labels','-v7.3');
+    if isfield(EEG_load,'scalpFs')
+        if EEG_load.scalpFs>200
+            labels                   = cellstr(BP_label.label(contains(string(BP_label.type),'scalp')));%cellstr(BP_label.label(contains(BP_label.type,'scalp')));
+            [scalpEEG, Fs, ~] = EL_preprocess_scalp(EEG_load,stim_list,sclA_scalp, sclC_scalp);
+            %save([path_patient, sprintf('/Data/experiment%i/data_blocks/%s_BP_%s%i/scalpEEG.mat',exp,subj, type,b)],'scalpEEG','Fs','scalpTTL', 'labels','-v7.3');
 
-    save([path, '/scalpEEG.mat'],'scalpEEG', 'Fs', 'labels','-v7.3');
-
+            save([path, '/scalpEEG.mat'],'scalpEEG', 'Fs', 'labels','-v7.3');
+        end
+    end
 end

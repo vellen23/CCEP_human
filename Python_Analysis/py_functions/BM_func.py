@@ -100,7 +100,7 @@ def check_inStimChan(c, sc_s, labels_all):
 
 
 def SM2IX(SM, StimChanNums, StimChanIx):
-    # SM: stim channel in SM number
+    # SM: selected array of stim channel in SM number
     # StimChanNums: all number of stim channels in SM
     # StimChanIx: all stim channels in all channles environment
     ChanIx = np.zeros_like(SM)
@@ -108,31 +108,51 @@ def SM2IX(SM, StimChanNums, StimChanIx):
         ChanIx[i] = StimChanIx[np.where(StimChanNums == SM[i])]
     return ChanIx
 
+def init_stimlist_columns(stimlist, StimChanSM):
+    """Initialize required columns if they are not present."""
+    column_defaults = {"Num_block": stimlist.StimNum, "condition": 0, "sleep": 0}
+    for col, default_val in column_defaults.items():
+        if col not in stimlist.columns:
+            stimlist[col] = default_val
+    # Filter stimlist based on conditions
+    stim_spec = stimlist[(stimlist.IPI_ms == 0)&(np.isin(stimlist.ChanP, StimChanSM)) & (stimlist.noise == 0)]
+    stim_spec.reset_index(drop=True, inplace=True)
+
+    return stimlist, stim_spec
+
+def calculate_artefact(resps, stimlist, stim_spec, t_0, Fs, c, ChanP1, StimChanSM, StimChanIx, labels_clinic):
+    """Detect artefact if recording channel has high LL and was stimulating the trial before (still recovering)"""
+    # pks = np.max(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1)
+    # pks_loc = np.argmax(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1) + np.int64(
+    #     (t_0 - 0.05) * Fs)
+    #
+    # ix = np.where((pks > 500) & (pks_loc > np.int64((t_0 - 0.005) * Fs)) & (pks_loc < np.int64((t_0 + 0.008) * Fs)))
+    # sn = stim_spec.StimNum.values[ix]
+    # rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
+    #
+    # if len(rec_chan) > 0:
+    #     rec_chan = SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
+    #     if np.isin(c, rec_chan):
+    #         return 1 # recording channel has artefact because it's a recovering channel (stimulating just before)
+    return check_inStimChan(c, ChanP1, labels_clinic) # stim channel is recording channel
 
 def LL_BM_connection(EEG_resp, stimlist, bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx):
     Fs = 500
-    # cond_sel = condition or h
-
     w_LL = 0.25
     t_0 = 1  # time of stimulation in data
-    t_Bl = 0.5
-    # Num_block is stimulation number specific to block
-    if not 'Num_block' in stimlist.columns:
-        stimlist.insert(0, "Num_block", stimlist.StimNum, True)
-    if not 'condition' in stimlist.columns:
-        stimlist.insert(8, "condition", 0, True)
-    if not 'sleep' in stimlist.columns:
-        stimlist.insert(8, "sleep", 0, True)
-    # StimNum is a unique stimulation number (ID) given across blocks
-    ## calcualte mean CCEP and then take LL
-    data_CCEP = np.zeros((1, 12))
-    stim_spec = stimlist[(stimlist.IPI_ms == 0) ]  # &(stimlist.noise ==0)
+
+    # Init required columns in stimlist
+    stimlist, stim_spec = init_stimlist_columns(stimlist,StimChanSM)
+
+    # Analyze each channel
+    data_CCEP = []
     stimNum = stim_spec.StimNum.values  # [:,0]
     noise_val = stim_spec.noise.values  # [:,0]
     stimNum_block = stim_spec.Num_block.values  # [:,0]
     resps = ff.lp_filter(EEG_resp[:, stimNum, :], 45, Fs)
     ChanP1 = SM2IX(stim_spec.ChanP.values, StimChanSM, np.array(StimChanIx))
-    # LL_all = LLf.get_LL_both(data=resps, Fs=Fs, IPI=np.zeros((len(stimNum), 1)), t_0=t_0, win=w_LL)
+
+    ## ge tLL for each stimulation and channel
     LL_trial = LLf.get_LL_all(resps[:, :, int(t_0 * Fs):int((t_0 + 0.5) * Fs)], Fs, w_LL)
     LL_peak = np.max(LL_trial, 2)
     t_peak = np.argmax(LL_trial, 2) + int((t_0 - w_LL / 2) * Fs)
@@ -142,67 +162,34 @@ def LL_BM_connection(EEG_resp, stimlist, bad_chans, coord_all, labels_clinic, St
     pN = np.min(np.take_along_axis(resps, inds, axis=2), 2)
     pP = np.max(np.take_along_axis(resps, inds, axis=2), 2)
     p2p = abs(pP - pN)
-    # LL_trial = LLf.get_LL_all(resps[:, :, int(0.49 * Fs):int(0.99 * Fs)], Fs, 0.25, 1, np.zeros((len(stimNum), 1)))
-    # LL_peak_ratio = np.max(LL_trial, 2)
-    # LL_peak_ratio = LL_peak / LL_peak_ratio
-    # Stim Channel before
-    # stim_spec0                = stimlist[(stimlist.StimNum.isin((stim_spec.StimNum.values-1)[1:]))]
-    # ChanP0                    = np.zeros((len(stimNum),))
-    # ChanP0[1:]                = SM2IX(stim_spec0.ChanP.values,StimChanSM,np.array(StimChanIx))
-    # sn = stim_spec.StimNum.values
-    # rec_chan_all = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
-    # rec_chan_all = SM2IX(rec_chan_all, StimChanSM, np.array(StimChanIx))
     for c in range(LL_peak.shape[0]):
-        val = np.zeros((LL_peak.shape[1], 12))
-        val[:, 0] = c  # response channel
-        val[:, 1] = ChanP1  # stim channel
-        val[:, 2] = noise_val # noie, artfacts
-        val[:, 3] = stimNum_block  # stim number in EEG_resp block
-        val[:, 10] = stimNum  # stim number in EEG_resp block
-        val[:, 4] = stim_spec.condition.values  # condition value (Ph or HOur)
-        val[:, 9] = stim_spec.h.values  # condition value (Ph or HOur)
-        val[:, 8] = LL_peak[c, :]  # PP
-        val[:, 11] = p2p[c, :]  # LL_peak_ratio[c, :]  # ratio
-        val[:, 5] = stim_spec.date.values
-        val[:, 6] = stim_spec.sleep.values
-        val[:, 7] = stim_spec.stim_block.values
+        val = [
+            [c, ChanP1[i], noise_val[i], stimNum_block[i], stim_spec.condition.values[i], stim_spec.date.values[i],
+             stim_spec.sleep.values[i], stim_spec.stim_block.values[i], LL_peak[c, i], stim_spec.h.values[i],
+             stimNum[i], p2p[c, i]]
+            for i in range(LL_peak.shape[1])
+        ]
+        val = np.array(val)
+        # # Apply artefact logic
+        # for v in val:
+        #     v[2] = calculate_artefact(resps, stimlist, stim_spec, t_0, Fs, c, ChanP1, StimChanSM, StimChanIx,
+        #                               labels_clinic)
+        chan_stimulating = check_inStimChan(c, ChanP1, labels_clinic)
+        if len(chan_stimulating) > 0:
+            indices = np.where(chan_stimulating == 1)[0]
+            val[indices, 2] = 1
 
-        # voltage_rec = np.percentile(abs(resps[c, :, 0:np.int64(1 * Fs)]), 90, 1)
-        # ix = np.where(voltage_rec > 500)
-        # sn = stim_spec.StimNum.values[ix]
-        # rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
-        # rec_chan = SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
-        # if np.isin(c, rec_chan):
-        #     val[ix, 2] = -1
+        # Convert the numpy array back to a list
+        val = val.tolist()
+        data_CCEP.extend(val)
 
-        # ix         = np.where(np.max(abs(resps[c,:,np.int64(0.95*Fs):np.int64(1.01*Fs)]),1)>400)
-        pks = np.max(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1)
-        pks_loc = np.argmax(abs(resps[c, :, np.int64((t_0 - 0.05) * Fs):np.int64((t_0 + 0.5) * Fs)]), 1) + np.int64(
-            (t_0 - 0.05) * Fs)
+    # Convert to DataFrame
+    LL_CCEP = pd.DataFrame(data_CCEP, columns=["Chan", "Stim", "Artefact", "Num_block", "Condition", "Date", "Sleep",
+                                               "Block", "LL", "Hour", "Num", "P2P"])
 
-        ix = np.where((pks > 500) & (pks_loc > np.int64((t_0 - 0.005) * Fs)) & (pks_loc < np.int64((t_0 + 0.008) * Fs)))
-        # original stim number:
-        sn = stim_spec.StimNum.values[ix]
-        rec_chan = stimlist.loc[np.isin(stimlist.StimNum, sn - 1), 'ChanP'].values
-        if len(rec_chan)>0:
-            rec_chan = SM2IX(rec_chan, StimChanSM, np.array(StimChanIx))
-            if np.isin(c, rec_chan):
-                val[ix, 2] = 1
-
-        # remove stimulating channels
-        val[np.where(check_inStimChan(c, ChanP1, labels_clinic) == 1), 2] = 1
-        data_CCEP = np.concatenate((data_CCEP, val), axis=0)
-
-    data_CCEP = data_CCEP[1:, :]  # remove first row (dummy row)
-
-    LL_CCEP = pd.DataFrame(
-        {"Chan": data_CCEP[:, 0], "Stim": data_CCEP[:, 1], "LL": data_CCEP[:, 8],
-         "P2P": data_CCEP[:, 11], 'Condition': data_CCEP[:, 4], 'Hour': data_CCEP[:, 9], "Block": data_CCEP[:, 7],
-         "Sleep": data_CCEP[:, 6], "Num": data_CCEP[:, 10], "Num_block": data_CCEP[:, 3],
-         "Date": data_CCEP[:, 5], "Artefact": data_CCEP[:, 2]})  # , "LL": data_CCEP[:, 2], "Sig_trial": data_CCEP[:, 2]
-    # todo: remove row if in bad chan
+    # Mark bad channels as artefacts
     LL_CCEP.loc[LL_CCEP['Chan'].isin(bad_chans), 'Artefact'] = 1
-    # LL_CCEP.loc[LL_CCEP['Chan'].isin(bad_chans), 'LL_peak'] = np.nan
+
     # distance
     for s in np.unique(LL_CCEP.Stim):
         s = np.int64(s)

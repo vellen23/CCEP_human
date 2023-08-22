@@ -318,7 +318,7 @@ class main:
             types = ['IO', 'Ph_IO', 'CR_IO', 'InputOutput']
             folder = 'InputOutput'
         elif type == 'BM':
-            types = ['BM', 'Ph_BM', 'CR_BM', 'BrainMapping']
+            types = ['BM', 'BM_BM', 'BMCT', 'Ph_BM', 'CR_BM', 'BrainMapping']
             folder = 'BrainMapping'
         elif type == 'LT':
             types = ['LTD1', 'LTD10', 'LTP50']
@@ -449,7 +449,7 @@ class main:
             types = ['IO', 'Ph_IO', 'CR_IO', 'InputOutput']
             folder = 'InputOutput'
         elif type == 'BM':
-            types = ['BM', 'Ph_BM', 'CR_BM', 'BrainMapping']
+            types = ['BM', 'BM_BM', 'BMCT', 'Ph_BM', 'CR_BM', 'BrainMapping']
             folder = 'BrainMapping'
         else:
             types = []

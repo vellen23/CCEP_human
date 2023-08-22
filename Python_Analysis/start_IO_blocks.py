@@ -85,7 +85,8 @@ color_elab[1, :] = np.array([189, 215, 238]) / 255
 color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
 folder = 'InputOutput'
-sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
+sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
+
 
 def remove_art(con_trial, EEG_resp):
     # remove LL that are much higher than the mean
@@ -93,12 +94,12 @@ def remove_art(con_trial, EEG_resp):
     chan, trial = np.where(np.max(abs(EEG_resp), 2) > 3000)
     for i in range(len(trial)):
         con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
-                    con_trial.Num_block == trial[i]), 'Artefact'] = -1
+                con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     chan, trial = np.where(np.max(abs(EEG_resp[0:int(0.5 * Fs)]), 2) > 1500)
     for i in range(len(trial)):
         con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
-                    con_trial.Num_block == trial[i]), 'Artefact'] = -1
+                con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     resp_BL = abs(ff.lp_filter(EEG_resp, 2, Fs))
     resp_BL = resp_BL[:, :, 0:int(Fs)]
@@ -107,7 +108,7 @@ def remove_art(con_trial, EEG_resp):
     chan, trial = np.where(AUC_BL > 28000)
     for i in range(len(trial)):
         con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
-                    con_trial.Num_block == trial[i]), 'Artefact'] = -1
+                con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     # remove unrealistic high LL
     con_trial.loc[(con_trial.Artefact == 0) & (con_trial.LL > 40), 'Artefact'] = -1
@@ -116,7 +117,7 @@ def remove_art(con_trial, EEG_resp):
 
 
 ########### Input
-def cal_con_trial(subj, cond_folder='Ph', skip_block = 0,skip_single=1):
+def cal_con_trial(subj, cond_folder='Ph', skip_block=1,skip_single = 1):
     # for subj in ["EL011"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
     # cwd = os.getcwd()
     print(f'Performing calculations on {subj}, Condition: ' + cond_folder)
@@ -162,7 +163,7 @@ def cal_con_trial(subj, cond_folder='Ph', skip_block = 0,skip_single=1):
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
 
     ######### Load data
-    if os.path.isfile(file_con)*skip_block:
+    if os.path.isfile(file_con) * skip_block:
         # con_trial
         con_trial = pd.read_csv(file_con)
         rerun = 0
@@ -186,7 +187,7 @@ def cal_con_trial(subj, cond_folder='Ph', skip_block = 0,skip_single=1):
             # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
             block_l = files_list[l][-11:-4]
             file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-            skip_single = 1
+
             if os.path.isfile(file) * skip_single:
                 con_trial_block = pd.read_csv(file)
             else:
@@ -211,21 +212,23 @@ def cal_con_trial(subj, cond_folder='Ph', skip_block = 0,skip_single=1):
     if ('zLL' in con_trial.columns):
         con_trial = con_trial.drop(columns='zLL')
 
-    ## too high LL
+    ## too high LL in BL
     con_trial.loc[(con_trial.LL_BL > 20), 'Artefact'] = 1
-    con_trial.insert(0, 'zLL', con_trial.groupby(['Stim', 'Chan', 'Int'])['LL'].transform(
-        lambda x: (x - x.mean()) / x.std()).values)
-    # most likely artefact
-    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL > 7), 'Artefact'] = -1
-    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL < -5), 'Artefact'] = -1
-    con_trial = con_trial.drop(columns='zLL')
 
     con_trial.insert(0, 'zLL_BL', con_trial.groupby(['Stim', 'Chan'])['LL_BL'].transform(
         lambda x: (x - x.mean()) / x.std()).values)
 
-    con_trial.loc[(con_trial.Artefact < 1) & (con_trial.zLL_BL > 6), 'Artefact'] = -1
+    # outliers
+    con_trial.loc[(con_trial.zLL_BL > 6), 'Artefact'] = 1
 
     con_trial = con_trial.drop(columns='zLL_BL')
+    ## too high LL in BL
+    con_trial.insert(0, 'zLL', con_trial.groupby(['Stim', 'Chan', 'Int'])['LL'].transform(
+        lambda x: (x - x.mean()) / x.std()).values)
+    # most likely artefact
+    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL > 7), 'Artefact'] = -1
+    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.zLL < -7), 'Artefact'] = -1
+    con_trial = con_trial.drop(columns='zLL')
 
     con_trial.to_csv(file_con, index=False, header=True)
     print(subj + ' ---- DONE ------ ')
@@ -236,7 +239,7 @@ def update_peaks(subj, cond_folder='CR'):
     print(subj + ' ---- START ------ ')
     if platform.system() == 'Windows':
         sep = ','
-        path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+        path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
         path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
     else:  # 'Darwin' for MAC
         path_patient = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/' + subj
@@ -258,7 +261,6 @@ def update_peaks(subj, cond_folder='CR'):
     con_trial.to_csv(file_con, index=False, header=True)
 
     print(subj + ' -----Peaks updated  DONE ------ ')
-
 
 # # compute_subj('EL004', 'CR')
 # for subj in [

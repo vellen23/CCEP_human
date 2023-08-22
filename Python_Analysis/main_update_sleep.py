@@ -10,14 +10,13 @@ import start_cut_resp
 
 root = Tk()
 root.withdraw()
-sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
+sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
-subjs = ["EL021"]
+subjs = ["EL024"]
 for subj in subjs:
     # 1. read updated excel and update single csv
-    start_cut_resp.compute_list_update(subj=subj, prots = ['BM', 'IO']) #, 'PP'
+    # start_cut_resp.compute_list_update(subj=subj, prots = ['BM', 'IO']) #, 'PP'
     # 2. from single csv files update stimlist to updated stimlist_CR and updated con-trials
-    save_hypnogram.run_main(subj,1,1,folders = ['BrainMapping', 'InputOutput'])
+    save_hypnogram.run_main(subj, 1, 1, folders=['BrainMapping', 'InputOutput'])
 
 print('Done')
-

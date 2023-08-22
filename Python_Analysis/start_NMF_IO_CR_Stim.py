@@ -322,7 +322,7 @@ def compute_subj(subj, metric='LL'):
 
 print('START')
 metrics = ['LL']  # 'sN2','sN1',
-for subj in ["EL022", "EL021"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
+for subj in ["EL025"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
     for m in metrics:
         compute_subj(subj, m)
 #         try:

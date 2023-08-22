@@ -148,12 +148,15 @@ def run_main(subj, update_list = 0, update_contrial=0,folders = ['BrainMapping',
         file = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj + '\\' + p + '\\CR\\data\\stimlist_CR.csv'
         if os.path.isfile(file):
             stimlist = pd.read_csv(file)
-            stimlist = stimlist[stimlist.condition == 0]
+            if 'condition' in stimlist:
+                stimlist = stimlist[stimlist.condition == 0]
             stimlist.insert(0, 'Prot', p)
             if len(stimlist_hypno) == 0:
                 stimlist_hypno = stimlist
             else:
                 stimlist_hypno = pd.concat([stimlist_hypno, stimlist])
+    if not "sleep" in stimlist_hypno:
+        stimlist_hypno.insert(5, 'sleep', 0)
     stimlist_hypno = stimlist_hypno.sort_values(by=['date', 'h', 'min', 'StimNum'])
     stimlist_hypno.insert(5, 's', np.random.randint(0, high=59, size=(len(stimlist_hypno),), dtype=int))
     stimlist_hypno = stimlist_hypno[

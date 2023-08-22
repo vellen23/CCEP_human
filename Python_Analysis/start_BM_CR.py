@@ -79,7 +79,7 @@ class main:
         labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
             stimlist,
             lbls)
-        bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
+        bad_region = np.where((labels_region == 'Unknown') |(labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
         self.labels_region_L = lbls.Hemisphere.values + '_' + labels_region
         self.subj = subj
         atlas_regions = pd.read_excel(
@@ -1006,7 +1006,6 @@ def start_subj(subj, cluster_method='similarity', sig=0):
     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
 
-
     general = 1
     if general:
         run_main.BM_plots_General(CC_summ, con_trial, 0)
@@ -1017,7 +1016,7 @@ def start_subj(subj, cluster_method='similarity', sig=0):
         # np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\M_B_all.npy', M_B_all)
     sleep = 1
     sleep_nmf = 1
-    if (subj == 'EL013') | (subj == 'EL012') | (subj == 'EL021')| (subj == 'EL022'):  # not enough sleep data
+    if (subj == 'EL013') | (subj == 'EL012') | (subj == 'EL021') | (subj == 'EL022'):  # not enough sleep data
         sleep = 0
         sleep_nmf = 0
 
@@ -1036,14 +1035,15 @@ def start_subj(subj, cluster_method='similarity', sig=0):
     print(subj + ' ----- DONE')
 
 
-# thread = 0
-# sig = 0
-# # todo: 'EL009',
-# for subj in [ 'EL013', 'EL014', "EL015", "EL016", "EL017", "EL019","EL020", "EL021"]:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
-#     if thread:
-#         _thread.start_new_thread(start_subj, (subj, sig))
-#     else:
-#         start_subj(subj,'similarity', 0)
-# if thread:
-#     while 1:
-#         time.sleep(1)
+thread = 0
+sig = 0
+# # # todo: 'EL009',
+for subj in [
+    'EL026']:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
+    if thread:
+        _thread.start_new_thread(start_subj, (subj, sig))
+    else:
+        start_subj(subj, 'similarity', 0)
+if thread:
+    while 1:
+        time.sleep(1)

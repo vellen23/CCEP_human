@@ -1,4 +1,3 @@
-close all; clear all;
 
 %% Windows, load toolboxes
 cwp         = pwd;
@@ -20,22 +19,15 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL023'; %% change name if another data is used !!
+subj            = 'EL024'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
-% load([path_patient,'\infos\BP_label.mat']); % table with the bipolar labels and hwo they are called in MP edf files
-% dir_files       = [path_patient,'\data_raw\LT_experiment'];% folder where raw edf are stored
-% load labels
-% MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
-% BP_label = importfile_BPlabels([path_patient '\Electrodes\' subj '_lookup.xlsx'], 'BP');
-% 
-% BP_label = BP_label(~isnan(BP_label.chan_BP_P),:);
-% MP_label= MP_label(~isnan(MP_label.Natus),:);
-% start
+load([path_patient, '\\Electrodes\\labels.mat']);
+
 %% 1. log 
 log_files= dir([dir_files '\*.log']);
-i = 2; % find automated way or select manually
-log             = importfile_log_2([dir_files '\' log_files(i).name]);
+log_ix = 1; % find automated way or select manually
+log             = importfile_log_2([dir_files '\' log_files(log_ix).name]);
 stimlist_all = log(log.date~="WAIT",:);
 % stimlist_all = stimlist_all(stimlist_all.type=="BMCT",:);
 % file_log =[dir_files '/20220622_EL015_log.log'];
@@ -46,7 +38,7 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date = 20230425;
+date = 20230509;
 midnight = find(stimlist_all.h==0);
 if ~isempty(midnight)
     midnight = midnight(1);
@@ -56,7 +48,7 @@ else
     stimlist_all.date(:) = date;
 end
 %% update block number
-n_block = 41;
+n_block = 16;
 stimlist_all.stim_block = stimlist_all.stim_block+n_block;
 
 %% type
@@ -65,8 +57,8 @@ path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 
 %% 
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
-files= dir([dir_files '\*BM*.EDF']);
-for j=2:length(files)
+files= dir([dir_files '\*CR*.EDF']);
+for j=1:length(files)
     %% 1. read first raw data
     file = files(j).name
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
@@ -76,13 +68,13 @@ for j=2:length(files)
     stimlist = removevars(stimlist, 'keep');
     %% 2. find triggers
     % [hdr_edf, trig]     = edfread(filepath,'targetSignals','TRIG'); %TeOcc5, TRIG
-    c_trig         = find(hdr_edf.label=="TRIG");
+    c_trig         = find(hdr_edf.label=="TRIG"); % find(hdr_edf.label=="EDFAnnotations"); %
     trig           = EEG_all(c_trig,:);
     Fs             = round(hdr_edf.frequency(1));
     % [pks,locs]   = findpeaks(trig_CR1,'MinPeakDistance',2*Fs,'Threshold',0.9,'MaxPeakWidth', 0.002*Fs);
     [pks,locs]     = findpeaks(trig,'MinPeakDistance',1*Fs);
     locs           = locs';
-    ix_startblock  = find(diff(locs)/Fs>100); 
+    ix_startblock  = find(diff(locs)/Fs>180); 
     % find trigger that is starting a new block (first trigger that had a
     % distance of 5min after the last one
     stimlist.TTL = zeros(height(stimlist),1);
@@ -129,43 +121,48 @@ for j=2:length(files)
         end
 
     end
-    stim_cut = find(diff(find(stimlist.noise==1))>1);
-    stim_noise = find(stimlist.noise==1);
-    if stimlist.noise(end) == 0 
-        stimlist.noise(height(stimlist)+1) = 1;
-        stimlist_all.noise(height(stimlist_all)+1) = 1;
-        stim_cut = find(diff(find(stimlist.noise==1))>1);
-        stim_noise = find(stimlist.noise==1);   
+    stimlist_all.noise = stimlist.noise;
+    stimlist_all.TTL = stimlist.TTL;
+    % Find indices where the 'noise' values switches from 1 -->0
+    start_indices = find(diff([0; stimlist_all.noise]) == -1);
+
+    % Find indices where the 'noise' values start to be 1 again 0 --> 1
+    end_indices = find(diff([stimlist_all.noise; 0]) == 1);
+
+    % Check if the 'noise' values already start with  0s
+    if stimlist_all.noise(2) == 0
+        start_indices = [1; start_indices];
     end
-    if stimlist.noise(1) == 0 
-        stim_noise(1) = 0;
+
+    % Check if the 'noise' values end with 0  
+    if stimlist_all.noise(end) == 0
+        end_indices = [end_indices; numel(stimlist_all.noise)];
     end
-    stimlist_all(1:stim_noise(stim_cut(end)+1)-1,"keep") = {0};
-    stimlist_all = stimlist_all(stimlist_all.keep==1,:);
-    stimlist = stimlist(stim_noise(stim_cut(1))+1:stim_noise(stim_cut(end)+1)-1,:);
+
+    % Check if there are at least two consecutive 1s at the start
+    if numel(start_indices) >= 2 && start_indices(2) - start_indices(1) == 1
+        start_indices = start_indices(2:end);
+    end
+
+    % Check if there are at least two consecutive 1s at the end
+    if numel(end_indices) >= 2 && end_indices(end) - end_indices(end-1) == 1
+        end_indices = end_indices(1:end-1);
+    end
+
+    % Extract the smaller table 'stimlist'
+    if ~isempty(start_indices) && ~isempty(end_indices)
+        start_index = start_indices(1);
+        end_index = end_indices(end);
+
+        stimlist = stimlist(start_index:end_index, :);
+        stimlist_all = stimlist_all(end_index+1:end, :);
+    else
+        disp('some technical problems');
+    end
+
+    % Display the smaller table
     disp('TTL aligned');
-% %% Manually checked non-trigger stims
-% stimlist_noise = stimlist(stimlist.noise==1,:);
-% for n_trig =1:height(stimlist_noise)
-%     clf(figure(1))
-%     t      = stimlist_noise.TTL(n_trig);
-%     IPI    = stimlist_noise.IPI_ms(n_trig);
-%     x_s = 10;
-%     x_ax        = -x_s:1/Fs:x_s;
-%     c= 120;
-%     plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
-%     hold on
-%     plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
-%     xline(0, '--r');
-%     xline(IPI/1000, '--r');
-%     delay = input('delay:  ');
-%     t_new = round(t+delay*Fs);
-%     block = stimlist_noise.stim_block(n_trig);
-%     num = stimlist_noise.StimNum(n_trig);
-%     cond = (stimlist.stim_block == block)&(stimlist.StimNum==num);
-%     stimlist.TTL(cond) = t_new;
-%     stimlist.noise(cond) = 0;
-% end
+    stimlist_all= removevars(stimlist_all,{'noise', 'TTL'});
 %%
 A = stimlist.noise;
 a=cumsum(A)+1;
@@ -177,12 +174,12 @@ end
     clf(figure(1))
     Fs     = hdr_edf.frequency(1);
     %Fs = 148;
-    n_trig = 30;
+    n_trig = 43;
     t      = stimlist.TTL(n_trig);
     IPI    = stimlist.IPI_ms(n_trig);
     x_s = 10;
     x_ax        = -x_s:1/Fs:x_s;
-    c= 20;% stimlist.ChanP(n_trig);
+    c= 82;% stimlist.ChanP(n_trig);
     plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
     hold on
     plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
@@ -235,6 +232,9 @@ end
 end
 
 %%%%%
+%% 
+dir_files       = [path_patient,'/data_raw/EL_Experiment'];
+files= dir([dir_files '\*CR*.EDF']);
 %% update cutting with having the stimlist already prepared
 for j=2:length(files)
     file = files(j).name;
@@ -247,7 +247,7 @@ for j=2:length(files)
     [hdr_edf, EEG_all]     = edfread_data(filepath);
     Fs     = hdr_edf.frequency(1);
     %% 6. get bipolar montage of EEG
-    % bipolar
+%     bipolar
 %     ix        = find_BP_index(hdr_edf.label', BP_label.labelP_EDF, BP_label.labelN_EDF);
 %     pos_ChanP =  ix(:,1);
 %     pos_ChanN =  ix(:,2);
@@ -257,7 +257,7 @@ for j=2:length(files)
     %% 7.1 CR loop for cutting blocks
     blocks          = unique(stimlist.b);
     blocks = blocks(blocks>0);
-    for i=7:length(blocks)%2:11
+    for i=1:length(blocks)%2:11
         block_num               = blocks(i);
         stim_list           = stimlist(stimlist.b==block_num,:);%   
         cut_block_edf(EEG_all, stim_list,type,block_num, Fs, subj, BP_label,path_pp)

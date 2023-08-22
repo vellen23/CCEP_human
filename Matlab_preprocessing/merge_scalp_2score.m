@@ -21,7 +21,7 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %%
 
-subj            = 'EL021';
+subj            = 'EL024';
 %block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
@@ -51,12 +51,12 @@ end
 %%
 % files= dir([dir_files '\*CR*.EDF']);
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
-START
+
 %% split based on selected files
 scalp_all       = [];
 score_all = [];
 Fs1 = 1024; %1024
-for sf=3:height(score_files)
+for sf=2:height(score_files)
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
     for i=3:length(block_files)
@@ -205,7 +205,7 @@ for sf=1:height(score_files)
         score_all = score_all(:,size(score,2)+1:end);
     end
 end
-%%
+%% score to excel list
 for i=3:length(block_files)
     score2list(char([block_path, sep, block_files(i).name]), 0);
 end

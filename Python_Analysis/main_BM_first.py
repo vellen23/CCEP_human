@@ -30,8 +30,8 @@ x_ax = np.arange(dur[0, 0], dur[0, 1], (1 / Fs))
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 ### Preparation
-subjs = ["EL024"]
-get_data = 0
+subjs = ["EL026"]
+get_data = 1
 if get_data:
     for subj in subjs:
         ### cut data in epochs: still in .npy
@@ -39,8 +39,6 @@ if get_data:
 
         ### get con_trial --for each conenction and trial, save LL value
         BM_blocks.cal_con_trial(subj, cond_folder='CR', skip_block=1, skip_single=1)
-        # IO_blocks.cal_con_trial(subj, cond_folder='CR',skip_block=0, skip_single = 1)
-
         ### concatenates all epoched data into one large h5py file, all responses accessible
         for f in ['BrainMapping']:
             concat.concat_resp_condition(subj, folder=f, cond_folder='CR', skip=0)
@@ -159,7 +157,7 @@ for subj in subjs:
                     M[sc, rc] = np.nanmax(resp_LL[int((t_0 + w / 2) * Fs):int((t_0 + 0.3 + w / 2) * Fs)])
             else:
                 M[sc, rc] = np.nan
-
+    np.save(path_patient_analysis + '\\' + folder + '/' + cond_folder + '/data/M01.npy', M)
     ## remove bad channels from Matrix
     non_stim = np.arange(len(labels_all))
     non_stim = np.delete(non_stim, StimChanIx, 0)
@@ -175,12 +173,13 @@ for subj in subjs:
     labels_sel = np.delete(labels_all, bad_all, 0)
     labels_sel = labels_sel + ' (' + labels_clin + ')'
     order_anat = 1
+    ll = 'H_clinic'
     if order_anat:
         ind = np.argsort(areas_sel_sort)
         labels_sel = labels_sel[ind]
         areas_sel = areas_sel[ind]
         M_resp = M_resp[ind, :]
         M_resp = M_resp[:, ind]
+        ll = 'H_anat'
 
-    ll = 'H_clinic'
     plot_BM_CR_trial_sig(M_resp, labels_sel, areas_sel, ll, 't')
