@@ -30,8 +30,8 @@ x_ax = np.arange(dur[0, 0], dur[0, 1], (1 / Fs))
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 ### Preparation
-subjs = ["EL026"]
-get_data = 1
+subjs = ["EL027"]
+get_data = 0
 if get_data:
     for subj in subjs:
         ### cut data in epochs: still in .npy
@@ -137,27 +137,31 @@ for subj in subjs:
     t_0 = 1  # timepoint in epoched data where stim onset is
     w = 0.25  # window for LL calculation
     stimchans = np.unique(con_trial.Stim).astype('int')  # all channels that were stimualted
-    M = np.zeros((len(labels_all), len(labels_all)))
-    for sc in tqdm.tqdm(stimchans):
-        for rc in range(len(labels_all)):
-            data = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)]
-            stimnum = data.Num.values.astype('int')
-            if len(stimnum) > 0:
-                resp = np.mean(EEG_resp[rc, stimnum, :], 0)
-                resp = ff.lp_filter(resp, 45, Fs)
-                resp_LL = LLf.get_LL_all(np.expand_dims(resp, [0, 1]), Fs, w)[0][0]
+    if os.path.exists(path_patient_analysis + '\\' + folder + '/' + cond_folder + '/data/M01.npy'):
+        M = np.load(path_patient_analysis + '\\' + folder + '/' + cond_folder + '/data/M01.npy')
+    else:
+        M = np.zeros((len(labels_all), len(labels_all)))
+        for sc in tqdm.tqdm(stimchans):
+            for rc in range(len(labels_all)):
+                data = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)]
+                stimnum = data.Num.values.astype('int')
+                if len(stimnum) > 0:
+                    resp = np.mean(EEG_resp[rc, stimnum, :], 0)
+                    resp = ff.lp_filter(resp, 45, Fs)
+                    resp_LL = LLf.get_LL_all(np.expand_dims(resp, [0, 1]), Fs, w)[0][0]
 
-                thr = np.percentile(np.concatenate([resp_LL[int((w / 2) * Fs):int((t_0 - w / 2) * Fs)],
-                                                    resp_LL[int(3 * Fs):int((4 - w / 2) * Fs)]]),
-                                    99)  # LL_resp[0, 0, int((t_0+0.5) * Fs):] = 0 * Fs):] = 0
-                LL_t = np.array(resp_LL[int((t_0 - w / 2) * Fs):int((t_0 + 0.5 - w / 2) * Fs)] > thr) * 1
-                t_resp_all = sf.search_sequence_numpy(LL_t, np.ones((int((w) * Fs),)))
+                    thr = np.percentile(np.concatenate([resp_LL[int((w / 2) * Fs):int((t_0 - w / 2) * Fs)],
+                                                        resp_LL[int(3 * Fs):int((4 - w / 2) * Fs)]]),
+                                        99)  # LL_resp[0, 0, int((t_0+0.5) * Fs):] = 0 * Fs):] = 0
+                    LL_t = np.array(resp_LL[int((t_0 - w / 2) * Fs):int((t_0 + 0.5 - w / 2) * Fs)] > thr) * 1
+                    t_resp_all = sf.search_sequence_numpy(LL_t, np.ones((int((w) * Fs),)))
 
-                if len(t_resp_all) > 0:
-                    M[sc, rc] = np.nanmax(resp_LL[int((t_0 + w / 2) * Fs):int((t_0 + 0.3 + w / 2) * Fs)])
-            else:
-                M[sc, rc] = np.nan
-    np.save(path_patient_analysis + '\\' + folder + '/' + cond_folder + '/data/M01.npy', M)
+                    if len(t_resp_all) > 0:
+                        M[sc, rc] = np.nanmax(resp_LL[int((t_0 + w / 2) * Fs):int((t_0 + 0.3 + w / 2) * Fs)])
+                else:
+                    M[sc, rc] = np.nan
+        np.save(path_patient_analysis + '\\' + folder + '/' + cond_folder + '/data/M01.npy', M)
+    StimChanIx = np.array(StimChanIx).astype('int')
     ## remove bad channels from Matrix
     non_stim = np.arange(len(labels_all))
     non_stim = np.delete(non_stim, StimChanIx, 0)
@@ -172,7 +176,7 @@ for subj in subjs:
     areas_sel_sort = np.delete(hem + '_' + labels_region, bad_all, 0)
     labels_sel = np.delete(labels_all, bad_all, 0)
     labels_sel = labels_sel + ' (' + labels_clin + ')'
-    order_anat = 1
+    order_anat = 0
     ll = 'H_clinic'
     if order_anat:
         ind = np.argsort(areas_sel_sort)

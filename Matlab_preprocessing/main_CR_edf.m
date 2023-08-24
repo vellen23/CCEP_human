@@ -19,13 +19,13 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL024'; %% change name if another data is used !!
+subj            = 'EL027'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 load([path_patient, '\\Electrodes\\labels.mat']);
-
+start
 %% 1. log 
-log_files= dir([dir_files '\*.log']);
+log_files= dir([dir_files '\*CR*.log']);
 log_ix = 1; % find automated way or select manually
 log             = importfile_log_2([dir_files '\' log_files(log_ix).name]);
 stimlist_all = log(log.date~="WAIT",:);
@@ -38,7 +38,7 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date = 20230509;
+date = 20230822;
 midnight = find(stimlist_all.h==0);
 if ~isempty(midnight)
     midnight = midnight(1);
@@ -48,7 +48,7 @@ else
     stimlist_all.date(:) = date;
 end
 %% update block number
-n_block = 16;
+n_block = 1;
 stimlist_all.stim_block = stimlist_all.stim_block+n_block;
 
 %% type
@@ -58,7 +58,7 @@ path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 %% 
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 files= dir([dir_files '\*CR*.EDF']);
-for j=1:length(files)
+for j=2:length(files)
     %% 1. read first raw data
     file = files(j).name
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';

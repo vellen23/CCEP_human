@@ -8,7 +8,7 @@ function [] = cut_block_edf(EEG_block, stim_list,type,block_num, Fs, subj,BP_lab
     labels_all      = table2cell(BP_label);
     % cuts block into -5min before first stim and +6s after last stim
     start_sample    = max(1,stim_list.TTL(1)-300*Fs);
-    end_sample      = min(size(EEG_block,2),stim_list.TTL(end)+6*Fs);
+    end_sample      = min(size(EEG_block,2),stim_list.TTL(end)+10*Fs);
     stim_list.TTL       = stim_list.TTL-start_sample+1;
     blocklength     = (end_sample-start_sample)/(Fs*60); % in minutes
     fprintf('%s %s. block: %s min\n', type, string(block_num), string(blocklength));

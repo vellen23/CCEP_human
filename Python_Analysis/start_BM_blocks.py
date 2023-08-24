@@ -175,7 +175,7 @@ def cal_con_trial(subj, cond_folder='Ph',skip_block=0, skip_single = 1):
     if cond_folder == 'Ph':
         files_list = glob(path_patient_analysis + '/' + folder + '/data/Stim_list_*Ph*')
     else:
-        files_list = glob(path_patient_analysis + '/' + folder + '/data/Stim_list_*CR*')
+        files_list = glob(path_patient_analysis + '/' + folder + '/data/Stim_list_*')
 
     stimlist = pd.read_csv(files_list[
                                0])  # pd.read_csv(path_patient_analysis+'/' + folder + '/data/Stimlist.csv')# pd.read_csv(files_list[i])

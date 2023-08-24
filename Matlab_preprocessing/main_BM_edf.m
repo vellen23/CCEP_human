@@ -13,14 +13,14 @@ close all; clear all;
 % addpath(genpath([path '\toolboxes\nx_toolbox']));
 % 
 % clearvars cwp idcs
-% addpath([pwd '/nx_preproc']);
+addpath([pwd '/nx_preproc']);
 % % ft_defaults;
 % warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL025'; %% change name if another data is used !!
+subj            = 'EL027'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 
@@ -39,7 +39,7 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date = 20230620;
+date = 20230822;
 midnight = find(stimlist_all.h==0);
 if ~isempty(midnight)
     midnight = midnight(1);

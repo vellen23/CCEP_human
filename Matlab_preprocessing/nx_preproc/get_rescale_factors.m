@@ -4,7 +4,8 @@ function [sclA, sclC] = get_rescale_factors(EEG_data, Fs, scalp, bl)
     % bl normally 5 min, 300s
     %labels          = table2cell(BP_label);
    % EEG             = EEG_data(:,10*Fs:bl*Fs);
-    EEG             = EEG_data(:,1:bl*Fs); 
+    EEG             = EEG_data(:,1:bl*Fs);  
+   %EEG             = EEG_data(:,end-120*Fs:end); 
    if scalp
         %[bBP, aBP]      = butter(2, [0.5 80]/(Fs/2), 'bandpass');
         [bBP, aBP]      = butter(2, [4 30]/(Fs/2), 'bandpass');
