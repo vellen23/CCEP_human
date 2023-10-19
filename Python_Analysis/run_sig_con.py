@@ -9,7 +9,7 @@ import basic_func as bf
 import matplotlib.pyplot as plt
 import tqdm
 import significant_connections as SCF
-import significance_funcs as sigf
+import matplotlib.font_manager as fm
 import h5py
 
 from pathlib import Path
@@ -17,7 +17,9 @@ from pathlib import Path
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 
-def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method = 'kmeans', skipt_GT=1, skip_surr=1,    trial_sig_labeling = 1):
+
+def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method='kmeans', skipt_GT=1, skip_surr=1,
+                  trial_sig_labeling=1):
     print(subj + ' ---- START ------ ')
 
     # path_patient_analysis = 'Y:\\eLab\Projects\EL_experiment\Analysis\Patients\\' + subj
@@ -45,11 +47,11 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method 
 
     ## files of interests
     file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_tresp.npy'  # for each connection: LLsig (old), t_onset (old), t_resp, CC_p, CC_LL1, CC_LL2
-    file_CC_surr = path_patient_analysis + '\\' + folder + '\\data\\M_CC_surr_'+cluster_method+'.csv'
-    file_CC_LL_surr = path_patient_analysis + '\\' + folder + '\\data\\LL_CC_surr_'+cluster_method+'.h5'
-    file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_CC_'+cluster_method+'.h5'
+    file_CC_surr = path_patient_analysis + '\\' + folder + '\\data\\M_CC_surr_' + cluster_method + '.csv'
+    file_CC_LL_surr = path_patient_analysis + '\\' + folder + '\\data\\LL_CC_surr_' + cluster_method + '.h5'
+    file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_CC_' + cluster_method + '.h5'
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
-    file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ_'+cluster_method+'.csv'
+    file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ_' + cluster_method + '.csv'
 
     ## load required data
     con_trial = pd.read_csv(
@@ -89,15 +91,15 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method 
         n_chan = np.max(chan_all).astype('int') + 1  # number of channels. should be the same are len(labels_all)
         M_GT_all = np.zeros((n_chan, n_chan, 3, 2000))  # mean and 2 Cluster Centers
         M_t_resp = np.zeros(
-            (n_chan, n_chan, 5))  # LL_sig (general), t_onset (general), t_WOI,2x LL of WOI of CC, mean of BL
+            (n_chan, n_chan, 6))  # LL_sig (general), t_onset (general), t_WOI,2x LL of WOI of CC, LL of mean
         M_t_resp[:, :, 0] = -1  # sig_LL of mean
         for sc in tqdm.tqdm(np.unique(con_trial.Stim)):
             sc = int(sc)
-            resp_chans = np.unique(con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Stim == sc), 'Chan']).astype(
+            resp_chans = np.unique(con_trial.loc[(con_trial.Artefact < 1) & (con_trial.Stim == sc), 'Chan']).astype(
                 'int')
             for rc in resp_chans:
                 # GT output: M_GT, [r, t_onset, t_WOI], LL_CC
-                M_GT_all[sc, rc, :, :], M_t_resp[sc, rc, :3], M_t_resp[sc, rc, 3:] = SCF.get_GT(sc, rc,
+                M_GT_all[sc, rc, :, :], M_t_resp[sc, rc, :3], M_t_resp[sc, rc, 3:5], M_t_resp[sc, rc, 5] = SCF.get_GT(sc, rc,
                                                                                                 con_trial,
                                                                                                 EEG_resp)  ## CC
         # np.save(file_GT, M_GT_all)
@@ -107,7 +109,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method 
         np.save(file_t_resp, M_t_resp)
 
         print(subj + ' -- CC calculation DONE --', end='\r')
-    fig_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\methods\\CC_surr_hist_'+cluster_method+'\\'
+    fig_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\methods\\CC_surr_hist_' + cluster_method + '\\'
 
     Path(fig_path).mkdir(
         parents=True, exist_ok=True)
@@ -119,7 +121,8 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method 
         update_sig_con = 0
     else:
         # M_CCp_surr = np.zeros((len(labels_all), 2))
-        M_CC_LL_surr = np.zeros((len(labels_all), 3))
+        M_CC_LL_surr = np.zeros((len(labels_all), 6))
+        # M_mean_LL_surr = np.zeros((len(labels_all), 3))
         CC_LL_surr = np.zeros((len(labels_all), n_surr, 2, 2000))
         CC_WOI = np.zeros((len(labels_all), n_surr))
         stims = np.zeros((len(labels_all), 1))
@@ -140,10 +143,14 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method 
             'int')
         for rc in tqdm.tqdm(resp_chans):
             n_trials = np.median(summ.loc[summ.Chan == rc, 'LL']).astype('int')
-            LL_surr, CC_LL_surr[rc], CC_WOI[rc] = SCF.get_CC_surr(rc, con_trial, EEG_resp,
+            LL_surr, CC_LL_surr[rc], CC_WOI[rc], LL_mean_surr = SCF.get_CC_surr(rc, con_trial, EEG_resp,
                                                                   n_trials)  # return LL_surr[1:, :], LL_surr_data[1:, :, :]
+            # LL_CC_surr, LL_surr_data, WOI_surr, LL_mean_surr
             M_CC_LL_surr[rc, :] = [np.nanpercentile(LL_surr, 50), np.nanpercentile(LL_surr, 95),
-                                   np.nanpercentile(LL_surr, 99)]
+                                   np.nanpercentile(LL_surr, 99),np.nanpercentile(LL_mean_surr, 50), np.nanpercentile(LL_mean_surr, 95),
+                                   np.nanpercentile(LL_mean_surr, 99)]
+            #M_mean_LL_surr[rc, :] = [np.nanpercentile(LL_mean_surr, 50), np.nanpercentile(LL_mean_surr, 95),
+            #                       np.nanpercentile(LL_mean_surr, 99)]
 
             # plot
             surr_plot = 0
@@ -173,14 +180,15 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method 
 
         # np.save(file_CC_LL_surr, M_CC_LL_surr)
         surr_thr = pd.DataFrame(np.concatenate([stims, M_CC_LL_surr], 1),
-                                columns=['Chan', 'CC_LL50', 'CC_LL95', 'CC_LL99'])
+                                columns=['Chan', 'CC_LL50', 'CC_LL95', 'CC_LL99','mean_LL50', 'mean_LL95', 'mean_LL99'])
         surr_thr.to_csv(file_CC_surr,
                         index=False,
                         header=True)
+
         update_sig_con = 1
         print(subj + ' -- CC surrogate calculation DONE --', end='\r')
     # SUMMARY
-    if os.path.isfile(file_CC_summ):
+    if os.path.isfile(file_CC_summ)* skip_surr* skipt_GT:
         CC_summ = pd.read_csv(file_CC_summ)
     else:
         files_list = glob(path_patient_analysis + '\\' + folder + '/data/Stim_list_*')
@@ -193,7 +201,6 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method 
             # M_GT_all = np.load(file_GT)
             M_GT_all = h5py.File(file_GT)
             M_GT_all = M_GT_all['M_GT_all']
-
 
         CC_summ = SCF.get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, Fs=500)
         CC_summ.insert(0, 'Subj', subj)
@@ -220,14 +227,19 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method 
             if col in con_trial:
                 con_trial = con_trial.drop(columns=col)
             con_trial.insert(5, col, -1)
+        del_col = ['t_N2', 't_N1', 'sN2', 'sN1', 'N2', 'N1']
+        for col in del_col:
+            if col in con_trial:
+                con_trial = con_trial.drop(columns=col)
         print('Get sig trial label....')
         for sc in tqdm.tqdm(np.unique(con_trial.Stim), desc='Stimulation Channel'):
             sc = int(sc)
-            resp_chans = np.unique(con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Stim == sc), 'Chan']).astype(
+            resp_chans = np.unique(con_trial.loc[(con_trial.Artefact <1) & (con_trial.Stim == sc), 'Chan']).astype(
                 'int')
             for rc in resp_chans:
+                # decide for sig threhsold (only CC or also mean)
                 dat = CC_summ.loc[
-                    (CC_summ.Stim == sc) & (CC_summ.Chan == rc) & (CC_summ.sig_w == 1) & (
+                    (CC_summ.Stim == sc) & (CC_summ.Chan == rc) & (CC_summ.sig > 0.5) & (
                             CC_summ.art == 0)]  # & (CC_summ.art == 0)
                 # if there is a significant CC in this connection
                 if len(dat) > 0:

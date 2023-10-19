@@ -26,7 +26,7 @@ load([path_patient, '\\Electrodes\\labels.mat']);
 start
 %% 1. log 
 log_files= dir([dir_files '\*CR*.log']);
-log_ix = 1; % find automated way or select manually
+log_ix = 3; % find automated way or select manually
 log             = importfile_log_2([dir_files '\' log_files(log_ix).name]);
 stimlist_all = log(log.date~="WAIT",:);
 % stimlist_all = stimlist_all(stimlist_all.type=="BMCT",:);
@@ -38,17 +38,18 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date = 20230822;
-midnight = find(stimlist_all.h==0);
-if ~isempty(midnight)
-    midnight = midnight(1);
-    stimlist_all.date(1:midnight) = date;
-    stimlist_all.date(midnight:end) = date+1;
-else
-    stimlist_all.date(:) = date;
-end
+date1 = 20230822;
+% Calculate the corresponding dates for each day
+correspondingDates = datetime(num2str(date1), 'Format', 'yyyyMMdd') + days(stimlist_all.date - 1);
+stimlist_all.date = correspondingDates;
+% Convert datetime objects to integer day numbers
+% Convert datetime objects back to integer date values
+integerDates = year(stimlist_all.date) * 10000 + month(stimlist_all.date) * 100 + day(stimlist_all.date);
+
+% Update the "date" column in the table with integer date values
+stimlist_all.date = integerDates;
 %% update block number
-n_block = 1;
+n_block = 16;
 stimlist_all.stim_block = stimlist_all.stim_block+n_block;
 
 %% type
@@ -58,7 +59,7 @@ path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 %% 
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 files= dir([dir_files '\*CR*.EDF']);
-for j=2:length(files)
+for j=8:length(files)
     %% 1. read first raw data
     file = files(j).name
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';

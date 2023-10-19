@@ -153,7 +153,7 @@ class main:
         con_mean_CT = con_trial_CT.groupby(['Stim', 'Chan', 'CT'], as_index=False)[['Sig', 'LL', 'LL_sig']].mean()
         con_mean_CT['Con_ID'] = con_mean_CT.groupby(['Stim', 'Chan']).ngroup().reset_index(drop=True)
         # Calculate LL_norm
-        ll_bl_series = con_mean_CT[con_mean_CT['CT'] == 'BL'].groupby('Con_ID')['LL_sig'].first()
+        ll_bl_series = con_mean_CT[con_mean_CT['CT'] == 'BL'].groupby('Con_ID')['LL'].first()
         con_mean_CT['LL_norm'] = con_mean_CT['LL'] / con_mean_CT['Con_ID'].map(ll_bl_series)
         # Load EEG_resp from h5 file if it exists
         if os.path.isfile(h5_file):
@@ -218,7 +218,7 @@ class main:
 
                 cond = start + '_' + end
                 df = self.con_mean_CT[(self.con_mean_CT.CT == cond)]
-                df = df.reset_index(drop=True)
+                df = df[df.Sig>0].reset_index(drop=True)
                 df.Stim = df.Stim.astype('int')
                 df.Chan = df.Chan.astype('int')
                 if len(df) > 0:
@@ -367,8 +367,8 @@ def start_subj(subj, cluster_method='similarity', sig=0):
     print(subj + ' -- START --')
     run_main = main(subj)
     run_main.load()
-    run_main.NMF_trials(metric='LL_WOI', k0=3, k1=10)
-    run_main.BM_LL_ratio(metric="LL_WOI")
+    # run_main.NMF_trials(metric='LL_WOI', k0=3, k1=10)
+    # run_main.BM_LL_ratio(metric="LL_WOI")
     run_main.plot_BM_BL_change()
 
     print(subj + ' ----- DONE')

@@ -60,22 +60,27 @@ function [] = score2list(path, badtimes)
         stim_list.condition = zeros(size(stim_list,1), 1); % CR = 0, BL =1, Flu =2, Benzo = 3
     end
     
-    sz_ix = find(score_fs==9);
+    sz_ix = find(score_fs==6);
     
         
     %scores = zeros(length(EEG),1);
     for i=1:height(stim_list)
-        stim_list.sleep(i) = score_fs(round(stim_list.TTL(i)));
-        if size(sz_ix,2)>0
-            if stim_list.TTL(i)<sz_ix(1) - 3600*Fs
-                stim_list.sz(i) =0;
-            elseif stim_list.TTL(i)<sz_ix(1)
-                stim_list.sz(i) =1;
-            elseif stim_list.TTL(i)<sz_ix(end)
-                stim_list.sz(i) =2;
-            elseif stim_list.TTL(i)<sz_ix(end)+ 3600*Fs
-                stim_list.sz(i) =3;end
+        sample = round(stim_list.TTL(i));
+        if sample > size(score_fs,2)
+            stim_list.sleep(i) = score_fs(end);
+        else
+            stim_list.sleep(i) = score_fs(round(stim_list.TTL(i)));
         end
+%         if size(sz_ix,2)>0
+%             if stim_list.TTL(i)<sz_ix(1) - 3600*Fs
+%                 stim_list.sz(i) =0;
+%             elseif stim_list.TTL(i)<sz_ix(1)
+%                 stim_list.sz(i) =1;
+%             elseif stim_list.TTL(i)<sz_ix(end)
+%                 stim_list.sz(i) =2;
+%             elseif stim_list.TTL(i)<sz_ix(end)+ 3600*Fs
+%                 stim_list.sz(i) =3;end
+%         end
            
     end
     if badtimes

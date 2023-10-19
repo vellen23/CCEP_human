@@ -16,7 +16,6 @@ import matplotlib.mlab as mlab
 import sys
 
 sys.path.append('./py_functions')
-import analys_func
 from scipy.stats import norm
 import LL_funcs
 from scipy.stats import norm
@@ -39,28 +38,12 @@ from scipy.io import savemat
 sys.path.append('./PCI/')
 sys.path.append('./PCI/PCIst')
 import basic_func as bf
-from matplotlib.patches import Rectangle
-import tqdm
-import similarity_funcs as sf
-import BM_func as BMf
-import IO_func as IOf
 import PP_func as PPf
-import NMF_funcs as NMFf
 import freq_funcs as ff
 from pathlib import Path
 import _thread
 
-sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
-
-regions = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\elab_labels.xlsx", sheet_name='regions', header=0)
-color_regions = regions.color.values
-regions = regions.label.values
-
-CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx", header=0)
-CR_color_a = CR_color.a.values
-CR_color = CR_color.c.values
-CR_color = np.zeros((24, 3))
-CR_color[6:18, :] = np.array([253, 184, 19]) / 255
+sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 dist_groups = np.array([[0, 30], [30, 60], [60, 120]])
 dist_labels = ['local (<30 mm)', 'short (<60mm)', 'long']
@@ -78,6 +61,7 @@ color_elab[1, :] = np.array([189, 215, 238]) / 255
 color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
 folder = 'PairedPulse'
+sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 
 def remove_art(con_trial, EEG_resp):
@@ -85,11 +69,13 @@ def remove_art(con_trial, EEG_resp):
     # remove trials that have artefacts (high voltage values)
     chan, trial = np.where(np.max(abs(EEG_resp), 2) > 3000)
     for i in range(len(trial)):
-        con_trial.loc[(con_trial.Chan == chan[i]) & (con_trial.Num_block == trial[i]), 'Artefact'] = -1
+        con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
+                con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     chan, trial = np.where(np.max(abs(EEG_resp[0:int(0.5 * Fs)]), 2) > 1500)
     for i in range(len(trial)):
-        con_trial.loc[(con_trial.Chan == chan[i]) & (con_trial.Num_block == trial[i]), 'Artefact'] = -1
+        con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
+                con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     resp_BL = abs(ff.lp_filter(EEG_resp, 2, Fs))
     resp_BL = resp_BL[:, :, 0:int(Fs)]
@@ -97,36 +83,27 @@ def remove_art(con_trial, EEG_resp):
     AUC_BL = np.trapz(resp_BL, dx=1)
     chan, trial = np.where(AUC_BL > 28000)
     for i in range(len(trial)):
-        con_trial.loc[(con_trial.Chan == chan[i]) & (con_trial.Num_block == trial[i]), 'Artefact'] = -1
+        con_trial.loc[(con_trial.Artefact == 0) & (con_trial.Chan == chan[i]) & (
+                con_trial.Num_block == trial[i]), 'Artefact'] = -1
 
     # remove unrealistic high LL
-    con_trial.loc[con_trial.LL > 40, 'Artefact'] = -1
+    con_trial.loc[(con_trial.Artefact == 0) & (con_trial.LL > 40), 'Artefact'] = -1
 
     return con_trial
 
 
-def compute_subj(subj):
-    cond_folder = 'CR'  # Condition = 'Hour', 'Condition', 'Ph'
+def cal_con_trial(subj, cond_folder='CR', skip_block=1, skip_single=1):
+    # cond_folder = 'CR'  # Condition = 'Hour', 'Condition', 'Ph'
+    print(f'Performing PP calculations on {subj}, Condition: ' + cond_folder)
 
-    if cond_folder == 'Ph':
-        cond_vals = np.arange(4)
-        cond_labels = ['BM', 'BL', 'Fuma', 'BZD']
-        cond_colors = ['#494159', '#594157', "#F1BF98", "#8FB996"]
-        cond1 = 'Condition'  # 'condition', 'h'
-        cond_folder = 'Ph'  # 'Ph', 'Sleep', 'CR'
-        Condition = 'Condition'
-    if cond_folder == 'CR':
-        Condition = 'Hour'  # Condition = 'Hour'
-        cond1 = 'h'  # h (as stored in stimlist)
-
-    ######## General Infos
-
-    path_patient_analysis = sub_path+'\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_gen = os.path.join(sub_path+'\Patients\\' + subj)
+    path_patient_analysis = sub_path + '\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_gen = os.path.join(sub_path + '\Patients\\' + subj)
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
     path_patient = path_gen + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    path_infos = os.path.join(path_patient, 'infos')
+    path_infos = os.path.join(path_gen, 'Electrodes')
+    if not os.path.exists(os.path.join(path_infos, subj + "_labels.xlsx")):
+        path_infos = os.path.join(path_gen, 'infos')
     if not os.path.exists(path_infos):
         path_infos = path_gen + '\\infos'
     Fs = 500
@@ -154,13 +131,13 @@ def compute_subj(subj):
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
 
     ######### Load data
-    rerun = 0
-    if os.path.isfile(file_con):
+    if os.path.isfile(file_con) * skip_block:
         # con_trial
         con_trial = pd.read_csv(file_con)
+        rerun = 0
     else:
         rerun = 1
-    rerun = 1
+    # file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
     if rerun:
         mx_across = 0
         for l in range(0, len(files_list)):
@@ -168,18 +145,21 @@ def compute_subj(subj):
             stimlist = pd.read_csv(files_list[l])
             if not ('noise' in stimlist.columns):
                 stimlist.insert(9, 'noise', 0)
+            stimlist['Time'] = pd.to_datetime(stimlist['date'].astype('int'), format='%Y%m%d') + pd.to_timedelta(
+                stimlist['h'], unit='H') + \
+                               pd.to_timedelta(stimlist['min'], unit='Min') + \
+                               pd.to_timedelta(stimlist['s'], unit='Sec')
             new_col = ['StimNum', 'Num_block']
             for col in new_col:
                 if col in stimlist:
                     stimlist = stimlist.drop(col, axis=1)
                 stimlist.insert(4, col, np.arange(len(stimlist)))
             stimlist = stimlist.reset_index(drop=True)
-
+            stimlist['Num_block'] = stimlist['StimNum']
             # con_trial_block = BMf.LL_BM_cond(EEG_resp, stimlist, 'h', bad_chans, coord_all, labels_clinic, StimChanSM, StimChanIx)
             block_l = files_list[l][-11:-4]
             file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_' + block_l + '.csv'
-            skip = 1
-            if os.path.isfile(file) * skip:
+            if os.path.isfile(file) * skip_single:
                 con_trial_block = pd.read_csv(file)
             else:
                 EEG_resp = np.load(
@@ -188,9 +168,14 @@ def compute_subj(subj):
                     print('ERROR number of stimulations is not correct')
                     break
                 else:
-                    con_trial_block = PPf.get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=500)
+                    con_trial_block = PPf.get_LL_all_cond(EEG_resp, stimlist, lbls, bad_chans, w=0.25, Fs=Fs)
+                    con_trial_block = con_trial_block.merge(stimlist[['Num_block', 'Time']], on='Num_block')
                     con_trial_block = remove_art(con_trial_block, EEG_resp)
                     con_trial_block = con_trial_block.reset_index(drop=True)
+                    con_trial_block.Chan = con_trial_block.Chan.astype('int')
+                    con_trial_block.Stim = con_trial_block.Stim.astype('int')
+                    con_trial_block.Num = con_trial_block.Num.astype('int')
+                    con_trial_block.Num_block = con_trial_block.Num_block.astype('int')
                     con_trial_block.to_csv(file, index=False, header=True)
             con_trial_block.Num = con_trial_block.Num_block + mx_across
             mx_across = mx_across + np.max(stimlist.StimNum) + 1  # np.max(con_trial_block.Num) + 1
@@ -199,30 +184,15 @@ def compute_subj(subj):
             else:
                 con_trial = pd.concat([con_trial, con_trial_block])
 
-
-        if ('zLL' in con_trial.columns):
-            con_trial = con_trial.drop(columns='zLL')
-
-        con_trial.insert(0, 'zLL', con_trial.groupby(['Stim', 'Chan', 'Int'])['LL'].transform(
-            lambda x: (x - x.mean()) / x.std()).values)
-
-        con_trial.loc[(con_trial.zLL > 6), 'Artefact'] = -1
-        con_trial.loc[(con_trial.zLL < -5), 'Artefact'] = -1
-        con_trial = con_trial.drop(columns='zLL')
+        # if ('zLL' in con_trial.columns):
+        #     con_trial = con_trial.drop(columns='zLL')
+        #
+        # con_trial.insert(0, 'zLL', con_trial.groupby(['Stim', 'Chan', 'IPI', 'Intc'])['LL'].transform(
+        #     lambda x: (x - x.mean()) / x.std()).values)
+        #
+        # con_trial.loc[(con_trial.Artefact == 0) &(con_trial.zLL > 6), 'Artefact'] = -1
+        # con_trial.loc[(con_trial.Artefact == 0) &(con_trial.zLL < -5), 'Artefact'] = -1
+        # con_trial = con_trial.drop(columns='zLL')
 
         con_trial.to_csv(file_con, index=False, header=True)
         print(subj + ' ---- DONE ------ ')
-
-
-########### Input
-threads = 0
-
-for subj in ["EL012"]: # ["EL005", "EL010", "EL016", "EL015","EL011", "EL004","El014"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
-    if threads:
-        _thread.start_new_thread(compute_subj(subj))
-    else:
-        print('start -- ' + subj)
-        compute_subj(subj)
-if threads:
-    while 1:
-        time.sleep(1)

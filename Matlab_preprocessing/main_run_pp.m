@@ -3,7 +3,7 @@ clear all
 close all
 
 %% patient specific
-subj            = 'EL023';
+subj            = 'EL027';
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
 path_patient    = [path,  subj];  

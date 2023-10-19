@@ -19,15 +19,10 @@ import matplotlib.mlab as mlab
 import sys
 
 sys.path.append('./py_functions')
-import analys_func
-
 import LL_funcs
 from pandas import read_excel
 from scipy.stats import norm
-import Ph_IO_analysis
-import Ph_CR_analysis
 from math import sin
-import freq_funcs
 import cut_resp
 import glob
 import _thread

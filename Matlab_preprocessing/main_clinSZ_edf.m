@@ -17,17 +17,10 @@ ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %% patient specific
-path = 'Y:\eLab\Patients\';
-subj            = 'EL017'; %% change name if another data is used !!
+path = 'X:\\4 e-Lab\\Patients\';
+subj            = 'EL011'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'\data_raw\\Clin_Stim'];% folder where raw edf are stored
-
-% load labels
-MP_label = importfile_MPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels');
-BP_label = importfile_BPlabels([path_patient '\infos\' subj '_lookup.xlsx'], 'Channels_BP');
-
-BP_label = BP_label(~isnan(BP_label.chan_BP_P),:);
-MP_label= MP_label(~isnan(MP_label.Natus),:);
 
 %% 1. log 
 % log_files = 
@@ -37,9 +30,10 @@ log             = import_logfile([dir_files '\' log_files(i).name]);
 stimlist_all   = read_log(log);
 
 %% 2. file
+dir_files       = [path_patient,'\Data_raw\\Seizure'];
 % select only the stimulation of desired protocol
 data_files= dir([dir_files '\*.EDF']);
-i = 2;
+i = 1;
 filepath               = [dir_files '\' data_files(i).name]; % the file you want to open 
 H                      = Epitome_edfExtractHeader(filepath);
 [hdr_edf, EEG_all]     = edfread_data(filepath);

@@ -226,7 +226,7 @@ def get_LL_all_block(EEG_resp, stimlist, lbls, bad_chans, Fs=500,t_0=1,w_LL=0.25
             val[:, 1] = ChanP1
             val[:, 4] = stim_spec.Int_prob.values  # Intensity
             val[:, 3] = noise_val
-            val[:, 2] = LL_peak[c, :]  # PP
+            val[:, 2] = LL_peak[c, :]  # LL
             val[:, 6] = stim_spec['h'].values
             val[:, 5] = stim_spec['condition'].values
             val[:, 7] = stimNum

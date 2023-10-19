@@ -5,14 +5,17 @@ import tqdm
 import pandas as pd
 import sys
 import re
+
 sys.path.append('./py_functions')
 import scipy.io
 import matplotlib.cm as cm
+
 # import matplotlib.colors as mcolors
 folder = 'BrainMapping'
 cond_folder = 'CR'
 dist_groups = np.array([[0, 15], [15, 30], [30, 5000]])
 dist_labels = ['local (<15 mm)', 'short (<30mm)', 'long']
+
 
 def get_color(group='Dist'):
     cmap_org = 'winter'
@@ -64,7 +67,48 @@ def get_color(group='Dist'):
 
     return color_d, color_dist, color_group, color_elab
 
+
+def adding_area(data_A, lbls, pair=1):
+    labels_all = lbls.label.values
+    if pair:
+        for c in np.unique(data_A[['Chan', 'Stim']]).astype('int'):
+            data_A.loc[data_A.Chan == c, 'ChanA'] = " ".join(re.findall("[a-zA-Z_]+", labels_all[c]))
+            data_A.loc[data_A.Stim == c, 'StimA'] = " ".join(re.findall("[a-zA-Z_]+", labels_all[c]))
+            chans = data_A.loc[data_A.Stim == c, 'Chan'].values.astype('int')
+            data_A.loc[data_A.Stim == c, 'H'] = np.array(lbls.Hemisphere[chans] != lbls.Hemisphere[c]) * 1
+    else:
+        for c in np.unique(data_A[['Chan']]).astype('int'):
+            data_A.loc[data_A.Chan == c, 'ChanA'] = " ".join(re.findall("[a-zA-Z_]+", labels_all[c]))
+    return data_A
+
+
+def adding_region(data_con, pair=1, area='Region'):
+    # area == 'Region' or 'Area'
+    CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\e-Lab shared code\Softwares\Connectogram\circ_areas.xlsx'
+    atlas = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='atlas')
+    if pair:
+        for subregion in np.unique(data_con[['StimA', 'ChanA']]):
+            region = atlas.loc[atlas.Abbreviation == subregion, area].values
+            if len(region) > 0:
+                data_con.loc[data_con.StimA == subregion, 'StimR'] = region[0]
+                data_con.loc[data_con.ChanA == subregion, 'ChanR'] = region[0]
+            else:
+                print(subregion)
+                data_con.loc[data_con.StimA == subregion, 'StimR'] = 'U'
+                data_con.loc[data_con.ChanA == subregion, 'ChanR'] = 'U'
+    else:
+        for subregion in np.unique(data_con[['ChanA']]):
+            region = atlas.loc[atlas.Abbreviation == subregion, area].values
+            if len(region) > 0:
+                data_con.loc[data_con.ChanA == subregion, 'ChanR'] = region[0]
+            else:
+                data_con.loc[data_con.ChanA == subregion, 'ChanR'] = 'U'
+    return data_con
+
+
 def get_DI(subjs, sub_path, filename):
+    # Initialize an empty DataFrame to store the results
+    data_con = pd.DataFrame()
     for i in range(len(subjs)):
         print('loading -- ' + subjs[i], end='\r')
         subj = subjs[i]
@@ -79,7 +123,7 @@ def get_DI(subjs, sub_path, filename):
         summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\M_DI.csv'
         data_A = pd.read_csv(summary_gen_path)
 
-        lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
+        lbls = pd.read_excel(os.path.join(path_gen, 'Electrodes', subj + "_labels.xlsx"), header=0, sheet_name='BP')
         labels_all = lbls.label.values
         labels_region = lbls.Region.values
 
@@ -110,11 +154,8 @@ def get_DI(subjs, sub_path, filename):
                 data_A.loc[(data_A.B == rc) & (data_A.A == c), 'd'] = np.round(
                     scipy.spatial.distance.euclidean(coord.values[c, :], coord.values[rc, :]), 2)
 
-        if i == 0:
-            data_con = data_A
-        else:
-            data_con = pd.concat([data_con, data_A])
-            data_con = data_con.reset_index(drop=True)
+        # Concatenate current data with the accumulated results
+        data_con = pd.concat([data_con, data_A], ignore_index=True)
 
     data_con.loc[data_con.P_AB == -1, 'P_AB'] = np.nan
     data_con.loc[data_con.P_BA == -1, 'P_BA'] = np.nan
@@ -131,11 +172,16 @@ def get_DI(subjs, sub_path, filename):
     data_con.insert(0, 'Dist', dist_labels[-1])
     data_con.loc[data_con.d <= 30, 'Dist'] = dist_labels[1]
     data_con.loc[data_con.d <= 15, 'Dist'] = dist_labels[0]
-    data_con = data_con.drop(columns=['Dist', 'A_Area', 'A_Region', 'B_Area', 'B_Region', 'DI_r', 'DI_d'])
+    col_drop = ['Dist', 'A_Area', 'A_Region', 'B_Area', 'B_Region', 'DI_r', 'DI_d']
+    for col in col_drop:
+        if col in data_con:
+            data_con = data_con.drop(columns=[col])
     data_con.to_csv(filename, header=True, index=False)
 
 
 def get_connections(subjs, sub_path, filename):
+    path_export = os.path.join(sub_path, 'EvM\\Projects\\EL_experiment\Analysis\Patients\Across\BrainMapping\General\data\\')
+    data_con_all = pd.DataFrame()
     for i in range(len(subjs)):
         print('loading -- ' + subjs[i], end='\r')
         subj = subjs[i]
@@ -146,11 +192,12 @@ def get_connections(subjs, sub_path, filename):
         path_infos = os.path.join(path_patient, 'infos')
         if not os.path.exists(path_infos):
             path_infos = path_gen + '\\infos'
+
         path_patient_analysis = sub_path + '\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-        summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\summ_general.csv'
+        summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\'+filename
         data_A = pd.read_csv(summary_gen_path)
 
-        lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
+        lbls = pd.read_excel(os.path.join(path_gen, 'Electrodes', subj + "_labels.xlsx"), header=0, sheet_name='BP')
         labels_all = lbls.label.values
         labels_clinic = lbls.Clinic.values
         labels_region = lbls.Region.values
@@ -177,12 +224,12 @@ def get_connections(subjs, sub_path, filename):
             chans = data_A.loc[data_A.Stim == c, 'Chan'].values.astype('int')
             data_A.loc[data_A.Stim == c, 'H'] = np.array(lbls.Hemisphere[chans] != lbls.Hemisphere[c]) * 1
 
-        if i == 0:
-            data_con_all = data_A
-        else:
-            data_con_all = pd.concat([data_con_all, data_A])
-            data_con_all = data_con_all.reset_index(drop=True)
-    data_con_all.to_csv(filename, header=True, index=False)
+        # Concatenate current data with the accumulated results
+        data_con_all = pd.concat([data_con_all, data_A], ignore_index=True)
+    data_con_all.Stim = data_con_all.Stim.astype('int')
+    data_con_all.Chan = data_con_all.Chan.astype('int')
+    data_con_all = adding_region(data_con_all)
+    data_con_all.to_csv(os.path.join(path_export, filename), header=True, index=False)
 
 def get_connections_sleep(subjs, sub_path, filename):
     chan_n_max = 0
@@ -239,7 +286,7 @@ def get_connections_sleep(subjs, sub_path, filename):
             else:
                 data_con = pd.concat([data_con, data_A])
                 data_con = data_con.reset_index(drop=True)
-            chan_n_max = np.max(data_con[['Stim_ID', 'Chan_ID']].values)+1
+            chan_n_max = np.max(data_con[['Stim_ID', 'Chan_ID']].values) + 1
     data_con = data_con[(data_con.ChanA != 'Necrosis') & (data_con.StimA != 'Necrosis')]
 
     data_con.to_csv(filename,
@@ -247,6 +294,46 @@ def get_connections_sleep(subjs, sub_path, filename):
 
 
 def update_DI(data_con_all):
+    col = ['Subj', 'A', 'B', 'P_AB', 'P_BA', 'LL_A', 'LL_B', 'onset_A',
+           'onset_B', 'd', 'DI']
+
+    data_DI2 = pd.DataFrame(columns=col)  # Initialize an empty DataFrame to store results
+
+    unique_subjs = np.unique(data_con_all.Subj)
+
+    for subj in tqdm.tqdm(unique_subjs):
+        subj_data = data_con_all[data_con_all.Subj == subj]
+        chans = np.unique(subj_data[['Stim', 'Chan']]).astype('int')
+
+        for sc in chans:
+            sc_data = subj_data[(subj_data.Stim == sc) & (subj_data.Sig > 0)]
+
+            for rc in chans:
+                if sc <= rc:  # Avoid duplicate entries
+                    continue
+
+                rc_data = subj_data[(subj_data.Stim == rc) & (rc_data.Sig > 0)]
+                d = subj_data[(subj_data.Stim == sc) & (subj_data.Chan == rc)].d.values[0]
+
+                if len(sc_data) > 0 and len(rc_data) > 0:
+                    arr = [[subj, sc, rc, sc_data.Sig.values[0], rc_data.Sig.values[0], sc_data.LL_sig.values[0],
+                            rc_data.LL_sig.values[0], sc_data.onset.values[0], rc_data.onset.values[0],
+                            d, sc_data.DI.values[0]]]
+                elif len(sc_data) > 0:
+                    arr = [[subj, sc, rc, sc_data.Sig.values[0], 0, sc_data.LL_sig.values[0], np.nan,
+                            sc_data.onset.values[0], np.nan, d, 1]]
+                elif len(rc_data) > 0:
+                    arr = [[subj, sc, rc, 0, rc_data.Sig.values[0], np.nan, rc_data.LL_sig.values[0], np.nan,
+                            rc_data.onset.values[0], d, -1]]
+                else:
+                    arr = [[subj, sc, rc, 0, 0, np.nan, np.nan, np.nan, np.nan, d, np.nan]]
+
+                data_DI2 = data_DI2.append(pd.DataFrame(arr, columns=col), ignore_index=True)
+
+    return data_DI2
+
+
+def update_DI0(data_con_all):
     # adds t_onset for both directions in a very non-efficient way
     start = 1
     col = ['Subj', 'A', 'B', 'P_AB', 'P_BA', 'LL_A', 'LL_B', 'onset_A',

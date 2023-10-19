@@ -18,7 +18,7 @@ import scipy
 import NMF_funcs as NMFf
 import basic_func as bf
 import BM_stats
-import tqdm
+from scipy import stats
 from matplotlib.patches import Rectangle
 import freq_funcs as ff
 # from tqdm.notebook import trange, tqdm
@@ -26,8 +26,13 @@ import freq_funcs as ff
 import warnings
 from pathlib import Path
 import LL_funcs as LLf
-import significance_funcs as sigf
 import copy
+import h5py
+import BM_func as BMf
+import graphNMF
+import BM_plots
+import graph_funcs
+import load_summary as ls
 
 # I expect to see RuntimeWarnings in this block
 warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -38,6 +43,11 @@ sleepstate_labels = ['NREM', 'REM', 'Wake']
 folder = 'BrainMapping'
 cond_folder = 'CR'
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
+
+color_elab = np.zeros((3, 3))
+color_elab[0, :] = np.array([31, 78, 121]) / 255
+color_elab[1, :] = np.array([189, 215, 238]) / 255
+color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
 
 class main:
@@ -69,7 +79,7 @@ class main:
             lbls = lbls.reset_index(drop=True)
         self.labels_all = lbls.label.values
         self.labels_C = lbls.Clinic.values
-
+        self.hemisphere = lbls.Hemisphere
         stimlist = pd.read_csv(
             self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\stimlist_' + self.cond_folder + '.csv')
         if len(stimlist) == 0:
@@ -79,9 +89,11 @@ class main:
         labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
             stimlist,
             lbls)
-        bad_region = np.where((labels_region == 'Unknown') |(labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
+        bad_region = np.where((labels_region == 'Unknown') | (labels_region == 'WM') | (labels_region == 'OUT') | (
+                labels_region == 'Putamen'))[0]
         self.labels_region_L = lbls.Hemisphere.values + '_' + labels_region
         self.subj = subj
+        self.lbls = lbls
         atlas_regions = pd.read_excel(
             "X:\\4 e-Lab\\EvM\\Projects\\EL_experiment\\Analysis\\Patients\\Across\\elab_labels.xlsx",
             sheet_name="atlas")
@@ -92,8 +104,8 @@ class main:
         # self.labels_region = labels_region
 
         # regions information
-        self.CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx",
-                                      header=0)
+        # self.CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx",
+        #                               header=0)
         regions = pd.read_excel(sub_path + "\\EvM\Projects\EL_experiment\Analysis\Patients\Across\elab_labels.xlsx",
                                 sheet_name='regions',
                                 header=0)
@@ -133,8 +145,6 @@ class main:
         self.labels_sel = labels_sel[ind]
         self.areas_sel = areas_sel[ind]
         self.ind = ind
-
-        ## some important data
 
     def plot_BM(self, M, labels, areas, label, t, method, save=1, circ=1, cmap='hot', group='block'):
         cmap_sym = ListedColormap(["#2b2b2b", "black", "#c34f2f", "#1e4e79"])
@@ -379,455 +389,116 @@ class main:
                     # self.plot_BM_CR_block(M_resp, labels_sel, areas_sel, ll, t, metric, savefig)
             np.save(M_dir_path, M_B_all)
 
-    def get_sleep_ttest_surr(self, con_trial_true, load=1):
-        con_trial = con_trial_true.copy()
-        np.random.shuffle(con_trial['SleepState'].values)
-        sleepstate_labels_u = np.unique(con_trial.loc[con_trial.Sleep > 0, 'SleepState'])
-        sleepstate_labels = ['NREM', 'REM']
-        # t-test
-        M_dir_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\Sleep\\ttest_sleep_surr.npy'
-        if os.path.exists(M_dir_path) * load:
-            M_ttest_sleep = np.load(M_dir_path)
+    def get_summary(self, con_trial, CC_summ, EEG_resp):
+        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_general.csv'  # summary_general
+        con_summary = BMf.get_con_summary(con_trial, CC_summ, EEG_resp)
+        con_summary.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
+
+    def get_summary_wake(self, con_trial, CC_summ):
+        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_wake.csv'  # summary_general
+        con_summary = BMf.get_con_summary_wake(con_trial, CC_summ)
+        con_summary.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
+
+    def get_node_features(self, con_trial, skip=1):
+        exp_dir = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Node')
+        os.makedirs(exp_dir, exist_ok=True)
+        file = os.path.join(exp_dir, 'node_features_sleep.csv')
+        if os.path.isfile(file) * skip:
+            print('Node features already calculated  -  skipping .. ')
+            df = pd.read_csv(file)
+            df.Chan = df.Chan.astype('int')
         else:
-            M_ttest_sleep = np.zeros((len(self.labels_all), len(self.labels_all), 2, 2)) - 1
-            for sc in range(len(self.labels_all)):
-                for rc in range(len(self.labels_all)):
-                    dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1) & (
-                            con_trial.Sig > -1)]
-                    if len(dat) > 0:  # only feasible connections
-                        dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1) & (
-                                con_trial.Sig >= 0)]
+            df = graph_funcs.node_features_sleep(con_trial, file)
+            df.insert(0, 'Subj', self.subj)
+        df = ls.adding_area(df, self.lbls, pair=0)
+        df = ls.adding_region(df, pair=0)
+        df.to_csv(file, header=True, index=False)
+        print('Node features calculated')
 
-                        if len(dat) > 0:
-                            p_W = len(dat.loc[(dat.Sig == 1) & (dat.SleepState == 'Wake')]) / len(
-                                dat.loc[(dat.SleepState == 'Wake')])
-                            for ss in range(len(sleepstate_labels)):
-                                if sleepstate_labels[ss] in sleepstate_labels_u:
-                                    ##binomial test
-                                    x = np.array(
-                                        [len(dat.loc[(dat.Sig == 1) & (dat.SleepState == sleepstate_labels[ss])]),
-                                         len(dat.loc[(dat.Sig == 0) & (dat.SleepState == sleepstate_labels[ss])])])
-                                    p_bin = scipy.stats.binom_test(x, p=p_W, alternative='two-sided')
-                                    if (p_bin < 0.05) & ((x[0] / np.sum(x)) < p_W):
-                                        M_ttest_sleep[sc, rc, ss, 1] = 2
-                                    elif (p_bin < 0.05) & ((x[0] / np.sum(x)) > p_W):
-                                        M_ttest_sleep[sc, rc, ss, 1] = 3
-                                    else:
-                                        M_ttest_sleep[sc, rc, ss, 1] = 1
-                                    ##tt-test
-                                    d_NREM, p_NREM = scipy.stats.ttest_ind(
-                                        dat.loc[(dat.Sig == 1) & (dat.SleepState == 'Wake'), 'LL'].values,
-                                        dat.loc[
-                                            (dat.Sig == 1) & (dat.SleepState == sleepstate_labels[ss]), 'LL'].values)
-                                    if p_NREM < 0.05:
-                                        if np.sign(d_NREM) == 1:
-                                            d = 2  # decrease
-                                        else:
-                                            d = 3  # increase
-                                        M_ttest_sleep[sc, rc, ss, 0] = d
-                                    else:
-                                        M_ttest_sleep[sc, rc, ss, 0] = 1  # no change
-                        else:
-                            M_ttest_sleep[sc, rc, :, :] = 0  # no significant connections
-                np.save(M_dir_path, M_ttest_sleep)
-
-        file_con_sleep = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\con_sleep_surr.csv'
-
-        # only LL if there was a significant connection, remove Sig get Prob instead
-        con_trial_sig = con_trial[con_trial.d > -10]
-        con_trial_sig.loc[con_trial_sig.Sig < 0, 'Sig'] = np.nan
-        con_trial_sig.insert(4, 'LL_sig', np.nan)
-        con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
-        con_trial_sig = con_trial_sig.drop(columns='LL')
-        con_trial_sig.insert(4, 'LL', con_trial_sig.LL_sig)
-        con_trial_sig.insert(4, 'Prob', con_trial_sig.Sig)
-        con_trial_sig = con_trial_sig.drop(columns='LL_sig')
-
-        con_trial_sig = con_trial_sig[np.isin(con_trial_sig.Sig, [0, 1])]
-        con_sleep = con_trial_sig.groupby(['Stim', 'Chan', 'SleepState'], as_index=False)[['Prob', 'LL', 'd']].mean()
-        con_sleep.insert(5, 'ttest_wake', 0)
-        con_sleep.insert(5, 'prob_wake', 0)
-
-        for sc in np.unique(con_sleep.Stim).astype('int'):
-            chans = con_sleep.loc[(con_sleep.Stim == sc), 'Chan'].values.astype('int')
-            for rc in chans:
-                ix_wake = \
-                    np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == 'Wake')[0]
-                for ss, s_ix in zip(['NREM', 'REM'], np.arange(2)):
-                    ix_sleep = \
-                        np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == ss)[0]
-                    if (len(ix_wake) > 0) & (len(ix_sleep) > 0):
-                        con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                con_sleep.Chan == rc), 'ttest_wake'] = M_ttest_sleep[sc, rc, s_ix, 0]
-
-                        con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                con_sleep.Chan == rc), 'prob_wake'] = M_ttest_sleep[sc, rc, s_ix, 1]
-                con_sleep.loc[
-                    (con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'prob_wake'] = 1
-                con_sleep.loc[(con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (
-                        con_sleep.Chan == rc), 'ttest_wake'] = 1  # no change
-
-        con_sleep.to_csv(file_con_sleep,
-                         index=False,
-                         header=True)
-
-    def get_sleep_surr(self, con_trial, surr=1, again=1):
-
-        # calculate cohens d (LL) and PRob ratio to wake and compares it to surrogates (randomizing labels)
-        file_con_sleep = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\con_sleep_stats.csv'
-
-        if again:  # not os.path.exists(file_con_sleep):
-            con_trial_sig = con_trial.copy()
-            con_trial_sig.loc[con_trial_sig.Sig < 0, 'Sig'] = np.nan
-            con_trial_sig.insert(4, 'LL_sig', np.nan)
-            con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
-            con_trial_sig = con_trial_sig.drop(columns='LL')
-            con_trial_sig.insert(4, 'LL', con_trial_sig.LL_sig)
-            con_trial_sig.insert(4, 'Prob', con_trial_sig.Sig)
-            con_trial_sig = con_trial_sig.drop(columns=['LL_sig'])
-            con_trial_sig = con_trial_sig[np.isin(con_trial_sig.Sig, [0, 1])]
-            con_trial_sig.insert(5, 'SS', con_trial_sig.SleepState)
-            con_sleep = con_trial_sig.groupby(['Stim', 'Chan', 'SleepState'], as_index=False)[
-                ['Prob', 'LL', 'd']].mean()
-            con_sleep = con_sleep.reset_index(drop=True)
-            con_sleep.insert(5, 'P_ratio_sig', np.nan)
-            con_sleep.insert(5, 'LL_cd_sig', np.nan)
-            con_sleep.insert(5, 'P_ratio', np.nan)
-            con_sleep.insert(5, 'LL_cd', np.nan)
-
-            all_con = con_sleep.groupby(['Stim', 'Chan'], as_index=False)[['Prob']].mean()
-            all_con = all_con[all_con.Prob > 0]
-            print('Calculate Ratio and LL difference and surrogates for each connection: ')
-            for sc, rc in tqdm.tqdm(zip(all_con.Stim.values.astype('int'), all_con.Chan.values.astype('int')),
-                                    total=len(all_con.Stim.values.astype('int'))):
-                dat = con_trial_sig[
-                    (con_trial_sig.Stim == sc) & (con_trial_sig.Chan == rc) & (con_trial_sig.Artefact < 1)]
-                dat = dat.reset_index(drop=True)
-                p_W = np.mean(dat.loc[dat.SleepState == 'Wake', 'Prob'])
-                LL_w = dat.loc[(dat.Sig == 1) & (dat.SleepState == 'Wake'), 'LL'].values
-                ix_wake = \
-                    np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == 'Wake')[0]
-                for ss, s_ix in zip(['NREM', 'REM'], np.arange(2)):
-                    ix_sleep = \
-                        np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == ss)[0]
-                    if (len(ix_wake) > 0) & (len(ix_sleep) > 0):
-                        LL_s = dat.loc[
-                            (dat.Sig == 1) & (dat.SleepState == ss), 'LL'].values
-                        p_SS = np.mean(dat.loc[dat.SleepState == ss, 'Prob'])
-                        # prob ratio
-                        r = np.sign(p_SS - p_W) * (1 - np.min([p_SS, p_W]) / np.max([p_SS, p_W]))
-                        # sig_thr = BM_stats.R_surr(dat, feature_states=['Wake', ss])
-                        con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                con_sleep.Chan == rc), 'P_ratio'] = r
-                        # cohen's d
-                        cd = BM_stats.cohen_d(LL_s, LL_w)
-                        con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                con_sleep.Chan == rc), 'LL_cd'] = cd
-                        # surr
-                        if surr:
-                            n = 100
-                            p = 5
-                            surr_cd = np.zeros((n, 2))
-                            for i in range(n):
-                                np.random.shuffle(dat['SS'].values)
-                                p_SS_s = np.mean(dat.loc[(dat['SS'] == ss), 'Prob'])
-                                p_W_s = np.mean(
-                                    dat.loc[(dat['SS'] == 'Wake'), 'Prob'])
-
-                                surr_cd[i, 0] = np.sign(p_SS_s - p_W_s) * (
-                                        1 - np.min([p_SS_s, p_W_s]) / np.max([p_SS_s, p_W_s]))
-                                surr_cd[i, 1] = BM_stats.cohen_d(dat.loc[
-                                                                     (dat.Sig == 1) & (dat['SS'] == ss), 'LL'].values,
-                                                                 dat.loc[
-                                                                     (dat.Sig == 1) & (
-                                                                             dat['SS'] == 'Wake'), 'LL'].values)
-
-                            # sig_thr = BM_stats.CD_surr(dat[dat.Sig == 1], feature_states=['Wake', ss])
-                            con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                    con_sleep.Chan == rc), 'LL_cd_sig'] = (cd < np.percentile(surr_cd[:, 1], p)) | (
-                                    cd > np.percentile(surr_cd[:, 1], 100 - p))
-                            con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                    con_sleep.Chan == rc), 'P_ratio_sig'] = (r < np.percentile(surr_cd[:, 0], p)) | (
-                                    r > np.percentile(surr_cd[:, 0], 100 - p))
-
-                con_sleep.loc[
-                    (con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'P_ratio'] = 1
-                con_sleep.loc[(con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (
-                        con_sleep.Chan == rc), 'LL_cd'] = 0  # no change
-
-            dist_groups = np.array([[0, 15], [15, 30], [30, 120]])
-            dist_labels = ['local (<15 mm)', 'short (<30mm)', 'long']
-            con_sleep.insert(5, 'Dist', 'long')
-            for dl, i in zip(dist_labels, np.arange(len(dist_labels))):
-                con_sleep.loc[(con_sleep.d < dist_groups[i, 1]) & (con_sleep.d >= dist_groups[i, 0]), 'Dist'] = \
-                    dist_labels[
-                        i]
-
-            con_sleep.to_csv(file_con_sleep,
-                             index=False,
-                             header=True)
-
-    def get_sleep_ttest(self, con_trial, load=1):
-        sleepstate_labels_u = np.unique(con_trial.loc[con_trial.Sleep > 0, 'SleepState'])
-        sleepstate_labels = ['NREM', 'REM']
-        # t-test
-        M_dir_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\Sleep\\ttest_sleep.npy'
-        if os.path.exists(M_dir_path) * load:
-            M_ttest_sleep = np.load(M_dir_path)
+    def connection_sleep_diff(self, con_trial, skip=1):
+        exp_dir = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Connection')
+        os.makedirs(exp_dir, exist_ok=True)
+        file = os.path.join(exp_dir, 'con_sleep_stats.csv')
+        if os.path.isfile(file) * skip:
+            print('Connection sleep changes already calculated  -  skipping .. ')
         else:
-            M_ttest_sleep = np.zeros((len(self.labels_all), len(self.labels_all), len(sleepstate_labels), 2)) - 1
-            for sc in range(len(self.labels_all)):
-                for rc in range(len(self.labels_all)):
-                    dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1) & (
-                            con_trial.Sig > -1)]
-                    dat = dat.reset_index(drop=True)
+            df = graph_funcs.con_sleep_stats(con_trial)
+            df.insert(0, 'Subj', self.subj)
+            df = ls.adding_area(df, self.lbls, pair=1)
+            df = ls.adding_region(df, pair=1)
+            df.to_csv(file, header=True, index=False)
+            print('Node features calculated')
 
-                    if len(dat) > 0:  # only feasible connections
-                        dat = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1) & (
-                                con_trial.Sig >= 0)]
-                        dat = dat.reset_index(drop=True)
+    def plot_pearson_hypnogram(self, con_trial, hyp_style='Block'):
+        path_file = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'BM_figures', 'Block')
+        M, label = BMf.cal_correlation_condition(con_trial, metric='LL', condition='Block')
+        if hyp_style == 'Block':
+            hypnogram = np.zeros((len(label),))
+            for ix, l in enumerate(label):
+                hypnogram[ix] = np.bincount(con_trial.loc[con_trial.Block == l, 'Sleep']).argmax()
+            x_ax = np.arange(len(label))
+            x_ax_h = np.arange(len(label))
 
-                        if len(dat) > 0:
-                            p_W = len(dat.loc[(dat.Sig == 1) & (dat.SleepState == 'Wake')]) / len(
-                                dat.loc[(dat.SleepState == 'Wake')])
-                            for ss in range(len(sleepstate_labels)):
-                                if sleepstate_labels[ss] in sleepstate_labels_u:
-                                    ##binomial test
-                                    x = np.array(
-                                        [len(dat.loc[(dat.Sig == 1) & (dat.SleepState == sleepstate_labels[ss])]),
-                                         len(dat.loc[(dat.Sig == 0) & (dat.SleepState == sleepstate_labels[ss])])])
-                                    p_bin = scipy.stats.binom_test(x, p=p_W, alternative='two-sided')
-                                    if (p_bin < 0.05) & ((x[0] / np.sum(x)) < p_W):
-                                        M_ttest_sleep[sc, rc, ss, 1] = 2
-                                    elif (p_bin < 0.05) & ((x[0] / np.sum(x)) > p_W):
-                                        M_ttest_sleep[sc, rc, ss, 1] = 3
-                                    else:
-                                        M_ttest_sleep[sc, rc, ss, 1] = 1
-                                    ##tt-test
-                                    d_NREM, p_NREM = scipy.stats.ttest_ind(
-                                        dat.loc[(dat.Sig == 1) & (dat.SleepState == 'Wake'), 'LL'].values,
-                                        dat.loc[
-                                            (dat.Sig == 1) & (dat.SleepState == sleepstate_labels[ss]), 'LL'].values)
-                                    if p_NREM < 0.05:
-                                        if np.sign(d_NREM) == 1:
-                                            d = 2  # decrease
-                                        else:
-                                            d = 3  # increase
-                                        M_ttest_sleep[sc, rc, ss, 0] = d
-                                    else:
-                                        M_ttest_sleep[sc, rc, ss, 0] = 1  # no change
-                        else:
-                            M_ttest_sleep[sc, rc, :, :] = 0  # no significant connections
-            np.save(M_dir_path, M_ttest_sleep)
-        for ss in range(2):
-            M_resp = np.delete(np.delete(M_ttest_sleep[:, :, ss, 0], self.bad_all, 0), self.bad_all, 1)
-            M_resp = M_resp * 1
-            M_resp = M_resp[self.ind, :]
-            M_resp = M_resp[:, self.ind]
-            # (M, labels,areas, label, t, method,save= 1, circ = 1, cmap='hot', group='block')
-            self.plot_BM(M_resp, self.labels_sel, self.areas_sel, 'ttest_' + sleepstate_labels[ss], 0, 'change', 1,
-                         circ=0,
-                         group='Sleep')
-
-        for ss in range(2):
-            M_resp = np.delete(np.delete(M_ttest_sleep[:, :, ss, 1], self.bad_all, 0), self.bad_all, 1)
-            M_resp = M_resp * 1
-            M_resp = M_resp[self.ind, :]
-            M_resp = M_resp[:, self.ind]
-            # (M, labels,areas, label, t, method,save= 1, circ = 1, cmap='hot', group='block')
-            self.plot_BM(M_resp, self.labels_sel, self.areas_sel, 'Prob_bin_' + sleepstate_labels[ss], 0, 'change', 1,
-                         circ=0,
-                         group='Sleep')
-
-    def save_sleep_nmf(self, con_trial, M_Block, M_t_resp):
-        con_trial = con_trial[con_trial.Block >= 1]
-        con_trial = con_trial.reset_index(drop=True)
-        M_B_nmf = M_Block.reshape(len(M_Block), -1)
-        M_B_nmf = M_B_nmf.T
-        M_B_nmf[np.isnan(M_B_nmf)] = 0
-        M_B_nmf[M_B_nmf < 0] = 0
-        # run NMF with rk = 3
-        rk = 3
-        W, W0, H = NMFf.get_nnmf_Epi(M_B_nmf, rk, it=2000)
-
-        # store sumamry
-        start = 0
-        for b in np.unique(con_trial.Block).astype('int'):
-            h = np.bincount(con_trial.loc[con_trial.Block == b, 'Hour']).argmax()
-            s = np.mean(con_trial.loc[
-                            con_trial.Block == b, 'Sleep'])  # np.bincount(con_trial.loc[con_trial.Block==b, 'Sleep']).argmax()
-            arr = np.zeros((1, rk + 3))
-            arr[0, 0] = b
-            arr[0, 1] = h
-            arr[0, 2] = s > 0
-            for i in range(rk):
-                arr[0, 3 + i] = H[i, b]
-            nmf_arr = pd.DataFrame(arr, columns=['Block', 'Hour', 'Sleep', 'H1', 'H2', 'H3'])
-            if start == 0:
-                nmf_summary = nmf_arr
-                start = 1
-            else:
-                nmf_summary = pd.concat([nmf_summary, nmf_arr])
-        nmf_summary.to_csv(
-            self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\NNMF\\nmf_summary_rk' + str(
-                rk) + '.csv', index=False, header=True)
-
-        # check whether cluster is stable, increase or decrease
-        H_sleep = np.zeros((rk, 3))
-        for h, i in zip(['H1', 'H2', 'H3'], np.arange(rk)):
-            # sns.catplot('Sleep', h, data=nmf_summary)
-            d_NREM, p_NREM = scipy.stats.ttest_ind(nmf_summary.loc[(nmf_summary.Sleep == 0), h],
-                                                   nmf_summary.loc[(nmf_summary.Sleep == 1), h])
-            H_sleep[i, 0] = i + 1
-            if p_NREM < 0.05:
-                H_sleep[i, 1] = -1 * np.sign(d_NREM)
-                H_sleep[i, 2] = p_NREM
-        H_sleep = pd.DataFrame(H_sleep, columns=['H', 'Sleep_change', 'p'])
-        if len(np.where(H_sleep.Sleep_change == 0)[0]) == 0:
-            val, n_sc = np.unique(H_sleep.Sleep_change, return_counts=True)
-            val = val[n_sc >= 2]
-            p = np.max(H_sleep.loc[(H_sleep.Sleep_change == val[0]), 'p'].values)
-            H_sleep.loc[(H_sleep.Sleep_change == val[0]) & (H_sleep.p == p), 'Sleep_change'] = 0
-        # get connections assign to cluster
-        W_z = scipy.stats.zscore(W, 0)
-        W_pref_z = np.argmax(W_z, 1)
-        W_pref_z[np.max(W_z, 1) < 1] = np.where(H_sleep.Sleep_change == 0)[0][0]
-        W_pref_z[np.max(W_z, 1) < 0] = -1
-        np.savez(self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\NNMF\\nmf_rk' + str(
-            rk) + '.npz', W, H, H_sleep,
-                 W_pref_z)
-        ## plotting
-        if len(np.unique(H_sleep.Sleep_change)) == 3:
-
-            sleep_con_labels = ['Decrease', 'Stable', 'Increase']
-            sleep_con_val = np.arange(-1, 2)
-            sleep_plot_val = np.array([2, 1, 3])  # n
-
-            M_sleep_nmf = np.zeros((M_t_resp.shape[0], M_t_resp.shape[0]))
-            for lab, val, plot_val in zip(sleep_con_labels, sleep_con_val, sleep_plot_val):
-                h = np.where(H_sleep.values[:, 1] == val)[0]
-
-                M_nmf = np.array((W_pref_z == h)).reshape(len(self.labels_all), len(self.labels_all))
-                M_nmf = M_nmf * plot_val
-                M_sleep_nmf = M_sleep_nmf + M_nmf
-            # M_nmf = np.array(((W[:,0]/W[:,1])>3)).reshape(len(labels_all),len(labels_all))
-            # M_nmf = np.array(((W[:,0]/W[:,1])<0.8)).reshape(len(labels_all),len(labels_all))
-            M_sleep_nmf[M_t_resp[:, :, 1] == -1] = -1
-            M_sleep_nmf[M_t_resp[:, :, 1] == 0] = 0
-            M_resp = np.delete(np.delete(M_sleep_nmf, self.bad_all, 0), self.bad_all, 1)
-            M_resp = M_resp[self.ind, :]
-            M_resp = M_resp[:, self.ind]
-
-            self.plot_BM(M_resp, self.labels_sel, self.areas_sel, 'NMF_sleep', 0, 'change', 1, circ=0, group='Sleep')
-            for lab, val in zip(sleep_con_labels, sleep_con_val):
-                h = np.where(H_sleep.values[:, 1] == val)[0]
-
-                M_nmf = np.array((W_pref_z == h)).reshape(len(self.labels_all), len(self.labels_all))
-                # M_nmf = np.array(((W[:,0]/W[:,1])>3)).reshape(len(labels_all),len(labels_all))
-                # M_nmf = np.array(((W[:,0]/W[:,1])<0.8)).reshape(len(labels_all),len(labels_all))
-                M_resp = np.delete(np.delete(M_nmf * (M_Block[1] > 0), self.bad_all, 0), self.bad_all, 1)
-                M_resp = M_resp * 1
-                M_resp = M_resp[self.ind, :]
-                M_resp = M_resp[:, self.ind]
-                # (M, labels,areas, label, t, method,save= 1, circ = 1, cmap='hot', group='block')
-                self.plot_BM(M_resp, self.labels_sel, self.areas_sel, 'NMF_' + lab, 0, 'binary', 1, circ=0,
-                             group='Sleep')
-                # plot_BM_CR_trial_sig(M_resp, labels_sel,areas_sel, ll, t, 'sym',save= 1, circ = 0, group='General')
         else:
-            print(H_sleep)
-            # plot_BM_CR_trial_sig(M_resp, labels_sel,areas_sel, ll, t, 'sym',save= 1, circ = 0, group='General')
+            stimlist_hypno = pd.read_csv(os.path.join(self.path_patient_analysis, 'stimlist_hypnogram.csv'))
+            stimlist_hypno = stimlist_hypno[
+                np.isin(stimlist_hypno.stim_block, label) & (stimlist_hypno.sleep < 5)].reset_index(drop=True)
+            hypnogram = stimlist_hypno.sleep
+            x_ax_h = stimlist_hypno.ix_h  # stimlist_hypno.stim_block + (stimlist_hypno.ix_h % 1)- np.min(stimlist_hypno.stim_block)
+            x_ax = stimlist_hypno.groupby(['stim_block'])['ix_h'].min().values
+        x_ax_block = np.arange(len(label))
+        # Create figure and subplots using gridspec
+        fig = BM_plots.plot_block_hypnogram(M, hypnogram, x_ax_h, x_ax, x_ax_block)
+        if hyp_style == 'Block':
+            plt.savefig(os.path.join(path_file, 'Block_pearson_mean.svg'))
+        else:
+            plt.savefig(os.path.join(path_file, 'Block_pearson_full.svg'))
+        plt.close(fig)
 
-    def NMF_on_blocks(self, con_trial, M_B_all):
-        # input Matrix:
-        M_B_nmf = M_B_all.reshape(len(M_B_all), -1)  # vecotrize
-        M_B_nmf = M_B_nmf.T
-        M_B_nmf[np.isnan(M_B_nmf)] = 0
-        M_B_nmf[M_B_nmf < 0] = 0
+    def get_subnetworks(self, con_summary, parameters=['Sig', 'd', 'delay']):
+        con_summary = con_summary[(con_summary.Sig > 0)].reset_index(drop=True)
+        con_summary_short = con_summary[(np.isin(con_summary.Stim, np.unique(con_summary.Chan))) & (
+            np.isin(con_summary.Chan, np.unique(con_summary.Stim)))].reset_index(drop=True)
+        con_summary_short = con_summary_short.groupby(['Stim', 'Chan'], as_index=False)[parameters].mean().reset_index(
+            drop=True)
+        for par in parameters:
+            # only Chan that are also stim chans
+            df_pivot = con_summary_short.pivot(index='Stim', columns='Chan', values=par)
+            # df_pivot = df_pivot.apply(lambda row: row.fillna(row.mean()), axis=1)
+            df_pivot = df_pivot.fillna(0)
+            M = df_pivot.values
+            # save brain map matric format
+            # initiate connectivity matrix based on total number of nodes
+            n_total = len(self.labels_all)
+            M_all = np.zeros((n_total, n_total)) - 1
+            for sc in np.unique(
+                    con_summary.Stim):  # for each selected Stim Node, get the reponse nodes (Chan) and the edge weigths (par)
+                chans = con_summary.loc[con_summary.Stim == sc, 'Chan'].values
+                weight = con_summary.loc[con_summary.Stim == sc, par].values
+                M_all[sc, chans] = weight
+            cmap = plt.get_cmap('hot')  # matplotlib.colormaps["Accent"]
+            if par == 'd':
+                cmap = plt.get_cmap('winter')
+            elif par == 'delay':
+                cmap = plt.get_cmap('autumn')
+            cmap.set_bad(color='black')
+            # mask some 'bad' data, in your case you would have: data == 0
+            M_all = np.ma.masked_where(M_all == -1, M_all)
 
-        # get NMF
-        rk = 3
-        [W, H] = NMFf.get_nnmf_Epi(M_B_nmf, rk, it=2000)
-        # for h in range(rk):
-        #    plt.plot(H[h])
-        # assign whether sleep has an effect:
-        start = 0
-        for b in np.unique(con_trial.Block).astype('int'):
-            h = np.bincount(con_trial.loc[con_trial.Block == b, 'Hour']).argmax()
-            s = np.mean(con_trial.loc[
-                            con_trial.Block == b, 'Sleep'])  # np.bincount(con_trial.loc[con_trial.Block==b, 'Sleep']).argmax()
-            arr = np.zeros((1, rk + 3))
-            arr[0, 0] = b
-            arr[0, 1] = h
-            arr[0, 2] = s > 0  # if there is sleep
-            for i in range(rk):
-                arr[0, 3 + i] = H[i, b]
-            nmf_arr = pd.DataFrame(arr, columns=['Block', 'Hour', 'Sleep', 'H1', 'H2', 'H3'])
-            if start == 0:
-                nmf_summary = nmf_arr
-                start = 1
-            else:
-                nmf_summary = pd.concat([nmf_summary, nmf_arr])
-        # t-test of H coefficients
-        H_sleep = np.zeros((rk, 2))
-        for h, i in zip(['H1', 'H2', 'H3'], np.arange(rk)):
-            sns.catplot('Sleep', h, data=nmf_summary)
-            d_NREM, p_NREM = scipy.stats.ttest_ind(nmf_summary.loc[(nmf_summary.Sleep == 0), h],
-                                                   nmf_summary.loc[(nmf_summary.Sleep == 1), h])
-            H_sleep[i, 0] = i + 1
-            if p_NREM < 0.05:
-                H_sleep[i, 1] = -1 * np.sign(d_NREM)
-        H_sleep = pd.DataFrame(H_sleep, columns=['H', 'Sleep_change'])
-        # preferred W
-        W_pref_z = stats.zscore(W, axis=0)
-        W_pref_z = np.argmax(W_pref_z, 1)
-        np.savez(self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\NMF\\nmf_rk3.npy', W, H,
-                 H_sleep, W_pref_z)
+            fig = plt.figure(figsize=(10, 10))
+            plt.suptitle(self.subj + ': BM - ' + par)
+            axmatrix = fig.add_axes([0.15, 0.15, 0.7, 0.7])
+            axcolor = fig.add_axes([0.9, 0.15, 0.02, 0.7])
+            BM_plots.plot_BM(M_all, self.labels_all, self.hemisphere, axmatrix, axcolor=axcolor, cmap=cmap,
+                             vlim=[0, np.percentile(M_all, 99)], sort=1, cat=0)
+            path_output = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'BM_figures', 'General')
+            plt.savefig(os.path.join(path_output, 'BM_' + par + '.svg'))
+            plt.close()
 
-    def get_sleep_summary(self, con_trial, M_t_resp):
-        file_con_sleep = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\con_sleep.csv'
-        M_dir_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\BM_figures\\Sleep\\ttest_sleep.npy'
-        M_ttest_sleep = np.load(M_dir_path)
-
-        # only LL if there was a significant connection, remove Sig get Prob instead
-        con_trial_sig = con_trial[con_trial.d > -10]
-        con_trial_sig.loc[con_trial_sig.Sig < 0, 'Sig'] = np.nan
-        con_trial_sig.insert(4, 'LL_sig', np.nan)
-        con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL_sig'] = con_trial_sig.loc[con_trial_sig.Sig == 1, 'LL']
-        con_trial_sig = con_trial_sig.drop(columns='LL')
-        con_trial_sig.insert(4, 'LL', con_trial_sig.LL_sig)
-        con_trial_sig.insert(4, 'Prob', con_trial_sig.Sig)
-        con_trial_sig = con_trial_sig.drop(columns='LL_sig')
-
-        con_trial_sig = con_trial_sig[np.isin(con_trial_sig.Sig, [0, 1])]
-        con_sleep = con_trial_sig.groupby(['Stim', 'Chan', 'SleepState'], as_index=False)[['Prob', 'LL', 'd']].mean()
-        con_sleep.insert(5, 'ttest_wake', 0)
-        con_sleep.insert(5, 'prob_wake', 0)
-        con_sleep.insert(5, 't_resp', 0)
-        for sc in np.unique(con_sleep.Stim).astype('int'):
-            chans = con_sleep.loc[(con_sleep.Stim == sc), 'Chan'].values.astype('int')
-            for rc in chans:
-                # con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 't_resp'] = M_t_resp[sc, rc, 2]
-                ix_wake = \
-                    np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == 'Wake')[0]
-                for ss, s_ix in zip(['NREM', 'REM'], np.arange(2)):
-                    ix_sleep = \
-                        np.where(con_sleep.loc[(con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'SleepState'] == ss)[0]
-                    if (len(ix_wake) > 0) & (len(ix_sleep) > 0):
-                        con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                con_sleep.Chan == rc), 'ttest_wake'] = M_ttest_sleep[sc, rc, s_ix, 0]
-
-                        con_sleep.loc[(con_sleep.SleepState == ss) & (con_sleep.Stim == sc) & (
-                                con_sleep.Chan == rc), 'prob_wake'] = M_ttest_sleep[sc, rc, s_ix, 1]
-                con_sleep.loc[
-                    (con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (con_sleep.Chan == rc), 'prob_wake'] = 1
-                con_sleep.loc[(con_sleep.SleepState == 'Wake') & (con_sleep.Stim == sc) & (
-                        con_sleep.Chan == rc), 'ttest_wake'] = 1  # no change
-
-        con_sleep.to_csv(file_con_sleep,
-                         index=False,
-                         header=True)
+            # graphNMF.run(M, k_max = 5)
 
     def BM_plots_General(self, CC_summ, con_trial, reload=0):
+        # todo: make it simpler
         # labels
         # labels:
         labels_sel = np.delete(self.labels_all, self.bad_all, 0)
@@ -985,7 +656,7 @@ class main:
             self.plot_BM(M_resp, labels_sel, areas_sel, ll, 0, method, save=1, circ=0, group='General')
 
 
-def start_subj(subj, cluster_method='similarity', sig=0):
+def start_subj(subj, cluster_method='similarity'):
     print(subj + ' -- START --')
     run_main = main(subj)
     path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
@@ -993,57 +664,53 @@ def start_subj(subj, cluster_method='similarity', sig=0):
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     # file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ.csv'
     file_CC_summ = path_patient_analysis + '\\' + folder + '\\data\\CC_summ_' + cluster_method + '.csv'
+    summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\summ_general.csv'  # summary_general
     # todo: make clean
     con_trial = pd.read_csv(file_con)
     CC_summ = pd.read_csv(file_CC_summ)
 
-    if not 'SleepState' in con_trial:
-        con_trial.insert(6, 'SleepState', 'Wake')
-    con_trial.loc[(con_trial.SleepState == 'W'), 'SleepState'] = 'Wake'
-    con_trial.loc[(con_trial.Sleep == 0), 'SleepState'] = 'Wake'
-    con_trial.loc[(con_trial.Sleep > 1) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
-    con_trial.loc[(con_trial.Sleep == 1), 'SleepState'] = 'NREM1'
-    con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
-    con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
-
-    general = 1
-    if general:
-        run_main.BM_plots_General(CC_summ, con_trial, 0)
-    blocks = 1
+    run_main.plot_pearson_hypnogram(con_trial, hyp_style='full')
+    delay = 0
+    if delay:
+        h5_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.h5'
+        if os.path.isfile(h5_file):
+            print('loading h5')
+            EEG_resp = h5py.File(h5_file)
+            EEG_resp = EEG_resp['EEG_resp']
+            run_main.get_summary(con_trial, CC_summ, EEG_resp)
+    wake = 0
+    if wake:
+        run_main.get_summary_wake(con_trial, CC_summ)
+        # run_main.BM_plots_General(CC_summ, con_trial, 0)
+    # run_main.connection_sleep_diff(con_trial, 1)
+    # con_summary = pd.read_csv(summary_gen_path)
+    # run_main.get_subnetworks(con_summary)
+    blocks = 0
     if blocks:
         # Blockwise BM
         _ = run_main.save_M_block(con_trial, metrics=['LL'], savefig=1)
         # np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\M_B_all.npy', M_B_all)
-    sleep = 1
-    sleep_nmf = 1
-    if (subj == 'EL013') | (subj == 'EL012') | (subj == 'EL021') | (subj == 'EL022'):  # not enough sleep data
-        sleep = 0
-        sleep_nmf = 0
-
-    if sleep:
-        run_main.save_M_sleep(con_trial, metrics=['LL', 'Prob'], savefig=1)
-        # sleep ttest
-        run_main.get_sleep_surr(con_trial, surr=1)
-        # run_main.get_sleep_ttest(con_trial, load=0)
-        # run_main.get_sleep_summary(con_trial, M_t_resp)
-
-    # if sleep_nmf:
-    #     M_dir_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\BM_figures\\Block\\BM_LL.npy'
-    #     M_Block = np.load(M_dir_path)
-    #     run_main.save_sleep_nmf(con_trial, M_Block, M_t_resp)
 
     print(subj + ' ----- DONE')
 
 
 thread = 0
 sig = 0
-# # # todo: 'EL009',
-for subj in [
-    'EL026']:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
+subjs = ["EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL017", "EL019", "EL020", "EL021",
+         "EL022", "EL024", "EL025", "EL026", "EL027"]
+# only sleep subjs
+subjs = ["EL010", "EL011", "EL014", "EL015", "EL016", "EL017", "EL019", "EL020", "EL021",
+         "EL022", "EL025", "EL026", "EL027"]
+
+subjs = ["EL011"]
+
+for subj in subjs:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
     if thread:
         _thread.start_new_thread(start_subj, (subj, sig))
     else:
-        start_subj(subj, 'similarity', 0)
+        start_subj(subj, 'similarity')
 if thread:
     while 1:
         time.sleep(1)
+
+print('Done')

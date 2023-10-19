@@ -21,7 +21,6 @@ import matplotlib.mlab as mlab
 import sys
 
 sys.path.append('./py_functions')
-import analys_func
 from scipy.stats import norm
 import LL_funcs
 from scipy.stats import norm

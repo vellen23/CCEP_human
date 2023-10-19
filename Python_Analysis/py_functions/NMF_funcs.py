@@ -1,661 +1,433 @@
 import os
-import numpy as np
 import sys
-import sklearn
 from scipy import stats
-import seaborn as sns
-import matplotlib.pyplot as plt
-from tkinter import *
 from sklearn.decomposition import NMF
-import pandas as pd
+from sklearn.cluster import KMeans
 import random
+from scipy.stats import entropy
 
-root = Tk()
-root.withdraw()
+from sklearn.cluster import KMeans
+import multiprocessing
+import os
+import datetime
+import numpy as np
+import pandas as pd
+import nimfa
+from sklearn.metrics import adjusted_rand_score
+from scipy.cluster.hierarchy import linkage, cophenet
 
-# colors for BZD condition
-cond_vals = np.arange(4)
-cond_labels = ['BM', 'BL', 'Fuma', 'BZD']
-cond_colors = ['#494159', '#594157', "#F1BF98", "#8FB996"]
+
+def calculate_cophenetic_corr(A):
+    """
+    Compute the cophenetic correlation coefficient for matrix A.
+
+    Parameters:
+    - A : numpy.ndarray
+        Input matrix.
+
+    Returns:
+    - float
+        Cophenetic correlation coefficient.
+
+        The cophenetic correlation coefficient is measure which indicates the dispersion of the consensus matrix and is based on the average of connectivity matrices.
+        It measures the stability of the clusters obtained from NMF. It is computed as the Pearson correlation of two distance matrices:
+        the first is the distance between samples induced by the consensus matrix; the second is the distance between samples induced by the linkage used in the reordering of the consensus matrix [Brunet2004].
+
+    """
+
+    # Extract the values from the lower triangle of A
+    avec = np.array([A[i, j] for i in range(A.shape[0] - 1)
+                     for j in range(i + 1, A.shape[1])])
+
+    # Consensus entries are similarities, conversion to distances
+    # 1. matrix: distance between samples indced by consensus matrix
+    Y = 1 - avec
+
+    # Hierarchical clustering
+    # 2. matrix: distance between samples induced by the linkage used in the reordering of the consensus matrix
+    Z = linkage(Y, method='average')
+
+    # Cophenetic correlation coefficient of a hierarchical clustering
+    coph = cophenet(Z, Y)[0]
+
+    return coph
 
 
-def get_nnmf_Epi(X, rank, it=2000):
-    # remove rows that are completly equal zero
-    # model = NMF(n_components=rank, init='random', random_state=50, max_iter=it)
-    # W = model.fit_transform(X)
-    # H = model.components_
+def nmf_run(args):
+    data_matrix, rank, n_runs, target_clusters = args
+    consensus = np.zeros((data_matrix.shape[0], data_matrix.shape[0]))
+    obj = np.zeros(n_runs)
+    connectivity_matrices = []
+    lowest_obj = float('inf')
+    best_H = None
+    best_W = None
+
+    for n in range(n_runs):
+        nmf = nimfa.Nmf(data_matrix.T, rank=rank, seed="random_vcol", max_iter=10)
+        fit = nmf()
+        # Matrix of shared membership Cij=1 iff sample i & j are in same cluster (highest H coeff)
+        connectivity = fit.fit.connectivity()
+        connectivity_matrices.append(connectivity)
+        consensus += connectivity
+        obj[n] = fit.fit.final_obj  # Final value (of the last performed iteration) of the objective function
+        if obj[n] < lowest_obj:
+            lowest_obj = obj[n]
+            best_H = fit.coef()
+            best_W = fit.basis()
+
+    consensus /= n_runs
+    coph = calculate_cophenetic_corr(consensus) # perfect consensus matrix, coph = 1
+    instability = 1 - coph
+
+    # Computing ARI if target_clusters is provided
+    ari = None
+    if target_clusters is not None:
+        clusters = np.array([np.argmax(best_H[:, i]) for i in range(best_H.shape[1])])
+        ari = adjusted_rand_score(target_clusters, clusters)
+
+    # Storing metrics
+    metrics = {
+        "Rank": rank,
+        "Min Final Obj": lowest_obj,
+        "Adjusted Rand Index": ari,
+        "Cophenetic Correlation": coph,
+        "Instability index": instability
+    }
+
+    return metrics, consensus, connectivity_matrices, best_H, best_W
+
+
+def parallel_nmf_consensus_clustering(data_matrix, rank_range, n_runs, experiment_dir=None, target_clusters=None):
+    # Create a directory for the experiment
+    if experiment_dir is None:
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        experiment_dir = os.path.join("Experiment_" + timestamp)
+    os.makedirs(experiment_dir, exist_ok=True)
+
+    # Using all available cores
+    n_cores = multiprocessing.cpu_count()
+    with multiprocessing.Pool(processes=n_cores) as pool:
+        results = pool.map(nmf_run, [(data_matrix, rank, n_runs, target_clusters) for rank in
+                                     range(rank_range[0], rank_range[1] + 1)])
+
+    # Saving results
+    for (metrics, consensus, connectivity_matrices, best_H, best_W), rank in zip(results, range(rank_range[0],
+                                                                                                rank_range[1] + 1)):
+        # Creating directory structure for rank
+        rank_dir = os.path.join(experiment_dir, f"k={rank}")
+        os.makedirs(rank_dir, exist_ok=True)
+
+        connectivity_dir = os.path.join(rank_dir, "connectivity_matrices")
+        os.makedirs(connectivity_dir, exist_ok=True)
+
+        # Saving connectivity matrices
+        for idx, matrix in enumerate(connectivity_matrices):
+            connectivity_path = os.path.join(connectivity_dir, f"connectivity_{idx + 1}.csv")
+            np.savetxt(connectivity_path, matrix, delimiter=",")
+
+        # Saving consensus matrix
+        consensus_path = os.path.join(rank_dir, "consensus_matrix.csv")
+        np.savetxt(consensus_path, consensus, delimiter=",")
+
+        # Saving H_best and W_best matrices
+        h_best_path = os.path.join(rank_dir, "H_best.csv")
+        np.savetxt(h_best_path, best_H, delimiter=",")
+
+        w_best_path = os.path.join(rank_dir, "W_best.csv")
+        np.savetxt(w_best_path, best_W, delimiter=",")
+
+    # Saving metrics as CSV
+    metrics_df = pd.DataFrame([res[0] for res in results])
+    metrics_path = os.path.join(experiment_dir, "metrics.csv")
+    metrics_df.to_csv(metrics_path, index=False)
+
+    return experiment_dir  # return the directory where results are saved
+
+
+def get_clusters(W):
+    """
+    Assign channels to clusters based on high W values.
+
+    Parameters:
+    - W: Basis matrix from NMF decomposition
+
+    Returns:
+    - column_cluster_assignments: A dictionary mapping each cluster to its member channels
+    """
+    column_cluster_assignments = {}
+    num_cluster = W.shape[1]
+
+    for cluster_idx in range(num_cluster):
+        W_values = W[:, cluster_idx].reshape(-1, 1)  # Reshape the values for clustering
+        kmeans = KMeans(n_clusters=2).fit(W_values)
+        higher_value_cluster = np.argmax(kmeans.cluster_centers_)
+
+        for channel, assignment in enumerate(kmeans.labels_):
+            if assignment == higher_value_cluster:
+                column_cluster_assignments.setdefault(cluster_idx, []).append(channel)
+
+    return column_cluster_assignments
+
+
+def assgin_cluster(V, H):
+    # Compute the correlation between each row in V and each row in H
+    # Reshape V and H for broadcasting
+    V_reshaped = V[:, :, None]
+    H_reshaped = H.T[None, :, :]
+
+    # Compute the dot products and the norms
+    dot_products = np.sum(V_reshaped * H_reshaped, axis=1)
+    V_norms = np.linalg.norm(V, axis=1)[:, None]
+    H_norms = np.linalg.norm(H, axis=1)
+
+    # Compute the correlation coefficients
+    correlations = dot_products / (V_norms * H_norms)
+
+    # Find the index of the row in H with which each row in V is most similar
+    most_similar_rows = np.argmax(correlations, axis=1)
+
+    return most_similar_rows
+
+def hier2_staNMF(X, k_range1, k_range, stab_it=20):
+    """
+    Run two-level stability NMF clustering on matrix X.
+
+    Parameters:
+    - X: Input matrix
+    - k_range: Range of ranks to check for stability NMF
+
+    Returns:
+    - cluster_structure: Structure storing channels for both clustering levels
+    """
+    cluster_structure = {}
+
+    # Level 1
+    _, instability = stabNMF(X, num_it=stab_it, k0=min(k_range1), k1=max(k_range1), init='nndsvda', it=2000)
+    best_k = k_range1[np.argmin(instability)]
+    W1, H1 = get_nnmf(X, best_k, init='nndsvda', it=2000)
+    clusters_level1 = get_clusters(W1)
+
+    # For each cluster in level 1, run the second level of NMF
+    for level1_cluster_idx, channels_in_cluster in clusters_level1.items():
+        X_cluster = X[channels_in_cluster]
+        cluster_key = 'C' + str(level1_cluster_idx + 1)
+
+        if len(channels_in_cluster) > max(k_range):
+
+            _, instability = stabNMF(X_cluster, num_it=stab_it, k0=min(k_range), k1=max(k_range), init='nndsvda',
+                                     it=2000)
+            best_k = k_range[np.argmin(instability)]
+            W2, H2 = get_nnmf(X_cluster, best_k, init='nndsvda', it=2000)
+            clusters_level2 = get_clusters(W2)
+
+            # Map local indices of clusters_level2 to original indices in X
+            mapped_clusters_level2 = {}
+            for lvl2_idx, local_indices in clusters_level2.items():
+                mapped_clusters_level2[cluster_key + '.' + str(lvl2_idx + 1)] = [channels_in_cluster[idx] for idx in
+                                                                                 local_indices]
+
+        else:
+            # Map local indices of clusters_level2 to original indices in X
+            mapped_clusters_level2 = {}
+            mapped_clusters_level2[cluster_key + '.1'] = channels_in_cluster
+        # Append clusters for both levels to the cluster_structure dictionary
+        if cluster_key not in cluster_structure:
+            cluster_structure[cluster_key] = {}
+        cluster_structure[cluster_key]['level1'] = channels_in_cluster
+        cluster_structure[cluster_key]['level2'] = mapped_clusters_level2
+
+    return cluster_structure, W1, H1
+
+
+def get_entropy(L):
+    E = np.array([entropy(row) for row in L])
+    A = entropy(E)
+    B = np.mean(E)
+    return E, A, B
+
+
+def hier_staNMF(X, k_range, max_clusters, clusters=None, idx=None, parent_entropy=None, cluster_label='',
+                threshold=0.1, level=0, stab_it=20):
+    if idx is None:
+        idx = np.arange(X.shape[0])
+
+    if clusters is None:
+        clusters = []
+
+    # Stop if the number of data points is less than the smallest possible number of clusters or if maximum number of clusters has been reached
+    if min(X.shape) < min(k_range) or len(clusters) >= max_clusters:
+        clusters.append((cluster_label, X, idx))
+        return clusters
+
+    # run stability NMF for different ranks
+    _, instability = stabNMF(X, num_it=stab_it, k0=min(k_range), k1=max(k_range), init='nndsvda', it=2000)
+    best_k = k_range[np.argmin(instability)]
+
+    # Run NMF with best k
+    model = NMF(n_components=best_k, init='random', random_state=0)
+    W = model.fit_transform(X)
+
+    best_f_values = []
+    new_clusters = []  # New list to keep track of the new clusters
+    for i in range(best_k):
+        # todo: find better way for cluster assignment
+        component_idx = np.argmax(W, axis=1) == i
+        best_clusters = X[component_idx]
+        new_label = cluster_label + 'X' + str(level + 1) + str(i + 1)  # Append the child label to the parent label
+
+        _, A_cluster, B_cluster = get_entropy(best_clusters)
+        f_value = A_cluster - B_cluster
+
+        if parent_entropy is None or f_value < parent_entropy:
+            best_f_values.append(f_value)
+            new_clusters.append((new_label, best_clusters, idx[component_idx]))
+
+    # Only go to next level of recursion if the conditions based on f and g values are met
+    for new_cluster in new_clusters:
+        new_label, best_clusters, new_idx = new_cluster
+
+        clusters = hier_staNMF(best_clusters, k_range, max_clusters, clusters, new_idx, f_value, new_label,
+                               threshold, level + 1, stab_it)
+
+        if len(best_f_values) == 0:  # New condition to handle empty sub_f_values
+            clusters.append(new_cluster)
+        else:
+            g_value = sum(abs(np.array(best_f_values) - np.array(best_f_values)))
+            if g_value > threshold:
+                clusters.append(new_cluster)
+
+    return clusters
+
+
+def recursive_stanmf(X, k_range, max_clusters, clusters=None, idx=None, parent_entropy=None, cluster_label='',
+                     threshold=0.1, level=0):
+    if idx is None:
+        idx = np.arange(X.shape[0])
+
+    if clusters is None:
+        clusters = []
+
+    # Stop if the number of data points is less than the smallest possible number of clusters or if maximum number of clusters has been reached
+    if X.shape[0] < min(k_range) or len(clusters) >= max_clusters:
+        clusters.append((cluster_label, X, idx))
+        return clusters
+
+    # Apply stability NMF and compute instability
+    folderID = "your_folder_"
+    model = st.staNMF(X, folderID=folderID, K1=min(k_range), K2=max(k_range), replicates=20, seed=123)
+    model.NMF_finished = True
+    model.runNMF(spams_nmf(bootstrap=False))
+    model.instability("spams_nmf")
+    best_k = k_range[np.argmin(model.get_instability())]
+
+    # Run NMF with best k
+    model = NMF(n_components=best_k, init='random', random_state=0)
+    W = model.fit_transform(X)
+
+    best_f_values = []
+    new_clusters = []  # New list to keep track of the new clusters
+    for i in range(best_k):
+        # todo: find better way for cluster assignment
+        component_idx = np.argmax(W, axis=1) == i
+        best_clusters = X[component_idx]
+        new_label = cluster_label + 'X' + str(level + 1) + str(i + 1)  # Append the child label to the parent label
+
+        _, A_cluster, B_cluster = get_entropy(best_clusters)
+        f_value = A_cluster - B_cluster
+
+        if parent_entropy is None or f_value < parent_entropy:
+            best_f_values.append(f_value)
+            new_clusters.append((new_label, best_clusters, idx[component_idx]))
+
+    # Only go to next level of recursion if the conditions based on f and g values are met
+    for new_cluster in new_clusters:
+        new_label, best_clusters, new_idx = new_cluster
+
+        clusters = recursive_stanmf(best_clusters, k_range, max_clusters, clusters, new_idx, f_value, new_label,
+                                    threshold, level + 1)
+
+        if len(best_f_values) == 0:  # New condition to handle empty sub_f_values
+            clusters.append(new_cluster)
+        else:
+            g_value = sum(abs(np.array(best_f_values) - np.array(best_f_values)))
+            if g_value > threshold:
+                clusters.append(new_cluster)
+
+    return clusters
+
+
+def get_nnmf(X, rank, init='nndsvda', it=2000):
+    """Non-negative matrix factorization, remove zero rows before computation."""
     W = np.zeros((X.shape[0], rank))
-    X0 = np.delete(X, np.where(np.mean(X, 1) == 0)[0], 0)
-    # run 5 it with mult
-    model = NMF(n_components=rank, init='nndsvda', max_iter=10)
-    W0 = model.fit_transform(X0)
-    H0 = model.components_
-    # run again with best solution of first model
-    model = NMF(n_components=rank, init='custom', max_iter=it, solver='mu')
-    W0 = model.fit_transform(X0, W=W0, H=H0)
-    H = model.components_
-    W[np.where(np.mean(X, 1) > 0)[0], :] = W0
-
-    return W, W0, H
-
-
-def get_nnmf(X, rank, init='nndsvda',it=2000):
-    # remove rows that are completly equal zero
-    # model = NMF(n_components=rank, init='random', random_state=50, max_iter=it)
-    # W = model.fit_transform(X)
-    # H = model.components_
-    W = np.zeros((X.shape[0], rank))
-    X0 = np.delete(X, np.where(np.mean(X, 1) == 0)[0], 0)
+    zero_rows = np.where(X.mean(axis=1) == 0)[0]
+    nonzero_rows = np.where(X.mean(axis=1) > 0)[0]
+    X0 = np.delete(X, zero_rows, 0)
 
     model = NMF(n_components=rank, init=init, max_iter=it)
     W0 = model.fit_transform(X0)
     H = model.components_
-    W[np.where(np.mean(X, 1) > 0)[0], :] = W0
+    W[nonzero_rows, :] = W0
 
     return W, H
 
 
 def get_nnmf_forced(m, rank, H0, W0, it=500):
+    """Non-negative matrix factorization with initial guess, remove zero rows before computation."""
     W = np.zeros((m.shape[0], rank))
-    X0 = np.delete(m, np.where(np.mean(m, 1) == 0)[0], 0)
-    W0 = np.delete(W0, np.where(np.mean(m, 1) == 0)[0], 0)
+    zero_rows = np.where(m.mean(axis=1) == 0)[0]
+    nonzero_rows = np.where(m.mean(axis=1) > 0)[0]
+    X0 = np.delete(m, zero_rows, 0)
+    W0 = np.delete(W0, zero_rows, 0)
     model = NMF(n_components=rank, init='custom', max_iter=it)
     W0 = model.fit_transform(X0, H=H0, W=W0)
     H = model.components_
-    W[np.where(np.mean(m, 1) > 0)[0], :] = W0
+    W[nonzero_rows, :] = W0
     return W, H
 
 
-def get_BF_corr(Wa, Wb):
-    """
-    Construct n by k matrix of Pearson product-moment correlation
-    coefficients for every combination of two columns in A and B
-    :param: Wa, Wb : two basic functions matrix (n, rank) to compare
-
-    Return: numpy array of dimensions k by k, where array[a][b] is the
-    correlation between column 'a' of X and column 'b'
-    Return Pearson product-moment correlation coefficients.
-    """
-    rank = Wa.shape[1]
-    corrmatrix = []
-    for a in range(rank):
-        for b in range(rank):
-            c = np.corrcoef(Wa[:, a], Wb[:, b])
-            corrmatrix.append(c[0][1])
-    return np.asarray(corrmatrix).reshape(rank, rank)
+def get_W_corr(Wa, Wb):
+    """Construct n by k matrix of Pearson product-moment correlation coefficients for every combination of two columns in A and B"""
+    return np.corrcoef(Wa.T, Wb.T)
 
 
 def max_corr(corr):
-    aCORR = abs(corr)
-    corr_max = np.zeros((len(aCORR), 3))
-    for i in range(len(aCORR)):
-        mx = np.max(aCORR)
-        r, c = np.where(aCORR == np.max(aCORR))
-        aCORR[r[0], :] = 0
-        aCORR[:, c[0]] = 0
-        corr_max[i, :] = np.array([mx, r[0], c[0]], dtype=object)
-    return np.mean(corr_max[:, 0])
+    """Get the mean of the absolute maximum correlation coefficient for each row."""
+    return np.abs(corr).max(axis=0).mean()
 
 
 def amariMaxError(correlation):
     """
     Computes what Wu et al. (2016) described as a 'amari-type error'
-    based on average distance between factorization solutions
-    Return:
-    Amari distance distM
-    Arguments:
-    :param: correlation: k by k matrix of pearson correlations
-    Usage: Called by instability()
+    based on average distance between factorization solutions.
     """
-    maxCol = np.absolute(correlation).max(0)
-    colTemp = np.mean((1 - maxCol))
-    maxRow = np.absolute(correlation).max(1)
-    rowTemp = np.mean((1 - maxRow))
-    distM = (rowTemp + colTemp) / 2
-
-    return distM
+    maxCol = np.abs(correlation).max(axis=0)
+    colTemp = (1 - maxCol).mean()
+    maxRow = np.abs(correlation).max(axis=1)
+    rowTemp = (1 - maxRow).mean()
+    return (rowTemp + colTemp) / 2
 
 
-def plot_stability(stability, instability, k0, k1, title, nmf_fig_path):
-    # title = subj+' -- IO Benzo -- Stability NNMF, iterations: '+str(num_it)
-    # Create some mock data
-    ranks = np.arange(k0, k1 + 1)
-    data1 = stability / stability.max()
-    data2 = instability / instability.max()
-    fig, ax1 = plt.subplots(figsize=(len(ranks), 6))
-    plt.title(title)
-    color = 'tab:red'
-    ax1.set_xlabel('rank')
-    ax1.set_ylabel('stability', color=color)
-    ax1.plot(ranks, data1, color=color)
-    ax1.tick_params(axis='y', labelcolor=color)
-
-    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-
-    color = 'tab:blue'
-    ax2.set_ylabel('normalized instability', color=color)  # we already handled the x-label with ax1
-    ax2.plot(ranks, data2, color=color)
-    ax2.tick_params(axis='y', labelcolor=color)
-
-    fig.tight_layout()  # otherwise the right y-label is slightly clipped
-    plt.savefig(nmf_fig_path + 'NNMF_stab.jpg')
-    plt.show()
-
-
-def get_stability(M_input, num_it=20, k0=2, k1=10):
-    d = M_input.shape[0]  # e.g. number of labels
+def stabNMF(M_input, num_it=100, k0=2, k1=10, init='nndsvda', it=2000):
+    d = M_input.shape[0]  # number of features
     stability = np.zeros((k1 - k0 + 1,))
     instability = np.zeros((k1 - k0 + 1,))
-    k_num = 0
-    for k in range(k0, k1 + 1):  # for each rank
+
+    for k_num, k in enumerate(range(k0, k1 + 1)):  # for each rank
+        print(str(k_num) + '/' + str(k1 - k0 + 1), end="\r")
         # for each rank value
         W_all = np.zeros((num_it, d, k))
         for n in range(num_it):
             W, H = get_nnmf(M_input, k)
             W_all[n, :, :] = W
 
-        distMat = np.zeros(shape=(num_it, num_it))
-        simMat = np.zeros(shape=(num_it, num_it))
         for i in range(num_it):
             for j in range(i, num_it):
                 x = W_all[i]
                 y = W_all[j]
-                CORR = get_BF_corr(x, y)
-                if i == j:
-                    simMat[i][j] = 0  # 1
-                    simMat[j][i] = distMat[i][j]
-                    distMat[i][j] = amariMaxError(CORR)
-                    distMat[j][i] = distMat[i][j]
-                else:
-
-                    simMat[i][j] = max_corr(CORR)  # amariMaxError(CORR)
-                    simMat[j][i] = 0  # distMat[i][j]
-                    distMat[i][j] = amariMaxError(CORR)
-                    distMat[j][i] = distMat[i][j]
-
-        stability[k_num] = (np.sum(simMat) / (num_it * (num_it - 1) / 2))
-        instability[k_num] = (np.sum(distMat) / (num_it * (num_it - 1)))
-        k_num = k_num + 1
+                CORR = get_W_corr(x, y)
+                simMat_ij = max_corr(CORR) if i != j else 0  # amariMaxError(CORR) if i == j else max_corr(CORR)
+                distMat_ij = amariMaxError(CORR)
+                stability[k_num] += simMat_ij / (num_it * (num_it - 1) / 2)
+                instability[k_num] += distMat_ij / (num_it * (num_it - 1))
 
     return stability, instability
-
-
-# protocol specific
-def get_NMF_Stim_association(data, H_all):
-    # cond_sel either block or Ph_conditionn or Sleep
-    # H_all = data.columns[9:] #todo: find better way
-    NNMF_ass = np.zeros((1, 4))
-    Int_all = np.unique(data.Int)
-    Stims = np.unique(data.Stim)
-    s = 0
-    for sc in Stims:
-        con_nmf_test = data[data.Stim == sc]
-        if len(Stims) > 1:
-            shortcut = 0
-            con_nmf_surr = data[data.Stim != sc]
-            p_thr = 95
-        else:
-            shortcut = 1
-            con_nmf_surr = data[data.Stim == sc]
-            p_thr = 90
-        h = 0
-        for Hs in H_all:
-            con_nmf_test_sum = con_nmf_test.groupby(['Stim', 'Int'])[Hs].mean()
-            auc_test = np.mean(con_nmf_test_sum.values[-3:]) / np.mean(con_nmf_test_sum.values[:3])
-            if shortcut:
-                if auc_test > 1.2:
-                    auc = np.zeros((1, 4))
-                    auc[0, :] = [sc, auc_test, int(Hs[1:]), 1.2]  # , h
-                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
-            else:
-                # auc_test = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
-                surr = np.zeros((100,))
-                for i in range(len(surr)):
-                    np.random.shuffle(con_nmf_surr[Hs].values)
-                    # np.random.shuffle(con_nmf_surr['Int'])
-                    con_nmf_test_sum = con_nmf_surr.groupby(['Stim', 'Int'])[Hs].mean()
-                    # auc_surr = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
-                    surr[i] = np.mean(con_nmf_test_sum.values[-3:]) / np.mean(con_nmf_test_sum.values[:3])
-                if auc_test > np.percentile(surr, p_thr):
-                    auc = np.zeros((1, 4))
-                    auc[0, :] = [sc, auc_test, int(Hs[1:]), np.percentile(surr, p_thr)]  # , h
-                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
-
-    NNMF_ass = NNMF_ass[1:, :]
-    NNMF_ass = pd.DataFrame(NNMF_ass, columns=['Stim', 'AUC', 'H_num', 'threshold'])  # , 'Hour'
-    NNMF_ass.insert(2, 'H', 'H')
-    for Hn in np.unique(NNMF_ass.H_num):
-        NNMF_ass.loc[NNMF_ass.H_num == Hn, 'H'] = 'H' + str(int(Hn))
-    NNMF_ass = NNMF_ass.reset_index(drop=True)
-
-    return NNMF_ass
-
-
-def get_NMF_Stim_association_PP(data, H_all):
-    # cond_sel either block or Ph_conditionn or Sleep
-    # H_all = data.columns[9:] #todo: find better way
-    NNMF_ass = np.zeros((1, 4))
-    IPI_all = np.unique(data.IPI)
-    Stims = np.unique(data.Stim)
-    s = 0
-    for sc in Stims:
-        con_nmf_test = data[((data.Int == 0) | (data.Int == np.max(data.Int))) & (data.Stim == sc)]
-        if len(Stims) > 1:
-            shortcut = 0
-            con_nmf_surr = data[data.Stim != sc]
-            p_thr = 95
-        else:
-            shortcut = 1
-            con_nmf_surr = data[data.Stim == sc]
-            p_thr = 90
-        h = 0
-        for Hs in H_all:
-            con_nmf_test_sum = con_nmf_test.groupby(['Stim', 'IPI'])[Hs].mean()
-            z = (con_nmf_test_sum.values - np.mean(con_nmf_test_sum.values)) / np.std(con_nmf_test_sum.values)
-
-            auc_test = np.max(z) - np.min(z)
-            if shortcut:
-                if (np.min(z) < -1.2) & (np.max(z) > 1.2):
-                    auc = np.zeros((1, 4))
-                    auc[0, :] = [sc, auc_test, int(Hs[1:]), 1.2]  # , h
-                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
-            else:
-                # auc_test = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
-                surr = np.zeros((100,))
-                for i in range(len(surr)):
-                    np.random.shuffle(con_nmf_surr[Hs].values)
-                    # np.random.shuffle(con_nmf_surr['Int'])
-                    con_nmf_test_sum = con_nmf_surr.groupby(['Stim', 'Int'])[Hs].mean()
-                    # auc_surr = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
-                    surr[i] = np.mean(con_nmf_test_sum.values[-3:]) / np.mean(con_nmf_test_sum.values[:3])
-                if auc_test > np.percentile(surr, p_thr):
-                    auc = np.zeros((1, 4))
-                    auc[0, :] = [sc, auc_test, int(Hs[1:]), np.percentile(surr, p_thr)]  # , h
-                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
-
-    NNMF_ass = NNMF_ass[1:, :]
-    NNMF_ass = pd.DataFrame(NNMF_ass, columns=['Stim', 'AUC', 'H_num', 'threshold'])  # , 'Hour'
-    NNMF_ass.insert(2, 'H', 'H')
-    for Hn in np.unique(NNMF_ass.H_num):
-        NNMF_ass.loc[NNMF_ass.H_num == Hn, 'H'] = 'H' + str(int(Hn))
-    NNMF_ass = NNMF_ass.reset_index(drop=True)
-
-    return NNMF_ass
-
-
-# protocol specific
-
-def get_NMF_AUC_Stim(data, sc, cond_sel='Condition'):
-    # only one stim channel
-    NNMF_AUC = np.zeros((1, 8))
-    Int_all = np.unique(data.Int)
-
-    for Hs in np.unique(data.H):
-        j = data.loc[(data.H == Hs), 'H_num'].values[0]
-        pc = 1
-        if (cond_sel == 'Sleep') | (cond_sel == 'SleepState'):
-            # todo: move to mean
-            val_min = np.min(dat.groupby([cond_sel, 'Int'])[Hs].median())
-            val_max = np.max(dat.groupby([cond_sel, 'Int'])[Hs].median())
-            AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
-
-            for cond in np.unique(dat[cond_sel]):
-                dat_c = data[(data[cond_sel] == cond)]
-                # todo: change to mean
-                H_mean = dat_c.groupby('Int')[Hs].median().values
-                ##  AUC
-                AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
-                NNMF_AUC = np.concatenate([NNMF_AUC, [[sc, j, 0, 0, cond, AUC, pc, len(dat_c)]]], axis=0)
-        else:
-            val_min = np.min(dat.groupby(['Date', cond_sel, 'Int'])[Hs].mean())
-            val_max = np.max(dat.groupby(['Date', cond_sel, 'Int'])[Hs].mean())
-            AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
-            for d in range(len(np.unique(dat.Date))):
-                dat_D = dat[dat.Date == np.unique(dat.Date)[d]]
-                for cond in np.unique(dat_D[cond_sel]):
-                    dat_c = data[
-                        (data.Date == np.unique(dat.Date)[d]) & (data[cond_sel] == cond)]
-                    # most common hour value
-                    # todo: add Hour
-                    h = np.bincount(dat_c.Hour).argmax()  # np.median(dat_h.Hour)
-                    # mean H coefficient for each intensity
-                    H_mean = dat_c.groupby('Int')[Hs].mean().values
-                    ## AUC
-
-                    AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
-                    auc = np.zeros((1, 8))
-                    auc[0, 0:8] = [sc, j, d, h, cond, AUC, pc, len(dat_c)]  # , h
-                    NNMF_AUC = np.concatenate([NNMF_AUC, auc], axis=0)
-        j = j + 1
-    NNMF_AUC = NNMF_AUC[1:, :]
-    NNMF_AUC = pd.DataFrame(NNMF_AUC,
-                            columns=['Stim', 'H', 'Day', 'Hour', cond_sel, 'AUC', 'Pearson', 'N_trial'])  # , 'Hour'
-    for col in ['Stim', 'H', 'Day', 'Hour', 'AUC', 'Pearson', 'N_trial']:
-        NNMF_AUC[col] = NNMF_AUC[col].astype('float')
-    # NNMF_AUC.insert(4,'nAUC', 0)
-    if (cond_sel == 'Sleep') | (cond_sel == 'SleepState'):
-        NNMF_AUC = NNMF_AUC.drop(columns=['Day', 'Hour'])
-    else:
-        NNMF_AUC.sort_values(by=['Day', cond_sel])
-        NNMF_AUC[cond_sel] = NNMF_AUC[cond_sel].astype('float')
-    if cond_sel == 'Sleep':
-        NNMF_AUC[cond_sel] = NNMF_AUC[cond_sel].astype('float')
-    NNMF_AUC = NNMF_AUC.reset_index(drop=True)
-
-    return NNMF_AUC
-
-
-def get_NMF_AUC(data, NNMF_ass, cond_sel='Condition'):
-    NNMF_AUC = np.zeros((1, 8))
-    Int_all = np.unique(data.Int)
-    Stims = np.unique(NNMF_ass.Stim)
-    for sc in Stims:
-        dat = data[data.Stim == sc]
-        for Hs in np.unique(NNMF_ass.loc[NNMF_ass.Stim == sc, 'H']):
-            j = NNMF_ass.loc[(NNMF_ass.H == Hs) & (NNMF_ass.Stim == sc), 'H_num'].values[0]
-            pc = 1
-            if (cond_sel == 'Sleep') | (cond_sel == 'SleepState'):
-                # todo: move to mean
-                val_min = np.min(dat.groupby([cond_sel, 'Int'])[Hs].median())
-                val_max = np.max(dat.groupby([cond_sel, 'Int'])[Hs].median())
-                AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
-
-                for cond in np.unique(dat[cond_sel]):
-                    dat_c = data[(data.Stim == sc) & (data[cond_sel] == cond)]
-                    # todo: change to mean
-                    H_mean = dat_c.groupby('Int')[Hs].median().values
-                    ##  AUC
-                    AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
-                    NNMF_AUC = np.concatenate([NNMF_AUC, [[sc, j, 0, 0, cond, AUC, pc, len(dat_c)]]], axis=0)
-            else:
-                val_min = np.min(dat.groupby(['Date', cond_sel, 'Int'])[Hs].mean())
-                val_max = np.max(dat.groupby(['Date', cond_sel, 'Int'])[Hs].mean())
-                AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
-                for d in range(len(np.unique(dat.Date))):
-                    dat_D = dat[dat.Date == np.unique(dat.Date)[d]]
-                    for cond in np.unique(dat_D[cond_sel]):
-                        dat_c = data[
-                            (data.Date == np.unique(dat.Date)[d]) & (data.Stim == sc) & (data[cond_sel] == cond)]
-                        # most common hour value
-                        # todo: add Hour
-                        h = np.bincount(dat_c.Hour).argmax()  # np.median(dat_h.Hour)
-                        # mean H coefficient for each intensity
-                        H_mean = dat_c.groupby('Int')[Hs].mean().values
-                        ## AUC
-
-                        AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
-                        auc = np.zeros((1, 8))
-                        auc[0, 0:8] = [sc, j, d, h, cond, AUC, pc, len(dat_c)]  # , h
-                        NNMF_AUC = np.concatenate([NNMF_AUC, auc], axis=0)
-            j = j + 1
-    NNMF_AUC = NNMF_AUC[1:, :]
-    NNMF_AUC = pd.DataFrame(NNMF_AUC,
-                            columns=['Stim', 'H', 'Day', 'Hour', cond_sel, 'AUC', 'Pearson', 'N_trial'])  # , 'Hour'
-    for col in ['Stim', 'H', 'Day', 'Hour', 'AUC', 'Pearson', 'N_trial']:
-        NNMF_AUC[col] = NNMF_AUC[col].astype('float')
-    # NNMF_AUC.insert(4,'nAUC', 0)
-    if (cond_sel == 'Sleep') | (cond_sel == 'SleepState'):
-        NNMF_AUC = NNMF_AUC.drop(columns=['Day', 'Hour'])
-    else:
-        NNMF_AUC.sort_values(by=['Day', cond_sel])
-        NNMF_AUC[cond_sel] = NNMF_AUC[cond_sel].astype('float')
-    if cond_sel == 'Sleep':
-        NNMF_AUC[cond_sel] = NNMF_AUC[cond_sel].astype('float')
-    NNMF_AUC = NNMF_AUC.reset_index(drop=True)
-
-    return NNMF_AUC
-
-
-## Plotting functions
-def plot_V(M_input, title, ylabels=[0], file=0):
-    # plot input matrix
-    # ylabels most likely channel labels
-
-    aspect = M_input.shape[1] / 20 * 8 / M_input.shape[0]
-
-    fig = plt.figure(figsize=(20, 8))
-    plt.imshow(M_input, aspect=aspect, vmin=np.percentile(M_input, 20),
-               vmax=np.percentile(M_input, 95))  # , vmin=0, vmax=15
-    plt.ylabel('Channels')
-    if ylabels[0] != 0:
-        plt.yticks(np.arange(len(ylabels)), ylabels)
-    plt.xlabel('trials')
-    # plt.title(subj + ' -- NMF input matrix: LL ')
-    plt.title(title)
-    # file = nmf_fig_path + 'NMF_input_IO_LLpeak'
-    plt.colorbar()
-    if type(file) == str:
-        plt.savefig(file + '.jpg')
-        plt.savefig(file + '.svg')
-        plt.close(fig)
-    else:
-        plt.show()
-
-
-def plot_W(W, title, ylabels=[0], file=0):
-    # plot basic functions
-    aspect = W.shape[1] / 5 * 8 / W.shape[0]
-    fig = plt.figure(figsize=(5, 8))
-    plt.title(title, fontsize=15)
-    plt.imshow(W, aspect=aspect, vmin=np.percentile(W, 20), vmax=np.percentile(W, 95), cmap='hot')  # , vmin=0, vmax=15
-    plt.ylabel('Channels', fontsize=12)
-    plt.xlabel('Ranks', fontsize=12)
-
-    H_col = []
-    for i in range(W.shape[1]):
-        H_col.append('W' + str(i + 1))
-    plt.xticks(np.arange(W.shape[1]), H_col, fontsize=12)
-
-    if ylabels[0] != 0:
-        plt.yticks(np.arange(len(W)), ylabels)
-
-    if type(file) == str:
-        plt.savefig(file + '.jpg')
-        plt.savefig(file + '.svg')
-        plt.close(fig)
-    else:
-        plt.show()
-
-
-def plot_H(H, title, file=0):
-    aspect = H.shape[1] / 20 * 5 / H.shape[0]
-    # plot activation functions
-    fig = plt.figure(figsize=(20, 5))
-    plt.title(title, fontsize=15)
-    plt.imshow(H, aspect=aspect, vmin=np.percentile(H, 20), vmax=np.percentile(H, 95), cmap='hot')  # , vmin=0, vmax=15
-    plt.ylabel('Activation Function (H)', fontsize=12)
-    plt.xlabel('Trials', fontsize=12)
-    W_col = []
-    for i in range(H.shape[0]):
-        W_col.append('H' + str(i + 1))
-    plt.yticks(np.arange(len(H)), W_col, fontsize=12)
-    # todo change 0 to 1
-    if type(file) == str:
-        plt.savefig(file + '.jpg')
-        plt.savefig(file + '.svg')
-        plt.close(fig)
-    else:
-        plt.show()
-    # plt.show()
-
-
-def plot_H_trial_IPI(data, xl, hl, sl, title, nmf_fig_path):
-    data = data.drop(columns='Hour')
-    H_all = [i for i in data.columns if i.startswith('H')]
-
-    fig = plt.figure(figsize=(len(H_all) * 5, 7))
-    plt.suptitle(title)
-    gs = fig.add_gridspec(1, len(H_all))  # GridSpec(4,1, height_ratios=[1,2,1,2])
-    i = 0
-    if hl == 'Condition':
-        col_sel = [cond_colors[1], cond_colors[3]]
-    else:
-        col_sel = 'colorblind'
-    for Hs in H_all:
-        fig.add_subplot(gs[0, i])
-        sns.scatterplot(x=xl, y=Hs, hue=hl, style=sl, data=data, palette=col_sel)
-        i = i + 1
-    file = nmf_fig_path + 'H_' + hl + '_r' + str(len(H_all))
-    plt.savefig(file + '.jpg')
-    plt.savefig(file + '.svg')
-    plt.close(fig)
-
-
-def plot_H_trial(data, xl, hl, title, nmf_fig_path):
-    if 'Hour' in data:
-        data = data.drop(columns='Hour')
-    H_all = [i for i in data.columns if i.startswith('H')]
-    fac = 5
-    if xl == 'IPI':
-        fac = 8
-    fig = plt.figure(figsize=(len(H_all) * fac, 7))
-    plt.suptitle(title)
-    gs = fig.add_gridspec(1, len(H_all))  # GridSpec(4,1, height_ratios=[1,2,1,2])
-    i = 0
-    if hl == 'Condition':
-        col_sel = [cond_colors[1], cond_colors[3]]
-    else:
-        col_sel = 'colorblind'
-    for Hs in H_all:
-        fig.add_subplot(gs[0, i])
-        #
-        if xl == 'IPI':
-            sns.swarmplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel)
-        else:
-            sns.scatterplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel)
-        i = i + 1
-
-    file = nmf_fig_path + 'H_' + hl + '_r' + str(len(H_all))
-    plt.savefig(file + '.jpg')
-    plt.savefig(file + '.svg')
-    plt.close(fig)
-
-
-def plot_H_IPI_cond(data, hl, cond, nmf_fig_path):
-    # cond: SleepState, Wake, NREM, REM
-    if 'Hour' in data:
-        data = data.drop(columns='Hour')
-    H_all = [i for i in data.columns if i.startswith('H')]
-    sns.catplot(x='IPI', y=hl, hue=cond, data=data, aspect=4, row='Int', palette=['black', 'blue', 'red'])
-    plt.ylim([0, 10])
-    file = nmf_fig_path + 'H_' + hl + '_r' + str(len(H_all)) + '_' + cond
-    plt.savefig(file + '.jpg')
-    plt.savefig(file + '.svg')
-    # plt.close(fig)
-
-
-def plot_NMF_AUC_SleepState(data, sc, h, title, file):
-    cond_labels = ['Wake', 'NREM', 'REM']
-    color = ['black', '#1F4E7A', '#f65858']
-    # title = subj + ' --- '+labels_all[sc]+', '+str(Hs)
-    # remove N1
-    data = data[(data.Sleep < 5) & (data.Sleep != 1) & (data.Stim == sc)]  # & ((data.Hour < 9) | (data.Hour > 20))
-    Hs = 'H' + str(h)
-    Int_all = np.unique(data.Int)
-    fig = plt.figure(figsize=(15, 15))
-
-    val_min = np.min(data.groupby(['SleepState', 'Int'])[Hs].mean())
-    val_max = np.max(data.groupby(['SleepState', 'Int'])[Hs].mean())
-    AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
-    for con_val, c_ix in zip(cond_labels, np.arange(3)):  # snp.unique(data.Sleep).astype('int'):
-        dat_c = data[(data.SleepState == con_val)]
-        plt.title(title, fontsize=30)
-        H_mean = dat_c.groupby('Int')[Hs].mean().values
-        # sns.scatterplot(x='Int', y= Hs, data=dat_c)
-        AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
-        plt.plot(np.unique(dat_c.Int), H_mean,
-                 label=con_val + '- AUC: ' + str(np.round(AUC, 2)), color=color[c_ix], linewidth=5)
-        ## AUC
-
-        plt.fill_between(np.unique(dat_c.Int), val_min, H_mean, color=color[c_ix], alpha=0.1)
-        # plt.text(8, (val_max-con_val/2)/3 ,cond_labels[con_val]+ '- AUC: '+ str(np.round(AUC,2)), fontsize=12)
-    plt.axhline(val_min, color=[0, 0, 0])
-    plt.axhline(val_max, color=[0, 0, 0])
-    plt.plot([0, np.max(Int_all)], [val_min, val_max], '--', c=[0, 0, 0], alpha=0.5)
-    plt.text(2, 1.01 * val_max, 'max "1"')
-    plt.text(2, 0.9 * val_min, 'min "0"')
-    plt.ylim([0, 1.1 * val_max])
-    plt.xticks(fontsize=25)
-    plt.yticks(fontsize=25)
-    plt.legend(fontsize=25)
-    plt.ylabel('H coefficient', fontsize=30)
-    plt.xlabel('Intensity [mA]', fontsize=30)
-    plt.savefig(file + '.jpg')
-    plt.savefig(file + '.svg')
-    plt.close(fig)
-
-
-def plot_NMF_AUC_Sleep(data, sc, h, title, file):
-    cond_labels = ['Wake', 'N1', 'N2', 'N3', 'REM']
-
-    # title = subj + ' --- '+labels_all[sc]+', '+str(Hs)
-    # remove N1
-    data = data[(data.Sleep < 5) & (data.Sleep != 1) & (data.Stim == sc)]  # & ((data.Hour < 9) | (data.Hour > 20))
-    Hs = 'H' + str(h)
-    Int_all = np.unique(data.Int)
-    fig = plt.figure(figsize=(7, 7))
-
-    val_min = np.min(data.groupby(['Sleep', 'Int'])[Hs].mean())
-    val_max = np.max(data.groupby(['Sleep', 'Int'])[Hs].mean())
-    AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
-    for con_val in np.unique(data.Sleep).astype('int'):  # snp.unique(data.Sleep).astype('int'):
-        dat_c = data[(data.Sleep == con_val)]
-        plt.title(title)
-        H_mean = dat_c.groupby('Int')[Hs].mean().values
-        # sns.scatterplot(x='Int', y= Hs, data=dat_c)
-        AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
-        plt.plot(np.unique(dat_c.Int), H_mean,
-                 label=cond_labels[con_val] + '- AUC: ' + str(np.round(AUC, 2)))
-        ## AUC
-
-        plt.fill_between(np.unique(dat_c.Int), val_min, H_mean, color=[0, 0, 0], alpha=0.1)
-        # plt.text(8, (val_max-con_val/2)/3 ,cond_labels[con_val]+ '- AUC: '+ str(np.round(AUC,2)), fontsize=12)
-    plt.axhline(val_min)
-    plt.axhline(val_max)
-    plt.plot([0, np.max(Int_all)], [val_min, val_max], '--', c=[0, 0, 0], alpha=0.5)
-    plt.text(2, 1.01 * val_max, 'max "1"')
-    plt.text(2, 0.9 * val_min, 'min "0"')
-    plt.ylim([0, 1.1 * val_max])
-    plt.legend()
-    plt.ylabel('H coefficient')
-    plt.xlabel('Intensity [mA]')
-    plt.savefig(file + '.jpg')
-    plt.savefig(file + '.svg')
-    plt.close(fig)
-
-
-def plot_NMF_AUC_Ph(data, sc, h, title, file):
-    # title = subj + ' --- '+labels_all[sc]+', '+str(Hs)
-    data = data[(data.Stim == sc)]
-    Hs = 'H' + str(h)
-    Int_all = np.unique(data.Int)
-    fig = plt.figure(figsize=(7, 7))
-
-    val_min = np.min(data.groupby(['Date', 'Condition', 'Int'])[Hs].mean())
-    val_max = np.max(data.groupby(['Date', 'Condition', 'Int'])[Hs].mean())
-    AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
-    for con_val in [1, 3]:
-        dat_c = data[(data.Condition == con_val)]
-
-        plt.title(title)
-        H_mean = dat_c.groupby('Int')[Hs].mean().values
-        # sns.scatterplot(x='Int', y= Hs, data=dat_c)
-        AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
-        plt.plot(np.unique(dat_c.Int), H_mean, color=cond_colors[con_val],
-                 label=cond_labels[con_val] + '- AUC: ' + str(np.round(AUC, 2)))
-        ## AUC
-
-        plt.fill_between(np.unique(dat_c.Int), val_min, H_mean, color=cond_colors[con_val], alpha=0.1)
-        # plt.text(8, (val_max-con_val/2)/3 ,cond_labels[con_val]+ '- AUC: '+ str(np.round(AUC,2)), fontsize=12)
-    plt.axhline(val_min)
-    plt.axhline(val_max)
-    plt.plot([0, np.max(Int_all)], [val_min, val_max], '--', c=[0, 0, 0], alpha=0.5)
-    plt.text(2, 1.01 * val_max, 'max "1"')
-    plt.text(2, 0.9 * val_min, 'min "0"')
-    plt.ylim([0, 1.1 * val_max])
-    plt.legend()
-    plt.ylabel('H coefficient')
-    plt.xlabel('Intensity [mA]')
-    plt.savefig(file + '.jpg')
-    plt.savefig(file + '.svg')
-    plt.close(fig)

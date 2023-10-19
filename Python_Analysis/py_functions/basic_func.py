@@ -1,4 +1,3 @@
-
 import numpy as np
 
 import h5py
@@ -6,11 +5,12 @@ import scipy.fftpack
 
 import scipy.io as sio
 
-
 cond_vals = np.arange(4)
 cond_labels = ['BM', 'BL', 'Fuma', 'Benzo']
 cond_colors = ['#494159', '#594157', "#F1BF98", "#8FB996"]
 
+
+####GENERAL functions fo read / load / prepare data
 
 def read_mat(filename, dataname):
     try:  # open the score file of the first subfolder
@@ -22,10 +22,10 @@ def read_mat(filename, dataname):
 
 
 def get_Stim_chans(stimlist, lbls):
-    labels_all      = lbls.label.values
-    labels_clinic   = lbls.Clinic.values
-    labels_region   = lbls.Region.values
-    coord_all       = np.array([lbls.x.values,lbls.y.values, lbls.z.values ]).T
+    labels_all = lbls.label.values
+    labels_clinic = lbls.Clinic.values
+    labels_region = lbls.Region.values
+    coord_all = np.array([lbls.x.values, lbls.y.values, lbls.z.values]).T
     # get stimulation channels directly from stimlist
     StimChanSM = np.unique(stimlist.ChanP)
 
@@ -39,9 +39,9 @@ def get_Stim_chans(stimlist, lbls):
         if ((np.array(lbls.ChanP_SM.values) == StimChanSM[i]) & (np.array(lbls.ChanN_SM.values) == ChanN[i])).any():
             # StimChans.append(labels_SM[(np.array(labels.chan_num.values)==stim_chan[i,0])][0])
             StimChans.append(labels_all[(np.array(lbls.ChanP_SM.values) == StimChanSM[i]) & (
-                        np.array(lbls.ChanN_SM.values) == ChanN[i])][0])
+                    np.array(lbls.ChanN_SM.values) == ChanN[i])][0])
             StimChansC.append(labels_clinic[(np.array(lbls.ChanP_SM.values) == StimChanSM[i]) & (
-                        np.array(lbls.ChanN_SM.values) == ChanN[i])][0])
+                    np.array(lbls.ChanN_SM.values) == ChanN[i])][0])
             StimChanIx.append(
                 lbls[(np.array(lbls.ChanP_SM.values) == StimChanSM[i]) & (np.array(lbls.ChanN_SM.values) == ChanN[i])][
                     'Num'].values[0] - 1)
@@ -56,7 +56,7 @@ def get_Stim_chans(stimlist, lbls):
     labels_region[labels_region == 'HIPP'] = 'Mesiotemporal'
     labels_region[labels_region == 'Temporal'] = 'Laterotemporal'
 
-    return labels_all, labels_region,labels_clinic,coord_all,StimChans, StimChanSM,StimChansC, StimChanIx, stimlist
+    return labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist
 
 
 def check_inStimChan_C(c_s, sc_s, labels_all):
@@ -86,6 +86,17 @@ def check_inStimChan_C(c_s, sc_s, labels_all):
         # print(stim_lb)
     return rr
 
+
+def add_sleepstate(con_trial):
+    if not 'SleepState' in con_trial:
+        con_trial.insert(6, 'SleepState', 'Wake')
+    con_trial.loc[(con_trial.SleepState == 'W'), 'SleepState'] = 'Wake'
+    con_trial.loc[(con_trial.Sleep == 0), 'SleepState'] = 'Wake'
+    con_trial.loc[(con_trial.Sleep > 1) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
+    con_trial.loc[(con_trial.Sleep == 1), 'SleepState'] = 'NREM1'
+    con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
+    con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
+    return con_trial
 
 def check_inStimChan(c, sc_s, labels_all):
     rr = np.zeros((len(sc_s),))
@@ -122,17 +133,3 @@ def SM2IX(SM, StimChanNums, StimChanIx):
     for i in range(len(SM)):
         ChanIx[i] = StimChanIx[np.where(StimChanNums == SM[i])]
     return ChanIx
-
-
-def zscore_CCEP(data, t_0=1, Fs=500):
-    if len(data.shape) == 1:
-        m = np.mean(data[int((t_0 - 0.5) * Fs):int((t_0 - 0.05) * Fs)])
-        s = np.std(data[int((t_0 - 0.5) * Fs):int((t_0 - 0.05) * Fs)])
-        data = (data - m) / s
-    else:
-        m = np.mean(data[:, int((t_0 - 0.5) * Fs):int((t_0 - 0.05) * Fs)], -1)
-        s = np.std(data[:, int((t_0 - 0.5) * Fs):int((t_0 - 0.05) * Fs)], -1)
-        m = m[:, np.newaxis]
-        s = s[:, np.newaxis]
-        data = (data - m) / s
-    return data

@@ -5,16 +5,18 @@ import pandas as pd
 from tkinter import *
 from glob import glob
 import ntpath
+
 root = Tk()
 root.withdraw()
-sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
+sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
-def update_contrial_single(subj,cond_folder = 'CR', folder='BrainMapping'):
+
+def update_contrial_single(subj, cond_folder='CR', folder='BrainMapping'):
     # for subj in ["EL011"]:  # "EL004","EL005","EL008",EL004", "EL005", "EL008", "EL010
     # cwd = os.getcwd()
     print(f'Performing calculations on {subj}')
 
-    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
 
     # get labels
@@ -50,29 +52,30 @@ def update_contrial_single(subj,cond_folder = 'CR', folder='BrainMapping'):
     if ('zLL' in con_trial.columns):
         con_trial = con_trial.drop(columns='zLL')
 
-    #con_trial.insert(0, 'zLL', 0)
+    # con_trial.insert(0, 'zLL', 0)
 
-    #con_trial.zLL = con_trial.groupby(['Stim', 'Chan', 'Int'])['LL_peak'].transform(
+    # con_trial.zLL = con_trial.groupby(['Stim', 'Chan', 'Int'])['LL_peak'].transform(
     #    lambda x: (x - x.mean()) / x.std()).values
-    #con_trial.loc[(con_trial.zLL > 5), 'LL'] = np.nan
-    #con_trial.loc[(con_trial.zLL < -4), 'LL'] = np.nan
-    #con_trial = con_trial.drop(columns='zLL')
-    #con_trial.loc[np.isnan(con_trial.LL), 'LL_peak'] = np.nan
+    # con_trial.loc[(con_trial.zLL > 5), 'LL'] = np.nan
+    # con_trial.loc[(con_trial.zLL < -4), 'LL'] = np.nan
+    # con_trial = con_trial.drop(columns='zLL')
+    # con_trial.loc[np.isnan(con_trial.LL), 'LL_peak'] = np.nan
 
     con_trial.to_csv(file_con, index=False, header=True)
     print(subj + ' ---- DONE Sleep Update------ ')
 
-def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
+
+def update_sleep(subj, prot='BrainMapping', cond_folder='CR'):
     # updates con_trial_all based on  stimlist_hypnogram
-    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     file_con = path_patient_analysis + '\\' + prot + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     print('loading con_trial')
-    con_trial =pd.read_csv(file_con)
+    con_trial = pd.read_csv(file_con)
     # load hypnogram
-    file_hypno  = path_patient_analysis+'\\stimlist_hypnogram.csv' #path_patient + '/Analysis/stimlist_hypnogram.csv'
+    file_hypno = path_patient_analysis + '\\stimlist_hypnogram.csv'  # path_patient + '/Analysis/stimlist_hypnogram.csv'
     if os.path.isfile(file_hypno):
         stimlist_hypno = pd.read_csv(file_hypno)
-        stimlist_hypno.loc[(stimlist_hypno.sleep == 9),'sleep']=0
+        stimlist_hypno.loc[(stimlist_hypno.sleep == 9), 'sleep'] = 0
         for ss in np.arange(5):
             stimNum = stimlist_hypno.loc[(stimlist_hypno.sleep == ss) & (stimlist_hypno.Prot == prot), 'StimNum']
             con_trial.loc[np.isin(con_trial.Num, stimNum), 'Sleep'] = ss
@@ -83,20 +86,21 @@ def update_sleep(subj, prot='BrainMapping', cond_folder = 'CR'):
     con_trial.loc[(con_trial.Sleep == 1), 'SleepState'] = 'NREM1'
     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
-    con_trial.to_csv(file_con, index=False, header=True) # return con_trial
+    con_trial.to_csv(file_con, index=False, header=True)  # return con_trial
     print('con_trial updated')
+
 
 def update_stimlist(subj, folder='InputOutput', cond_folder='CR'):
     print('is start_cut_resp updated?')
     # concatenates updated csv - stimlist (Single blocks) of one specific protocol
-    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     files = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*' + cond_folder + '*')
     files = np.sort(files)
     # prots           = np.int64(np.arange(1, len(files) + 1))  # 43
     stimlist = []
     EEG_resp = []
     conds = np.empty((len(files),), dtype=object)
-    if len(files) >0:
+    if len(files) > 0:
         for p in range(len(files)):
             file = files[p]
             # file = glob(self.path_patient + '/Analysis/'+folder+'/data/Stim_list_' + str(p) + '_*')[0]
@@ -112,6 +116,10 @@ def update_stimlist(subj, folder='InputOutput', cond_folder='CR'):
                 stimlist = pd.concat([stimlist, stim_table])
         stimlist = stimlist.fillna(0)
         stimlist = stimlist.reset_index(drop=True)
+        stimlist['Time'] = pd.to_datetime(stimlist['date'].astype('int'), format='%Y%m%d') + pd.to_timedelta(
+            stimlist['h'], unit='H') + \
+                           pd.to_timedelta(stimlist['min'], unit='Min') + \
+                           pd.to_timedelta(stimlist['s'], unit='Sec')
         col_drop = ["StimNum", 'StimNum.1', 's', 'us', 'ISI_s', 'TTL', 'TTL_PP', 'TTL_DS', 'TTL_PP_DS', 'currentflow']
         for d in range(len(col_drop)):
             if (col_drop[d] in stimlist.columns):
@@ -126,7 +134,8 @@ def update_stimlist(subj, folder='InputOutput', cond_folder='CR'):
 
 update = 1
 
-def run_main(subj, update_list = 0, update_contrial=0,folders = ['BrainMapping', 'InputOutput', 'PairedPulse']):
+
+def run_main(subj, update_list=0, update_contrial=0, folders=['BrainMapping', 'InputOutput', 'PairedPulse']):
     print(subj)
 
     if update_list:
@@ -157,19 +166,23 @@ def run_main(subj, update_list = 0, update_contrial=0,folders = ['BrainMapping',
                 stimlist_hypno = pd.concat([stimlist_hypno, stimlist])
     if not "sleep" in stimlist_hypno:
         stimlist_hypno.insert(5, 'sleep', 0)
-    stimlist_hypno = stimlist_hypno.sort_values(by=['date', 'h', 'min', 'StimNum'])
-    stimlist_hypno.insert(5, 's', np.random.randint(0, high=59, size=(len(stimlist_hypno),), dtype=int))
+    stimlist_hypno = stimlist_hypno.sort_values(by=['Time'])
+    # stimlist_hypno.insert(5, 's', np.random.randint(0, high=59, size=(len(stimlist_hypno),), dtype=int))
     stimlist_hypno = stimlist_hypno[
-        ['Prot', 'StimNum', 'h', 's', 'min', 'ChanP', 'Int_prob', 'date', 'sleep', 'stim_block']]  # 's'
+        ['Time', 'Prot', 'stim_block', 'StimNum', 'ChanP', 'Int_prob', 'sleep']]  # 's'
     stimlist_hypno = stimlist_hypno.reset_index(drop=True)
     stimlist_hypno.insert(0, 'ix', np.arange(len(stimlist_hypno)))
-    stimlist_hypno.insert(0, 'ix_h', np.arange(len(stimlist_hypno)))
-    h0 = stimlist_hypno.h.values[0]
-    for day in np.unique(stimlist_hypno.date):
-        for h in np.unique(stimlist_hypno.loc[stimlist_hypno.date == day, 'h']):
-            m = stimlist_hypno.loc[(stimlist_hypno.h == h) & (stimlist_hypno.date == day), 'min'].values
-            s = stimlist_hypno.loc[(stimlist_hypno.h == h) & (stimlist_hypno.date == day), 's'].values
-            stimlist_hypno.loc[(stimlist_hypno.h == h) & (stimlist_hypno.date == day), 'ix_h'] = h + m / 60 + s / 3600
+    stimlist_hypno.insert(0, 'ix_h', pd.to_datetime(stimlist_hypno['Time']).dt.hour + pd.to_datetime(
+        stimlist_hypno['Time']).dt.minute / 60 + pd.to_datetime(stimlist_hypno['Time']).dt.second / 3600)
+    dates = np.unique(pd.to_datetime(stimlist_hypno['Time']).dt.date)
+    d0 = 0
+    for date in dates:
+        stimlist_hypno.loc[(pd.to_datetime(stimlist_hypno['Time']).dt.date == date), 'ix_h'] = stimlist_hypno.loc[(
+                                                                                                                          pd.to_datetime(
+                                                                                                                              stimlist_hypno[
+                                                                                                                                  'Time']).dt.date == date), 'ix_h'] + d0
+        d0 = d0 + 24
+
     stimlist_hypno.to_csv(file_hypno, index=False, header=True)  #
     # stimlist_hypno.to_csv(file_hypno_all, index=False, header=True)  #
 
@@ -189,6 +202,3 @@ def run_main(subj, update_list = 0, update_contrial=0,folders = ['BrainMapping',
     if update_contrial:
         for f in folders:  #
             update_sleep(subj, prot=f, cond_folder='CR')
-
-
-

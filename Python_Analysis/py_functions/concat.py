@@ -15,7 +15,9 @@ import tqdm
 import time
 import h5py
 import _thread
-sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
+
+sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
+
 
 def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2):
     # old version, now use significant_connection.py !
@@ -61,7 +63,8 @@ def get_GT(sc, rc, LL_CCEP, EEG_resp, Fs=500, t_0=1, w_cluster=0.25, n_cluster=2
                 EEG_trial = stats.zscore(EEG_trial, axis=1)
 
                 _, y = Cf.ts_cluster(
-                    EEG_trial[:, int((t_0 + t_onset) * Fs_rs):int((t_0 + t_onset + w_cluster) * Fs_rs)], n_cluster,method='euclidean')
+                    EEG_trial[:, int((t_0 + t_onset) * Fs_rs):int((t_0 + t_onset + w_cluster) * Fs_rs)], n_cluster,
+                    method='euclidean')
                 if ((np.sum(y == 1)) > 2) & ((np.sum(y == 0)) > 2):  # remove outliers
                     re = 0
                 elif (np.sum(y == 1) < 2):
@@ -144,8 +147,8 @@ def search_sequence_numpy(arr, seq):
         return []  # No match found
 
 
-def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR', skip = 1):
-    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR', EEG=1, skip=1):
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     files = glob(path_patient_analysis + '\\' + folder + '\\data\\Stim_list_*' + cond_folder + '*')
     files = np.sort(files)
     # prots           = np.int64(np.arange(1, len(files) + 1))  # 43
@@ -153,7 +156,7 @@ def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR', skip = 1
     EEG_resp = []
     conds = np.empty((len(files),), dtype=object)
     h5_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.h5'
-    if os.path.isfile(h5_file)*skip:
+    if os.path.isfile(h5_file) * skip:
         print('concatenated file already exists')
     else:
         for p in range(len(files)):
@@ -162,28 +165,42 @@ def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR', skip = 1
             idxs = [i for i in range(0, len(ntpath.basename(file))) if ntpath.basename(file)[i].isdigit()]
             cond = ntpath.basename(file)[idxs[-2] - 2:idxs[-2]]  # ntpath.basename(file)[idxs[-2] + 2:-4]  #
             conds[p] = cond
-            EEG_block = np.load(path_patient_analysis + '\\' + folder + '\\data\\All_resps_' + file[-11:-4] + '.npy')
+            if EEG:
+                EEG_block = np.load(
+                    path_patient_analysis + '\\' + folder + '\\data\\All_resps_' + file[-11:-4] + '.npy')
             print(str(p + 1) + '/' + str(len(files)) + ' -- All_resps_' + file[-11:-4], end='\r')
             stim_table = pd.read_csv(file)
             stim_table['type'] = cond
             if len(stimlist) == 0:
-                EEG_resp = EEG_block
+                if EEG:
+                    EEG_resp = EEG_block
                 stimlist = stim_table
             else:
-                EEG_resp = np.concatenate([EEG_resp, EEG_block], axis=1)
+                if EEG:
+                    EEG_resp = np.concatenate([EEG_resp, EEG_block], axis=1)
                 stimlist = pd.concat([stimlist, stim_table])
         stimlist = stimlist.drop(columns="StimNum", errors='ignore')
         stimlist = stimlist.fillna(0)
         stimlist = stimlist.reset_index(drop=True)
-        col_drop = ["StimNum", 'StimNum.1', 's', 'us', 'ISI_s', 'TTL', 'TTL_PP', 'TTL_DS', 'TTL_PP_DS', 'currentflow']
+        if 'us' not in stimlist.columns:
+            stimlist.insert(5, 'us', 0)
+        stimlist['Time'] = pd.to_datetime(stimlist['date'].astype('int'), format='%Y%m%d') + pd.to_timedelta(
+            stimlist['h'], unit='H') + \
+                           pd.to_timedelta(stimlist['min'], unit='Min') + \
+                           pd.to_timedelta(stimlist['s'], unit='Sec') + \
+                           pd.to_timedelta(stimlist['us'], unit='us')
+
+        col_drop = ["StimNum", 'StimNum.1', 'date', 'h', 'min', 's', 'us', 'ISI_s', 'TTL', 'TTL_PP', 'TTL_DS',
+                    'TTL_PP_DS', 'currentflow']
         for d in range(len(col_drop)):
             if (col_drop[d] in stimlist.columns):
                 stimlist = stimlist.drop(columns=col_drop[d])
         stimlist.insert(0, "StimNum", np.arange(len(stimlist)), True)
         # np.save(path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy',
         #         EEG_resp) https://stackoverflow.com/questions/20928136/input-and-output-numpy-arrays-to-h5py
-        with h5py.File(h5_file, 'w') as hf:
-            hf.create_dataset("EEG_resp", data=EEG_resp)
+        if EEG:
+            with h5py.File(h5_file, 'w') as hf:
+                hf.create_dataset("EEG_resp", data=EEG_resp)
         stimlist.to_csv(
             path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\stimlist_' + cond_folder + '.csv',
             index=False,
@@ -192,11 +209,10 @@ def concat_resp_condition(subj, folder='InputOutput', cond_folder='CR', skip = 1
         print('data stored')
 
 
-
 def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=0):
     print(subj + ' -- START --')
     ## path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
-    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
 
     file_t_resp = path_patient_analysis + '\\' + folder + '\\data\\M_tresp.npy'
     file_GT = path_patient_analysis + '\\' + folder + '\\data\\M_CC.npy'
@@ -217,7 +233,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=0):
         chan_all = np.unique(con_trial.Chan)
         n_chan = np.max(chan_all).astype('int') + 1
         M_GT_all = np.zeros((n_chan, n_chan, 3, 2000))
-        M_t_resp = np.zeros((n_chan, n_chan, 5)) #LL_sig, t_onst, t_resp, pearson of GT
+        M_t_resp = np.zeros((n_chan, n_chan, 5))  # LL_sig, t_onst, t_resp, pearson of GT
         M_t_resp[:, :, 1] = -1
         for sc in tqdm.tqdm(np.unique(con_trial.Stim)):
             sc = int(sc)
@@ -236,7 +252,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', rerun=0):
 
 
 def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
-    path_patient_analysis = sub_path+'\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     con_trial = pd.read_csv(file_con)
@@ -263,7 +279,6 @@ def start_subj(subj, folder='BrainMapping', cond_folder='CR'):
     #             M_N1peaks[sc, rc, :] = get_N1peaks_mean(sc, rc, con_trial, EEG_resp)
     #     np.save(file_MN1, M_N1peaks)
     print(subj + ' -- DONE --')
-
 
 # ##first you have to have con_trial_alll
 # for subj in ["EL022"]:#["EL020","EL019","EL018","EL011", "EL010", "EL012", 'EL014', "EL015", "EL016","EL017"]:  # "EL010","EL011", "EL012",'EL013','EL014',"EL015"
