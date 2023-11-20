@@ -273,3 +273,59 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
     LL_pre = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
     con_trial.loc[req, 'LL_pre'] = LL_pre
     return con_trial
+
+def get_sig_trial_surr(sc, rc, con_trial, M_GT, t_resp, EEG_CR, exp=2, w_cluster=0.25, t_0=1,
+                  Fs=500):
+    req = (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)
+    dat = con_trial[req].reset_index(drop=True)
+    EEG_trials = ff.lp_filter(np.expand_dims(EEG_CR[rc, dat.Num.values.astype('int'), :], 0), 45, Fs)
+
+    LL_trials = LLf.get_LL_all(EEG_trials, Fs, w_cluster)
+
+    # for each trial get significance level based on surrogate (Pearson^2 * LL)
+    #### first get surrogate data
+    pear_surr_all = []
+    for t_test in [0.5, 2.1]:  # surrogates times, todo: in future blockwise
+        pear = np.zeros((len(EEG_trials[0]),)) - 1  # pearson to each CC
+        for n_c in range(len(M_GT)):
+            pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
+                                                     win=w_cluster,
+                                                     Fs=500)], 0)
+        print(pear.shape)
+        LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
+        pear_surr = np.sign(pear) * abs(pear ** exp) * LL # square the correlation but keep the sign
+        pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
+
+    # other surr trials
+    real_trials = np.unique(
+        con_trial.loc[req, 'Num'].values.astype('int'))
+    # trials where RC is stimulating
+    stim_trials = np.unique(
+        con_trial.loc[(con_trial.Stim >= rc - 1) & (con_trial.Stim <= rc + 1), 'Num'].values.astype('int'))
+    StimNum = np.random.choice(np.unique(con_trial.loc[~np.isin(con_trial.Stim, [sc-1, sc, sc+1])&~np.isin(con_trial.Stim, [rc-1, rc, rc+1])&(con_trial.Artefact==0),'Num']), size=200)
+    StimNum = [i for i in StimNum if i not in stim_trials]
+    StimNum = [i for i in StimNum if i not in stim_trials + 1]
+    StimNum = [i for i in StimNum if i not in real_trials]
+
+    StimNum = np.unique(StimNum).astype('int')
+    EEG_surr = ff.lp_filter(np.expand_dims(EEG_CR[rc, StimNum, :], 0), 45, Fs)
+    bad_StimNum = np.where(np.max(abs(EEG_surr[0]), 1) > 1000)
+    if (len(bad_StimNum[0]) > 0):
+        StimNum = np.delete(StimNum, bad_StimNum)
+        EEG_surr = ff.lp_filter(np.expand_dims(EEG_CR[rc, StimNum, :], 0), 45, Fs)
+    if len(StimNum)>0:
+        LL_surr = LLf.get_LL_all(EEG_surr, Fs, w_cluster)
+        f = 1
+        for t_test in [0.5, 2.1]:  # surrogates times, todo: in future blockwise
+            pear = np.zeros((len(EEG_surr[0]),)) - 1
+            for n_c in range(len(M_GT)):
+                pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_surr[0], tx=t_0 + t_resp, ty=t_test,
+                                                         win=w_cluster,
+                                                         Fs=500)], 0)
+
+            LL = LL_surr[0, :, int((t_test + w_cluster / 2) * Fs)]
+            # pear_surr = np.arctanh(np.max([pear,pear2],0))*LL
+            pear_surr = np.sign(pear) * abs(pear ** exp) * LL
+            pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
+
+    return pear_surr_all

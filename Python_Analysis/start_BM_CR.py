@@ -394,10 +394,15 @@ class main:
         con_summary = BMf.get_con_summary(con_trial, CC_summ, EEG_resp)
         con_summary.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
 
-    def get_summary_wake(self, con_trial, CC_summ):
-        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_wake.csv'  # summary_general
-        con_summary = BMf.get_con_summary_wake(con_trial, CC_summ)
-        con_summary.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
+    def get_summary_SS(self, con_trial, CC_summ):
+        con_trial = bf.add_sleepstate(con_trial)
+        for ss in ['Wake', 'NREM', 'REM']:
+            summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_' + ss + '.csv'  # summary_general
+            df = BMf.get_con_summary_SS(con_trial, CC_summ, ss)
+            df = ls.adding_area(df, self.lbls, pair=1)
+            df = ls.adding_region(df, pair=1)
+            df = ls.adding_subregion(df, pair=1)
+            df.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
 
     def get_node_features(self, con_trial, skip=1):
         exp_dir = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Node')
@@ -408,26 +413,67 @@ class main:
             df = pd.read_csv(file)
             df.Chan = df.Chan.astype('int')
         else:
-            df = graph_funcs.node_features_sleep(con_trial, file)
+            df = graph_funcs.node_features_sleep_trial(con_trial, file)
             df.insert(0, 'Subj', self.subj)
         df = ls.adding_area(df, self.lbls, pair=0)
+        df = ls.adding_subregion(df, pair=0)
         df = ls.adding_region(df, pair=0)
         df.to_csv(file, header=True, index=False)
         print('Node features calculated')
 
-    def connection_sleep_diff(self, con_trial, skip=1):
+    def connection_sleep_diff(self, con_trial, sig=1, skip=1):
+        exp_dir = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Connection')
+        os.makedirs(exp_dir, exist_ok=True)
+        if sig:
+            file = os.path.join(exp_dir, 'con_sleep_stats.csv')
+        else:
+            file = os.path.join(exp_dir, 'con_sleep_stats_LL.csv')
+        if os.path.isfile(file) * skip:
+            df = pd.read_csv(file)
+            df.Chan = df.Chan.astype('int')
+        else:
+            df = graph_funcs.con_sleep_stats(con_trial, sig)
+            df.insert(0, 'Subj', self.subj)
+        df = ls.adding_area(df, self.lbls, pair=1)
+        df = ls.adding_region(df, pair=1)
+        df = ls.adding_subregion(df, pair=1)
+        df.to_csv(file, header=True, index=False)
+        print('Node features calculated')
+
+    def plot_BM_sleep(self, SleepState='NREM'):
         exp_dir = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Connection')
         os.makedirs(exp_dir, exist_ok=True)
         file = os.path.join(exp_dir, 'con_sleep_stats.csv')
-        if os.path.isfile(file) * skip:
-            print('Connection sleep changes already calculated  -  skipping .. ')
-        else:
-            df = graph_funcs.con_sleep_stats(con_trial)
-            df.insert(0, 'Subj', self.subj)
-            df = ls.adding_area(df, self.lbls, pair=1)
-            df = ls.adding_region(df, pair=1)
-            df.to_csv(file, header=True, index=False)
-            print('Node features calculated')
+        df = pd.read_csv(file)
+        BM_W = np.zeros((len(self.labels_all), len(self.labels_all))) - 2
+        # connection with significan tnegative effect
+        chans = df.loc[(df.SleepState == SleepState) & (df.Sig == 1) & (df.biserial < 0), 'Chan'].values.astype('int')
+        stim = df.loc[(df.SleepState == SleepState) & (df.Sig == 1) & (df.biserial < 0), 'Stim'].values.astype('int')
+        BM_W[stim, chans] = -1
+        # connection with significant positive effect
+        chans = df.loc[(df.SleepState == SleepState) & (df.Sig == 1) & (df.biserial > 0), 'Chan'].values.astype('int')
+        stim = df.loc[(df.SleepState == SleepState) & (df.Sig == 1) & (df.biserial > 0), 'Stim'].values.astype('int')
+        BM_W[stim, chans] = 1
+        # connection with no sig.effect
+        chans = df.loc[(df.SleepState == SleepState) & (df.Sig == 0), 'Chan'].values.astype('int')
+        stim = df.loc[(df.SleepState == SleepState) & (df.Sig == 0), 'Stim'].values.astype('int')
+        BM_W[stim, chans] = 0
+
+        BM_W = BM_W.astype('int')
+        cmap = plt.get_cmap('seismic', 3)  # matplotlib.colormaps["Accent"]
+        cmap.set_bad(color='black')
+        # mask some 'bad' data, in your case you would have: data == 0
+        BM_W = np.ma.masked_where(BM_W == -2, BM_W)
+
+        fig = plt.figure(figsize=(10, 10))
+        plt.suptitle('Clusters - Sleep')
+        axmatrix = fig.add_axes([0.15, 0.15, 0.7, 0.7])
+        axcolor = fig.add_axes([0.9, 0.15, 0.02, 0.7])
+        BM_plots.plot_BM(BM_W, self.labels_all, self.hemisphere, axmatrix, axcolor=axcolor, cmap=cmap,
+                         vlim=[np.min(BM_W) - 0.5, np.max(BM_W) + 0.5], sort=1, cat=1)
+        path_output = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'BM_figures', 'Sleep')
+        plt.savefig(os.path.join(path_output, 'BM_' + SleepState + '_Effect.svg'))
+        plt.show()
 
     def plot_pearson_hypnogram(self, con_trial, hyp_style='Block'):
         path_file = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'BM_figures', 'Block')
@@ -667,22 +713,24 @@ def start_subj(subj, cluster_method='similarity'):
     summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\summ_general.csv'  # summary_general
     # todo: make clean
     con_trial = pd.read_csv(file_con)
-    CC_summ = pd.read_csv(file_CC_summ)
+    # CC_summ = pd.read_csv(file_CC_summ)
 
-    run_main.plot_pearson_hypnogram(con_trial, hyp_style='full')
-    delay = 0
-    if delay:
-        h5_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.h5'
-        if os.path.isfile(h5_file):
-            print('loading h5')
-            EEG_resp = h5py.File(h5_file)
-            EEG_resp = EEG_resp['EEG_resp']
-            run_main.get_summary(con_trial, CC_summ, EEG_resp)
-    wake = 0
+    # run_main.plot_BM_sleep('NREM')
+    # run_main.plot_BM_sleep('REM')
+    # delay = 0
+    # if delay:
+    #     h5_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.h5'
+    #     if os.path.isfile(h5_file):
+    #         print('loading h5')
+    #         EEG_resp = h5py.File(h5_file)
+    #         EEG_resp = EEG_resp['EEG_resp']
+    #         run_main.get_summary(con_trial, CC_summ, EEG_resp)
+    wake = 1
     if wake:
-        run_main.get_summary_wake(con_trial, CC_summ)
+        # run_main.get_summary_SS(con_trial, CC_summ)
+        # run_main.get_node_features(con_trial, 1)
+        run_main.connection_sleep_diff(con_trial, sig=0, skip=1)
         # run_main.BM_plots_General(CC_summ, con_trial, 0)
-    # run_main.connection_sleep_diff(con_trial, 1)
     # con_summary = pd.read_csv(summary_gen_path)
     # run_main.get_subnetworks(con_summary)
     blocks = 0
@@ -701,8 +749,6 @@ subjs = ["EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL017",
 # only sleep subjs
 subjs = ["EL010", "EL011", "EL014", "EL015", "EL016", "EL017", "EL019", "EL020", "EL021",
          "EL022", "EL025", "EL026", "EL027"]
-
-subjs = ["EL011"]
 
 for subj in subjs:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
     if thread:

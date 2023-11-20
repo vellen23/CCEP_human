@@ -1,23 +1,19 @@
 function [EEG_c] = kriging_artifacts(EEG_c, trig1, trig2, IPI, Fs, scalp)
+% check whether there is an artifact
      [pk_op, pk_lp, pk_cl,pk_stim, pk_stim2] = find_artifacts_pk(EEG_c, trig1, trig2, IPI, Fs);
-    
+    % time window to remove artefacts
     d_pk            = round([0.005 0.005]*Fs);
     d_pk_l          = round([0.002 0.002]*Fs);
     d_pk_l          = round([0.002 0.005]*Fs);
     d_pk_c          = round([0.003 0.003]*Fs);
-    if scalp
-        d_pk_stim       = round([0.005 0.015]*Fs);%[0.005 0.015]*Fs;, 2-5
-    else % duration to remove
-        %d_pk_stim       = round([0.005 0.015]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
-        d_pk_stim       = round([0.002 0.017]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
-    end
-
+    d_pk_stim       = round([0.002 0.015]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
+    % remove DC shift (only for neuralynx)
     le = round(0.01*Fs);%(pk_stim-d_pk_stim(1)-2) - (pk_op+d_pk(2)+1);
     RMS_pre = nanmedian(EEG_c(pk_op-d_pk(1)-le:pk_op-d_pk(1)));
     RMS_DC  = nanmedian(EEG_c(pk_op+d_pk(2)+1:pk_stim-d_pk_stim(1)-2));
 %     yline(RMS_DC, '--','LinesWidth',1.2);
 %     yline(RMS_pre, '--','LineWidth',1.2);
-    % DC shiftssss
+    % DC shift
     %if RMS_DC-RMS_pre>-std(EEG_c(pk_op-d_pk(1)-l:pk_op-d_pk(1)))
 %     if abs(RMS_DC-RMS_pre)>1.5*std(EEG_c(pk_op-d_pk(1)-round(0.21*Fs):pk_op-d_pk(1)))
 %         pre_mean        = mean(EEG_c(pk_op-d_pk(1)-le:pk_op-d_pk(1)));
@@ -35,7 +31,8 @@ function [EEG_c] = kriging_artifacts(EEG_c, trig1, trig2, IPI, Fs, scalp)
 %            EEG_c(pk_op+d_pk(2)+1:pk_op+d_pk(2)+dur) = EEG_c(pk_op+d_pk(2)+1:pk_op+d_pk(2)+dur)-DC_shift_lin;
 %         end
 %     end
-    % artifact peaks
+
+    % remove artifact peaks
     EEG_c(pk_op-d_pk(1):pk_op+d_pk(2)) = kriging_func(EEG_c, pk_op, d_pk,3);
     if ~isempty(pk_lp)
         EEG_c(pk_lp-d_pk_l(1):pk_lp+d_pk_l(2)) = kriging_func(EEG_c, pk_lp, d_pk_l,3);
@@ -46,12 +43,12 @@ function [EEG_c] = kriging_artifacts(EEG_c, trig1, trig2, IPI, Fs, scalp)
     end
     
 
-    %stimulations peaks
+    % remove stimulations peaks
     
     EEG_c(pk_stim-d_pk_stim(1):pk_stim+d_pk_stim(2)) = kriging_func(EEG_c, pk_stim, d_pk_stim,3);
     
 %     EEG_c(pk_stim-d_pk_stim(1):pk_stim+d_pk_stim(2)) = pre_mean;
-    if ~isempty(pk_stim2)
+    if ~isempty(pk_stim2) % if paired pulse
         
         EEG_c(pk_stim2-d_pk_stim(1):pk_stim2+d_pk_stim(2)) = kriging_func(EEG_c, pk_stim2, d_pk_stim,3);%0;
     end

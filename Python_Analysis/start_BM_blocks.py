@@ -478,20 +478,20 @@ def update_peaks(subj, cond_folder='CR'):
     Fs = 500
 
     print('loading EEG data')
-    EEG_resp_CR_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.npy'
-    EEG_CR = np.load(EEG_resp_CR_file)
+    h5_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.h5'
+    if os.path.isfile(h5_file):
+        print('loading h5')
+        EEG_resp = h5py.File(h5_file)
+        EEG_resp = EEG_resp['EEG_resp']
 
-    file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
-    M_N1peaks = np.load(file_MN1)
+    #file_MN1 = path_patient_analysis + '\\' + folder + '\\data\\M_N1.npy'
+    #M_N1peaks = np.load(file_MN1)
     file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
     con_trial = pd.read_csv(file_con)
 
-    con_trial = BMf.get_peaks_all(con_trial, EEG_CR, M_N1peaks)
+    con_trial = BMf.get_peaks_AUC(con_trial, EEG_resp, t0=1, Fs=500)
 
     con_trial.to_csv(file_con, index=False, header=True)
-
-    print(subj + ' ----- Sig Calculations  DONE ------ ')
-
 
 def update_badchans(subj, cond_folder='CR'):
     ######## General Infos

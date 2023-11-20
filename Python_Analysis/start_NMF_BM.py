@@ -111,14 +111,6 @@ class main:
             self.labels_region[i] = atlas_regions.loc[atlas_regions.Abbreviation == area_sel, "Region"].values[0]
         # self.labels_region = labels_region
 
-        # regions information
-        self.CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx",
-                                      header=0)
-        regions = pd.read_excel(sub_path + "\\EvM\Projects\EL_experiment\Analysis\Patients\Across\elab_labels.xlsx",
-                                sheet_name='regions',
-                                header=0)
-        self.color_regions = regions.color.values
-        self.regions = regions
         badchans = pd.read_csv(self.path_patient_analysis + '/BrainMapping/data/badchan.csv')
         self.bad_chans = np.unique(np.array(np.where(badchans.values[:, 1:] == 1))[0, :])
         # C = regions.label.values
@@ -192,7 +184,7 @@ class main:
         # sleep data
         self.stimlist_sleep = pd.read_csv(os.path.join(self.path_patient_analysis, 'stimlist_hypnogram.csv'))
         ## adding cluster
-        con_clusters = np.zeros((self.W.shape[0], 2))
+        con_clusters = np.zeros((self.V.shape[0], 2))
         con_clusters[:, 0] = np.unique(self.con_trial.loc[np.isin(self.con_trial.Con_ID, sig_con), 'Con_ID'])
         con_clusters[:, 1] = NMFf.assgin_cluster(self.V, self.H)
 
@@ -204,8 +196,10 @@ class main:
         )
         self.k = k
         con_summary = self.con_trial.groupby(['Con_ID', 'Stim', 'Chan', 'C'], as_index=False)[['Sig', 'd', 'LL']].mean()
-        con_summary = self.check_sleep_cluster(con_summary)
-        con_summary.to_csv(os.path.join(path_output, 'con_summary.csv'), header=True, index=False)
+        #con_summary = self.check_sleep_cluster(con_summary)
+        # con_summary.to_csv(os.path.join(path_output, 'con_summary.csv'), header=True, index=False) #3check_sleep_cluster_mean
+        con_summary = self.check_sleep_cluster_mean(con_summary)
+        con_summary.to_csv(os.path.join(path_output, 'con_summary_mean.csv'), header=True, index=False)
         self.con_summary = con_summary
 
     # Format x-axis tick labels as daytime hours
@@ -214,19 +208,50 @@ class main:
         from scipy.stats import ranksums
         self.con_trial = bf.add_sleepstate(self.con_trial)
         # todo: z-score by Wake data
+        df = self.con_trial[self.con_trial.C>=0].reset_index(drop=True)
+        # Calculate the mean of LL_sig for each Con_ID where Sleep is 'Wake'
+        wake_means = df[df['SleepState'] == 'Wake'].groupby('Con_ID')['LL'].median()
+        # Normalize the LL_sig by the wake mean of the corresponding Con_ID
+        df['LL_norm'] = df['LL'] / df['Con_ID'].map(wake_means).fillna(1)
+        # Calculate the number of tests for Bonferroni correction
+        num_tests = len(np.unique(df.C)) * 2  # times 2 because of 'NREM' and 'REM'
+        alpha = 0.01 / num_tests
 
-        for c in np.unique(self.con_trial.C):
+        for c in np.unique(df.C):
             for sleep in ['NREM', 'REM']:
-                val_wake = self.con_trial.loc[
-                    (self.con_trial.SleepState == 'Wake') & (self.con_trial.C == c), 'LL_sig'].values
-                val_sleep = self.con_trial.loc[
-                    (self.con_trial.SleepState == sleep) & (self.con_trial.C == c), 'LL_sig'].values
-                t, p = ranksums(val_wake,
-                                val_sleep)  # scipy.stats.ttest_ind(val_wake,val_sleep) #U1, p = mannwhitneyu(val_wake, val_sleep)
-                if p < 0.01:
-                    con_summary.loc[con_summary.C == c, sleep] = -np.sign(t)
+                val_wake = df.loc[
+                    (df.SleepState == 'Wake') & (df.C == c), 'LL_norm'].values
+                val_sleep = df.loc[
+                    (df.SleepState == sleep) & (df.C == c), 'LL_norm'].values
+                #t, p = ranksums(val_wake,
+                #                val_sleep)  # scipy.stats.ttest_ind(val_wake,val_sleep) #U1, p = mannwhitneyu(val_wake, val_sleep)
+                U, p = scipy.stats.mannwhitneyu(val_wake, val_sleep, alternative='two-sided')
+                if p < alpha:
+                    con_summary.loc[con_summary.C == c, sleep] = -np.sign(U - (len(val_wake) * len(val_sleep) / 2))
                 else:
                     con_summary.loc[con_summary.C == c, sleep] = 0
+                con_summary.loc[con_summary.C == c, sleep + '_p'] = p
+        return con_summary
+
+    def check_sleep_cluster_mean(self, con_summary):
+        from scipy.stats import wilcoxon
+        from scipy.stats import ranksums
+        self.con_trial = bf.add_sleepstate(self.con_trial)
+        # todo: z-score by Wake data
+        df = self.con_trial[self.con_trial.C>=0].reset_index(drop=True)
+        df = df.groupby(['Stim', 'Chan', 'SleepState', 'C'], as_index=False)['LL_sig']# Calculate the mean of LL_sig for each Con_ID where Sleep is 'Wake'
+        for c in np.unique(df.C):
+            for sleep in ['NREM', 'REM']:
+                val_wake = df.loc[
+                    (df.SleepState == 'Wake') & (df.C == c), 'LL_sig'].values
+                val_sleep = df.loc[
+                    (df.SleepState == sleep) & (df.C == c), 'LL_sig'].values
+                #t, p = ranksums(val_wake,
+                #                val_sleep)  # scipy.stats.ttest_ind(val_wake,val_sleep) #U1, p = mannwhitneyu(val_wake, val_sleep)
+                U, p = scipy.stats.wilcoxon(val_wake, val_sleep, alternative='two-sided')
+                con_summary.loc[con_summary.C == c, sleep] = U
+
+                con_summary.loc[con_summary.C == c, sleep + '_p'] = p
         return con_summary
 
     def format_time_hour(self, x, pos):
@@ -268,52 +293,6 @@ class main:
         coph = cophenet(Z, Y)[0]
 
         return coph
-
-    def plot_pearson_hypnogram(self, hyp_style='Block'):
-        from matplotlib.gridspec import GridSpec
-        path_file = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'NMF', 'figures')
-        M, label = BM_func.cal_correlation_condition(self.con_trial, metric='LL', condition='Block')
-        if hyp_style == 'Block':
-            hypnogram = np.zeros((len(label),))
-            for ix, l in enumerate(label):
-                hypnogram[ix] = np.bincount(self.con_trial.loc[self.con_trial.Block == l, 'Sleep']).argmax()
-        else:
-            stimlist_hypno = pd.read_csv(os.path.join(self.path_patient_analysis, '/stimlist_hypnogram.csv'))
-        x_ax = np.arange(len(label))
-
-        # Create figure and subplots using gridspec
-        fig = plt.figure(figsize=(8, 8))
-        gs = GridSpec(2, 2, width_ratios=[5, 0.5], height_ratios=[1, 5], wspace=0.2, hspace=0.2)
-
-        # Subplot for the correlation matrix
-        ax = plt.subplot(gs[1, 0])
-        # ax.set_aspect('equal')
-        ax_h = plt.subplot(gs[0, 0], sharex=ax)
-        ax_cbar = plt.subplot(gs[1, 1])
-
-        ax_h.plot(x_ax, hypnogram, c='black', linewidth=2)
-        ax_h.axhspan(-1, 0.2, color=color_elab[0, :])  # Using color map for color
-        ax_h.fill_between(x_ax, hypnogram, -1, color=color_elab[0, :])  # Using color map for color
-        ax_h.set_yticks([0, 1, 2, 3, 4])
-        ax_h.set_yticklabels(['Wake', 'N1', 'N2', 'N3', 'REM'])
-        ax_h.set_ylim([-1, 5])
-        ax_h.invert_yaxis()
-        ax_h.set_xticks([])
-        ax_h.set_ylabel('Score', fontsize=10)
-        ax_h.set_xlim(x_ax[0], x_ax[-1])
-
-        # Plot Pearson correlation matrix (M)
-        im = ax.pcolormesh(M, cmap='jet', vmin=np.percentile(M, 10), vmax=np.percentile(M, 90))
-        ax.set_ylabel('Block Number', fontsize=10)
-        ax.set_xlabel('Block Number', fontsize=10)
-        ax.set_xlim(x_ax[0], x_ax[-1])
-
-        # Add a colorbar to the last subplot
-        cbar = fig.colorbar(im, cax=ax_cbar)
-        cbar.ax.set_ylabel('Pearsons Correlation')
-        plt.tight_layout()
-        plt.savefig(os.path.join(path_file, 'Block_pearson.jpg'), dpi=300)
-        plt.show()
 
     def plot_basis(self):
         path_file = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'NMF', 'figures')
@@ -454,9 +433,7 @@ class main:
         import matplotlib
         cmap = matplotlib.colormaps["Accent"]
         cmap.set_bad(color='black')
-
     def plot_BM_clusters(self, assign_method='max', file_end=''):
-        import matplotlib
 
         if assign_method == 'max':
             Wmax = np.argmax(self.W, 1)
@@ -487,14 +464,33 @@ class main:
         plt.show()
         print('stop')
 
+    def plot_BM_clusters_sleep(self, assign_method='max', file_end=''):
+        BM_W = np.zeros((len(self.labels_all), len(self.labels_all))) - 2
+        for w_ix in [-1,0,1]:
+            chans = self.con_summary.loc[(self.con_summary.NREM == w_ix), 'Chan'].values.astype('int')
+            stim = self.con_summary.loc[(self.con_summary.NREM == w_ix), 'Stim'].values.astype('int')
+            BM_W[stim, chans] = w_ix
+        BM_W = BM_W.astype('int')
+        cmap = plt.get_cmap('seismic', 3)  # matplotlib.colormaps["Accent"]
+        cmap.set_bad(color='black')
+        # mask some 'bad' data, in your case you would have: data == 0
+        BM_W = np.ma.masked_where(BM_W == -2, BM_W)
+
+        fig = plt.figure(figsize=(10, 10))
+        plt.suptitle('Clusters - Sleep')
+        axmatrix = fig.add_axes([0.15, 0.15, 0.7, 0.7])
+        axcolor = fig.add_axes([0.9, 0.15, 0.02, 0.7])
+        BM_plots.plot_BM(BM_W, self.labels_all, self.hemisphere, axmatrix, axcolor=axcolor, cmap=cmap,
+                         vlim=[np.min(BM_W) - 0.5, np.max(BM_W) + 0.5], sort=1, cat=1)
+        path_output = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'NMF', 'figures')
+        plt.savefig(os.path.join(path_output, 'Cluster_BM_sleep.svg'))
+        plt.show()
+        print('stop')
+
     def plot_H_hypnogram(self, file_end=''):
         path_output = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'NMF', 'figures')
         os.makedirs(path_output, exist_ok=True)  # Create directories if they don't exist
-        # adding "ic_chron" which adds +24h if there is a new day to keep it chronological
-        for d in range(len(np.unique(self.stimlist_sleep.date))):
-            self.stimlist_sleep.loc[self.stimlist_sleep.date == np.unique(self.stimlist_sleep.date)[d], 'ix_chron'] = \
-                self.stimlist_sleep.loc[
-                    self.stimlist_sleep.date == np.unique(self.stimlist_sleep.date)[d], 'ix_h'] + d * 24
+        self.stimlist_sleep['ix_chron'] = self.stimlist_sleep.ix_h
         stimlist_hypno = self.stimlist_sleep
         stimlist_hypno.loc[stimlist_hypno.sleep > 4, 'sleep'] = 0  # everythin that's greter than 4 is also wake
         # some calculations to have the same x time axis for both plots
@@ -600,9 +596,9 @@ def start_subj(subj):
     run_main.load_data()
     # run_main.plot_basis()
     #run_main.plot_consensus_best()
-    run_main.plot_pearson_hypnogram(hyp_style = 'full')
     ## run_main.plot_consensus_examples()
     #run_main.plot_BM_clusters('_conNMF')
+    #run_main.plot_BM_clusters_sleep('_conNMF')
     #run_main.plot_H_hypnogram('_conNMF')
     # run_main.plot_clusters_connectogram('_conNMF')
     # run_main.plot_LL_clusters()
@@ -616,7 +612,6 @@ subjs = ['EL011', 'EL012', 'EL013', 'EL015', 'EL014', 'EL016', 'EL017', "EL019",
 
 subjs = ["EL011", "EL014", "EL015", "EL016", "EL017", "EL019", "EL020",
          "EL021", "EL022", "EL025", "EL027"]
-subjs = ["EL027"]
 for subj in subjs:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
     if thread:
         _thread.start_new_thread(start_subj, (subjs))

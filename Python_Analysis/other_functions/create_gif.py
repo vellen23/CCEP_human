@@ -29,9 +29,10 @@ def create_2(path, name, remove=0, dur = 1):
     image_folder = os.fsencode(path)
     filenames = []
 
-    for file in os.listdir(image_folder):
-        filename = os.fsdecode(file)
-        if filename.endswith(('.jpeg', '.png')): #, '.gif'
+    for file in os.listdir(path):
+        # filename = os.fsdecode(file)
+        filename = file
+        if filename.endswith(('.jpg','.jpeg', '.png')): #, '.gif'
             filenames.append(filename)
 
     filenames.sort()  # this iteration technique has no built in order, so sort the frames
@@ -50,6 +51,10 @@ def create_2(path, name, remove=0, dur = 1):
 #     name = 'BM_CR'  # 'BM_Ph'
 #
 #     create(path, name)
-path = "X:\\4 e-Lab\EvM\Projects\EPIOS\Patients\CT\step2_007"
-name = 'CT_007'
-create_2(path, name, dur = 0.5)
+path = "X:\\4 e-Lab\EvM\Projects\EL_experiment\Analysis\Patients\EL011\BrainMapping\CR\Visualization\inf_brain\Amy20_541\\figures"
+name = 'GIF02'
+create_2(path, name, dur = 0.4)
+path = "X:\\4 e-Lab\EvM\Projects\EL_experiment\Analysis\Patients\EL011\BrainMapping\CR\Visualization\inf_brain\Amy20_9411\\figures"
+name = 'GIF02'
+create_2(path, name, dur = 0.4)
+print('Done')

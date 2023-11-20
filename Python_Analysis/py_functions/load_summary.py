@@ -82,6 +82,30 @@ def adding_area(data_A, lbls, pair=1):
     return data_A
 
 
+def adding_subregion(data_con, pair=1, area='Subregion'):
+    # area == 'Region' or 'Area'
+    CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\e-Lab shared code\Softwares\Connectogram\circ_areas.xlsx'
+    atlas = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='atlas')
+    if pair:
+        for subregion in np.unique(data_con[['StimA', 'ChanA']]):
+            region = atlas.loc[atlas.Abbreviation == subregion, area].values
+            if len(region) > 0:
+                data_con.loc[data_con.StimA == subregion, 'StimSR'] = region[0]
+                data_con.loc[data_con.ChanA == subregion, 'ChanSR'] = region[0]
+            else:
+                print(subregion)
+                data_con.loc[data_con.StimA == subregion, 'StimSR'] = 'U'
+                data_con.loc[data_con.ChanA == subregion, 'ChanSR'] = 'U'
+    else:
+        for subregion in np.unique(data_con[['ChanA']]):
+            region = atlas.loc[atlas.Abbreviation == subregion, area].values
+            if len(region) > 0:
+                data_con.loc[data_con.ChanA == subregion, 'ChanSR'] = region[0]
+            else:
+                data_con.loc[data_con.ChanA == subregion, 'ChanSR'] = 'U'
+    return data_con
+
+
 def adding_region(data_con, pair=1, area='Region'):
     # area == 'Region' or 'Area'
     CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\e-Lab shared code\Softwares\Connectogram\circ_areas.xlsx'
@@ -180,7 +204,8 @@ def get_DI(subjs, sub_path, filename):
 
 
 def get_connections(subjs, sub_path, filename):
-    path_export = os.path.join(sub_path, 'EvM\\Projects\\EL_experiment\Analysis\Patients\Across\BrainMapping\General\data\\')
+    path_export = os.path.join(sub_path,
+                               'EvM\\Projects\\EL_experiment\Analysis\Patients\Across\BrainMapping\General\data\\')
     data_con_all = pd.DataFrame()
     for i in range(len(subjs)):
         print('loading -- ' + subjs[i], end='\r')
@@ -194,7 +219,7 @@ def get_connections(subjs, sub_path, filename):
             path_infos = path_gen + '\\infos'
 
         path_patient_analysis = sub_path + '\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-        summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\'+filename
+        summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\' + filename
         data_A = pd.read_csv(summary_gen_path)
 
         lbls = pd.read_excel(os.path.join(path_gen, 'Electrodes', subj + "_labels.xlsx"), header=0, sheet_name='BP')
@@ -228,8 +253,10 @@ def get_connections(subjs, sub_path, filename):
         data_con_all = pd.concat([data_con_all, data_A], ignore_index=True)
     data_con_all.Stim = data_con_all.Stim.astype('int')
     data_con_all.Chan = data_con_all.Chan.astype('int')
+    data_con_all = adding_subregion(data_con_all)
     data_con_all = adding_region(data_con_all)
     data_con_all.to_csv(os.path.join(path_export, filename), header=True, index=False)
+
 
 def get_connections_sleep(subjs, sub_path, filename):
     chan_n_max = 0

@@ -60,18 +60,17 @@ def run_first(subj, prots=['BM', 'IO', 'PP'], cut=1, con_trial=1, hyp=0, concat=
 def run_update(subj, prots=['BM'], cut=1, con_trial=1, hyp=0, concat=1):
     save_hypnogram.run_main(subj, 1, 0, folders=['BrainMapping', 'InputOutput', 'PairedPulse'])
 
-subjs = ["EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL017", "EL019", "EL020", "EL021",
+subjs = ["EL012", "EL015", "EL016", "EL019", "EL020", "EL021",
          "EL022", "EL024", "EL025", "EL026", "EL027"]
 
-subjs = ["EL027"]
 
 thread = 0
 for subj in subjs:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
     if thread:
         import _thread
-        _thread.start_new_thread(updata_peaks, (subj, ))
+        _thread.start_new_thread(run_keller, (subj, ))
     else:
-        updata_peaks(subj)
+        run_keller(subj)
 if thread:
     while 1:
         time.sleep(1)

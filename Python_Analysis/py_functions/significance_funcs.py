@@ -112,7 +112,19 @@ def get_phasesync2mean(x_gt, x_trials, tx=1, ty=1, win=0.5, Fs=500):
     return corr
 
 
-def get_pearson2mean(x_gt, x_trials, tx=1, ty=1, win=0.1, Fs=500):
+def get_pearson2mean_windowed(x_gt, x_trials, tx=1, win=0.25, Fs=500):
+    # get pearson coeff for all trials to ground truth for selected time window
+    x0 = int(tx * Fs)
+    x1 = int(x0 + win * Fs)
+    wdp = np.int64(Fs * win)  # 100ms -> 50 sample points
+    EEG_pad = np.pad(x_trials, [(0, 0), (np.int64(wdp / 2), np.int64(wdp / 2))], 'constant',
+                     constant_values=(0, 0))  # 'reflect'(18, 3006)
+    corr_all = np.zeros((x_trials.shape[0], x_trials.shape[1]))
+    for i in range(x_trials.shape[1]):  # entire response
+        corr_all[:,i]= np.corrcoef(x_gt[x0:x1], EEG_pad[:, i:int(i+(win*Fs))])[0, 1:]
+    return corr_all
+
+def get_pearson2mean(x_gt, x_trials, tx=1, ty=1, win=0.25, Fs=500):
     # get pearson coeff for all trials to ground truth for selected time window
     x0 = int(tx * Fs)
     x1 = int(x0 + win * Fs)

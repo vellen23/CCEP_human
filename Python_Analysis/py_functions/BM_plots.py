@@ -133,7 +133,7 @@ def plot_BM(M, labels, hemisphere, axmatrix, axcolor=None, cmap='hot', vlim=None
 
 
 def plot_BM_coeff(M, labels, hemisphere, axmatrix, axcolor=None, cmap='hot', vlim=None, sort=1, orientation=0):
-    """Plot the connectivity map."""
+    """Plot the connection x coeffcient. E.g. NMF W basis function"""
 
     labels = clean_label(labels)
     areas = get_region(labels, atlas)

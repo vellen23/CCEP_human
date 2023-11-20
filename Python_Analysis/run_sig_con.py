@@ -17,7 +17,6 @@ from pathlib import Path
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 
-
 def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method='kmeans', skipt_GT=1, skip_surr=1,
                   trial_sig_labeling=1):
     print(subj + ' ---- START ------ ')
@@ -99,9 +98,10 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
                 'int')
             for rc in resp_chans:
                 # GT output: M_GT, [r, t_onset, t_WOI], LL_CC
-                M_GT_all[sc, rc, :, :], M_t_resp[sc, rc, :3], M_t_resp[sc, rc, 3:5], M_t_resp[sc, rc, 5] = SCF.get_GT(sc, rc,
-                                                                                                con_trial,
-                                                                                                EEG_resp)  ## CC
+                M_GT_all[sc, rc, :, :], M_t_resp[sc, rc, :3], M_t_resp[sc, rc, 3:5], M_t_resp[sc, rc, 5] = SCF.get_GT(
+                    sc, rc,
+                    con_trial,
+                    EEG_resp)  ## CC
         # np.save(file_GT, M_GT_all)
         with h5py.File(file_GT, 'w') as hf:
             hf.create_dataset("M_GT_all", data=M_GT_all)
@@ -144,12 +144,13 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
         for rc in tqdm.tqdm(resp_chans):
             n_trials = np.median(summ.loc[summ.Chan == rc, 'LL']).astype('int')
             LL_surr, CC_LL_surr[rc], CC_WOI[rc], LL_mean_surr = SCF.get_CC_surr(rc, con_trial, EEG_resp,
-                                                                  n_trials)  # return LL_surr[1:, :], LL_surr_data[1:, :, :]
+                                                                                n_trials)  # return LL_surr[1:, :], LL_surr_data[1:, :, :]
             # LL_CC_surr, LL_surr_data, WOI_surr, LL_mean_surr
             M_CC_LL_surr[rc, :] = [np.nanpercentile(LL_surr, 50), np.nanpercentile(LL_surr, 95),
-                                   np.nanpercentile(LL_surr, 99),np.nanpercentile(LL_mean_surr, 50), np.nanpercentile(LL_mean_surr, 95),
+                                   np.nanpercentile(LL_surr, 99), np.nanpercentile(LL_mean_surr, 50),
+                                   np.nanpercentile(LL_mean_surr, 95),
                                    np.nanpercentile(LL_mean_surr, 99)]
-            #M_mean_LL_surr[rc, :] = [np.nanpercentile(LL_mean_surr, 50), np.nanpercentile(LL_mean_surr, 95),
+            # M_mean_LL_surr[rc, :] = [np.nanpercentile(LL_mean_surr, 50), np.nanpercentile(LL_mean_surr, 95),
             #                       np.nanpercentile(LL_mean_surr, 99)]
 
             # plot
@@ -180,7 +181,8 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
 
         # np.save(file_CC_LL_surr, M_CC_LL_surr)
         surr_thr = pd.DataFrame(np.concatenate([stims, M_CC_LL_surr], 1),
-                                columns=['Chan', 'CC_LL50', 'CC_LL95', 'CC_LL99','mean_LL50', 'mean_LL95', 'mean_LL99'])
+                                columns=['Chan', 'CC_LL50', 'CC_LL95', 'CC_LL99', 'mean_LL50', 'mean_LL95',
+                                         'mean_LL99'])
         surr_thr.to_csv(file_CC_surr,
                         index=False,
                         header=True)
@@ -188,7 +190,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
         update_sig_con = 1
         print(subj + ' -- CC surrogate calculation DONE --', end='\r')
     # SUMMARY
-    if os.path.isfile(file_CC_summ)* skip_surr* skipt_GT:
+    if os.path.isfile(file_CC_summ) * skip_surr * skipt_GT:
         CC_summ = pd.read_csv(file_CC_summ)
     else:
         files_list = glob(path_patient_analysis + '\\' + folder + '/data/Stim_list_*')
@@ -234,7 +236,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
         print('Get sig trial label....')
         for sc in tqdm.tqdm(np.unique(con_trial.Stim), desc='Stimulation Channel'):
             sc = int(sc)
-            resp_chans = np.unique(con_trial.loc[(con_trial.Artefact <1) & (con_trial.Stim == sc), 'Chan']).astype(
+            resp_chans = np.unique(con_trial.loc[(con_trial.Artefact < 1) & (con_trial.Stim == sc), 'Chan']).astype(
                 'int')
             for rc in resp_chans:
                 # decide for sig threhsold (only CC or also mean)
@@ -274,8 +276,38 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
                         CC_summ.Chan == rc), 'LL_WOI'].values / m
         CC_summ.to_csv(file_CC_summ, header=True, index=False)
         print(subj + ' -- SNR DONE --', end='\r')
+
     print(subj + ' -- all DONE --')
 
-# for subj in [ 'EL014', "EL015", "EL016", "EL017", "EL019","EL020", "EL021"]:  # "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016", "EL017", "EL019","EL020", "EL021"
-#     for f in ['BrainMapping']:  # 'BrainMapping', 'InputOutput',
-#         start_subj_GT(subj, folder=f, cond_folder='CR', cluster_method = 'similarity', load_con=1, load_surr=1)
+
+def sig_con_keller(subj, folder='BrainMapping', cond_folder='CR', t0=1, Fs=500):
+    import CCEP_func
+    print(subj + ' ---- START ------ ')
+
+    # path_patient_analysis = 'Y:\\eLab\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    # 1. get summary table
+    file_CC_summ = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\summ_general.csv'  # summary_genera
+    con_summary_all = pd.read_csv(file_CC_summ)
+    con_summary_all = con_summary_all.drop_duplicates()
+    con_summary_all['Zscore'] = np.nan # con_summary_all.insert(5, 'Zscore', 0)
+    file_con = path_patient_analysis + '\\' + folder + '/' + cond_folder + '/data/con_trial_all.csv'
+    con_trial = pd.read_csv(file_con)
+    # 2. get EEG data
+    h5_file = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\EEG_' + cond_folder + '.h5'
+    if os.path.isfile(h5_file):
+        print('loading h5')
+        EEG_resp = h5py.File(h5_file)
+        EEG_resp = EEG_resp['EEG_resp']
+
+        for sc in np.unique(con_summary_all['Stim']):
+            for rc in np.unique(con_summary_all.loc[(con_summary_all.Stim == sc), 'Chan']):
+                num_all = np.unique(con_trial.loc[(con_trial.Chan == rc) & (con_trial.Stim == sc)& (con_trial.Artefact <1), 'Num'].values)
+                resp_zscore_mean = CCEP_func.zscore_CCEP(np.mean(EEG_resp[rc, num_all], 0), t_0=1, w0=0.5, Fs=Fs)
+
+                # Calculate max zscore for each response channel in the specified time window
+                zscore_pk = np.max(abs(resp_zscore_mean[int((t0 + 0.05) * Fs):int((t0 + 0.5) * Fs)]))
+                con_summary_all.loc[(con_summary_all['Stim'] == sc) & (con_summary_all['Chan'] == rc), 'Zscore'] = \
+                    zscore_pk
+    con_summary_all = con_summary_all.drop_duplicates()
+    con_summary_all.to_csv(file_CC_summ, header=True, index=False)
