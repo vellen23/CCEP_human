@@ -7,7 +7,7 @@ function [ppEEG, EEG,Fs, stim_list] = EL_preprocess(EEG_load, stim_list,sclA, sc
     ax      	= (-5:1/Fs:5);
     ax_t        = -3:1/Fs:3;
     %[stim_list] = refine_TTL(EEG, stim_list, Fs);
-    TTL_delay  =2;
+    TTL_delay  = 0;
     stim_list.TTL = stim_list.TTL+TTL_delay;
     while max(stim_list.TTL)+3*Fs>size(EEG,2)
         stim_list(end, :) = [];
@@ -20,7 +20,7 @@ function [ppEEG, EEG,Fs, stim_list] = EL_preprocess(EEG_load, stim_list,sclA, sc
         %tic
         IPI     = stim_list.IPI_ms(s);
         trig1   = stim_list.TTL(s);
-        %trig2   = stim_list.TTL_PP(s);%         
+        % if paired pulse (PP)
         trig2   = trig1+round(IPI/1000*Fs);
         stim_list.TTL_PP(s) = trig2;
         for c=1:size(EEG,1) %  for each channel      
