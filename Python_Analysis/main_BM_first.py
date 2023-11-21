@@ -30,8 +30,8 @@ x_ax = np.arange(dur[0, 0], dur[0, 1], (1 / Fs))
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 ### Preparation
-subjs = ["EL027"]
-get_data = 0
+subjs = ["EL028"]
+get_data = 1
 if get_data:
     for subj in subjs:
         ### cut data in epochs: still in .npy
@@ -176,8 +176,8 @@ for subj in subjs:
     areas_sel_sort = np.delete(hem + '_' + labels_region, bad_all, 0)
     labels_sel = np.delete(labels_all, bad_all, 0)
     labels_sel = labels_sel + ' (' + labels_clin + ')'
-    order_anat = 0
-    ll = 'H_clinic'
+    order_anat = 1
+    ll = 'H_clinic_order'
     if order_anat:
         ind = np.argsort(areas_sel_sort)
         labels_sel = labels_sel[ind]

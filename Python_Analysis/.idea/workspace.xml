@@ -55,7 +55,7 @@
       <recent name="T:\EL_experiment\Codes\CCEP_human\Python_Analysis\py_functions" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.start_BM_CR">
+  <component name="RunManager" selected="Python.main_BM_first">
     <configuration default="true" type="PythonConfigurationType" factoryName="Python">
       <module name="Python_Analysis" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -78,7 +78,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="create_gif" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="main_BM_first" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Python_Analysis" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -86,12 +86,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/other_functions" />
-      <option name="IS_MODULE_SDK" value="true" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/other_functions/create_gif.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main_BM_first.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="true" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -190,11 +190,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.main_BM_first" />
         <item itemvalue="Python.start_BM_CR" />
-        <item itemvalue="Python.main_analysis - Kopie" />
         <item itemvalue="Python.main_analysis" />
+        <item itemvalue="Python.main_analysis - Kopie" />
         <item itemvalue="Python.plot_inflated_brain_SA" />
-        <item itemvalue="Python.create_gif" />
       </list>
     </recent_temporary>
   </component>
@@ -247,7 +247,7 @@
       <workItem from="1696506300916" duration="23912000" />
       <workItem from="1697464386912" duration="69462000" />
       <workItem from="1699451688360" duration="18931000" />
-      <workItem from="1699859426638" duration="45215000" />
+      <workItem from="1699859426638" duration="59771000" />
     </task>
     <servers />
   </component>
@@ -348,11 +348,6 @@
           <url>file://$PROJECT_DIR$/start_NMF_IO_CR_Stim.py</url>
           <line>323</line>
           <option name="timeStamp" value="413" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/main_BM_first.py</url>
-          <line>188</line>
-          <option name="timeStamp" value="415" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/cut_resp.py</url>
@@ -515,13 +510,28 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/py_functions/graph_funcs.py</url>
-          <line>141</line>
+          <line>142</line>
           <option name="timeStamp" value="968" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/py_functions/graph_funcs.py</url>
-          <line>169</line>
+          <line>170</line>
           <option name="timeStamp" value="970" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/main_BM_first.py</url>
+          <line>91</line>
+          <option name="timeStamp" value="991" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/main_BM_first.py</url>
+          <line>163</line>
+          <option name="timeStamp" value="1000" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/main_BM_first.py</url>
+          <line>177</line>
+          <option name="timeStamp" value="1001" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="jupyter-line">
           <url>notebook://T:/EL_experiment/Codes/CCEP_human/Python_Analysis/EvM/BM_sleep_networks_across.ipynb</url>
@@ -555,7 +565,7 @@
     <SUITE FILE_PATH="coverage/Python_Analysis$start_BM_blocks.coverage" NAME="start_BM_blocks Coverage Results" MODIFIED="1679565333475" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$start_cut_resp_LT.coverage" NAME="start_cut_resp_LT Coverage Results" MODIFIED="1670489098861" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$concat.coverage" NAME="concat Coverage Results" MODIFIED="1680601890290" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/py_functions" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$main_analysis.coverage" NAME="main_analysis Coverage Results" MODIFIED="1700077236789" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$main_analysis.coverage" NAME="main_analysis Coverage Results" MODIFIED="1700494265276" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$main.coverage" NAME="main Coverage Results" MODIFIED="1678311062747" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../Connectogram" />
     <SUITE FILE_PATH="coverage/Python_Analysis$start_NMF_IO_CR_Stim.coverage" NAME="start_NMF_IO_CR_Stim Coverage Results" MODIFIED="1686647427183" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$BM_general.coverage" NAME="BM_general Coverage Results" MODIFIED="1678197614796" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/EvM/Across" />
@@ -563,13 +573,13 @@
     <SUITE FILE_PATH="coverage/Python_Analysis$save_hypnogram.coverage" NAME="save_hypnogram Coverage Results" MODIFIED="1674716763383" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$start_IO_block.coverage" NAME="start_IO_block Coverage Results" MODIFIED="1680600571926" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$main_analysis_IO.coverage" NAME="main_analysis_IO Coverage Results" MODIFIED="1695894773665" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$main_BM_first.coverage" NAME="main_BM_first Coverage Results" MODIFIED="1692702163980" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$main_BM_first.coverage" NAME="main_BM_first Coverage Results" MODIFIED="1700581897485" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$seizure_GABA.coverage" NAME="seizure_GABA Coverage Results" MODIFIED="1695980419259" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$significant_connections.coverage" NAME="significant_connections Coverage Results" MODIFIED="1676231627412" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/py_functions" />
     <SUITE FILE_PATH="coverage/Python_Analysis$start_NMF_BM.coverage" NAME="start_NMF_BM Coverage Results" MODIFIED="1697807520516" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$conectogram_GUI.coverage" NAME="conectogram_GUI Coverage Results" MODIFIED="1676485718385" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/visualization/connectogarm" />
     <SUITE FILE_PATH="coverage/Python_Analysis$create_lookup.coverage" NAME="create_lookup Coverage Results" MODIFIED="1673451355305" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
-    <SUITE FILE_PATH="coverage/Python_Analysis$start_BM_CR.coverage" NAME="start_BM_CR Coverage Results" MODIFIED="1700483778252" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python_Analysis$start_BM_CR.coverage" NAME="start_BM_CR Coverage Results" MODIFIED="1700573234056" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$start_NMF_IO_CR.coverage" NAME="start_NMF_IO_CR Coverage Results" MODIFIED="1671696096115" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Python_Analysis$NELS.coverage" NAME="NELS Coverage Results" MODIFIED="1676308609121" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />
     <SUITE FILE_PATH="coverage/Python_Analysis$get_clinic_table.coverage" NAME="get_clinic_table Coverage Results" MODIFIED="1673948950409" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../../NELS/Source" />

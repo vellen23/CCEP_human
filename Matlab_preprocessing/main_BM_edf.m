@@ -20,7 +20,7 @@ addpath([pwd '/nx_preproc']);
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL027'; %% change name if another data is used !!
+subj            = 'EL028'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 
@@ -39,15 +39,17 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date = 20230822;
-midnight = find(stimlist_all.h==0);
-if ~isempty(midnight)
-    midnight = midnight(1);
-    stimlist_all.date(1:midnight) = date;
-    stimlist_all.date(midnight:end) = date+1;
-else
-    stimlist_all.date(:) = date;
-end
+date1 = 20231121;
+% Calculate the corresponding dates for each day
+correspondingDates = datetime(num2str(date1), 'Format', 'yyyyMMdd') + days(stimlist_all.date - 1);
+stimlist_all.date = correspondingDates;
+% Convert datetime objects to integer day numbers
+% Convert datetime objects back to integer date values
+integerDates = year(stimlist_all.date) * 10000 + month(stimlist_all.date) * 100 + day(stimlist_all.date);
+
+% Update the "date" column in the table with integer date values
+stimlist_all.date = integerDates;
+
 %% update block number
 n_block = 1;
 stimlist_all.stim_block = stimlist_all.stim_block+n_block;

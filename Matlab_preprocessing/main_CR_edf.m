@@ -19,14 +19,14 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL027'; %% change name if another data is used !!
+subj            = 'EL028'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
-load([path_patient, '\\Electrodes\\labels.mat']);
-start
+% load([path_patient, '\\Electrodes\\labels.mat']);
+
 %% 1. log 
 log_files= dir([dir_files '\*CR*.log']);
-log_ix = 3; % find automated way or select manually
+log_ix = 1; % find automated way or select manually
 log             = importfile_log_2([dir_files '\' log_files(log_ix).name]);
 stimlist_all = log(log.date~="WAIT",:);
 % stimlist_all = stimlist_all(stimlist_all.type=="BMCT",:);
@@ -38,7 +38,7 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date1 = 20230822;
+date1 = 20231121;
 % Calculate the corresponding dates for each day
 correspondingDates = datetime(num2str(date1), 'Format', 'yyyyMMdd') + days(stimlist_all.date - 1);
 stimlist_all.date = correspondingDates;

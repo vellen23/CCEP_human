@@ -38,15 +38,17 @@ def con_cond_stats(baseline_data, current_data, permutation=1, test='MWU'):
     # Permutation test
     if permutation:
         n_permutations = 200
-        observed_difference = np.abs(np.mean(baseline_data) - np.mean(current_data))
+        observed_difference = abs(effect_size) #np.abs(np.median(baseline_data) - np.median( current_data))  # np.abs(np.mean(baseline_data) - np.mean(current_data))
         count_extreme_values = 0
         combined_data = np.hstack((baseline_data, current_data))
         for _ in range(n_permutations):
             np.random.shuffle(combined_data)
             permuted_baseline = combined_data[:n1]
             permuted_current = combined_data[n1:]
+            u_stat, _ = stats.mannwhitneyu(permuted_baseline, permuted_current)
+            effect_size_SURR = 1 - (2 * u_stat) / (n1 * n2)  # Effect size
 
-            permuted_difference = np.abs(np.mean(permuted_baseline) - np.mean(permuted_current))
+            permuted_difference = np.abs(effect_size_SURR)  # np.abs(np.mean(permuted_baseline) - np.mean(permuted_current))
 
             if permuted_difference >= observed_difference:
                 count_extreme_values += 1
@@ -58,14 +60,13 @@ def con_cond_stats(baseline_data, current_data, permutation=1, test='MWU'):
     return effect_size, p_value, p_permutation
 
 
-def con_sleep_stats(con_trial, sig=1):
+def con_sleep_stats(con_trial, metric='LL'):
     con_trial['Con_ID'] = con_trial.groupby(['Stim', 'Chan']).ngroup()
     if "SleepState" not in con_trial:
         con_trial = bf.add_sleepstate(con_trial)
-    if sig:
-        con_trial['LL_sig'] = con_trial['LL'] * con_trial['Sig']
-    else:
-        con_trial['LL_sig'] = con_trial['LL']
+    con_trial['LL_sig'] = con_trial['LL'] * con_trial['Sig']
+    con_trial['LL_w'] = con_trial['LL'] * con_trial['rho']**2*np.sign(con_trial['rho'])
+
     # clean trials
     con_trial = con_trial[(con_trial.Sig > -1) & (con_trial.Artefact < 1)].reset_index(drop=True)
 
@@ -75,7 +76,7 @@ def con_sleep_stats(con_trial, sig=1):
                         'REM']  # [cond for cond in con_trial['SleepState'].unique() if cond != baseline_condition]
 
     # Pre-group the data by Con_ID and SleepState for faster lookup
-    grouped_data = con_trial.groupby(['Con_ID', 'Stim', 'Chan', 'SleepState'])['LL_sig']
+    grouped_data = con_trial.groupby(['Con_ID', 'Stim', 'Chan', 'SleepState'])[metric]
 
     results = []
     for con_id in con_trial['Con_ID'].unique():
@@ -87,7 +88,7 @@ def con_sleep_stats(con_trial, sig=1):
             continue
 
         baseline_data = grouped_data.get_group((con_id, stim, chan, baseline_condition)).values
-        if np.nanmean(baseline_data) == 0:
+        if (np.nanmean(baseline_data) == 0) | np.isnan(np.nanmean(baseline_data)):
             continue
         # Iterate over other conditions (excluding the baseline)
         for condition in other_conditions:

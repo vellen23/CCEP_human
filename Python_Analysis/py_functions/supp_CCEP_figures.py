@@ -20,7 +20,7 @@ dur[0, 0] = -t0
 dur[0, 1] = 3
 x_ax = np.arange(dur[0, 0], dur[0, 1], (1 / Fs))
 
-color_sleep = ['#808080', '#145da0', '#ff1919']
+color_sleep = ['#808080', '#919FC7', '#ED936B']
 label_sleep = ['Wake', 'NREM', 'REM']
 
 color_sig = ['#808080', '#145da0']

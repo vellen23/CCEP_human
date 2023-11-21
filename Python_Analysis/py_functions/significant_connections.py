@@ -208,7 +208,7 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
         # for each trial get significance level based on surrogate (Pearson^2 * LL)
         #### first get surrogate data
         pear_surr_all = []
-        for t_test in [0.3, 2, 2.5]:  # surrogates times, todo: in future blockwise
+        for t_test in [2, 2.5, 3]:  # surrogates times, todo: in future blockwise
             pear = np.zeros((len(EEG_trials[0]),)) - 1  # pearson to each CC
             for n_c in range(len(M_GT)):
                 pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
@@ -237,8 +237,7 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
             EEG_surr = ff.lp_filter(np.expand_dims(EEG_CR[rc, StimNum, :], 0), 45, Fs)
         if len(StimNum)>0:
             LL_surr = LLf.get_LL_all(EEG_surr, Fs, w_cluster)
-            f = 1
-            for t_test in [0.3, 2, 2.5]:  # surrogates times, todo: in future blockwise
+            for t_test in [2, 2.5, 3]:  # surrogates times, todo: in future blockwise
                 pear = np.zeros((len(EEG_surr[0]),)) - 1
                 for n_c in range(len(M_GT)):
                     pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_surr[0], tx=t_0 + t_resp, ty=t_test,
@@ -259,16 +258,18 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
                                            Fs=500)], 0)
 
         LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
-        pear = np.sign(pear) * abs(pear ** exp) * LL
-        sig = (pear > np.nanpercentile(pear_surr_all, p)) * 1
+        compound_metric = np.sign(pear) * abs(pear ** exp) * LL
+        sig = (compound_metric > np.nanpercentile(pear_surr_all, p)) * 1
 
         con_trial.loc[
             req, 'Sig'] = sig  # * sig_mean
         con_trial.loc[
             req, 'LL_WOI'] = LL
+        con_trial.loc[
+            req, 'rho'] = pear
 
     ##### real trials, LL pre stim
-    t_test = t_0_BL + t_resp  # timepoint that i tested is identical to WOI
+    t_test = t_0_BL + t_resp  # 
 
     LL_pre = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
     con_trial.loc[req, 'LL_pre'] = LL_pre

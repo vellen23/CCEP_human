@@ -421,18 +421,15 @@ class main:
         df.to_csv(file, header=True, index=False)
         print('Node features calculated')
 
-    def connection_sleep_diff(self, con_trial, sig=1, skip=1):
+    def connection_sleep_diff(self, con_trial, metric='LL_sig', skip=1):
         exp_dir = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Connection')
         os.makedirs(exp_dir, exist_ok=True)
-        if sig:
-            file = os.path.join(exp_dir, 'con_sleep_stats.csv')
-        else:
-            file = os.path.join(exp_dir, 'con_sleep_stats_LL.csv')
+        file = os.path.join(exp_dir, 'con_sleep_stats_'+metric+'.csv')
         if os.path.isfile(file) * skip:
             df = pd.read_csv(file)
             df.Chan = df.Chan.astype('int')
         else:
-            df = graph_funcs.con_sleep_stats(con_trial, sig)
+            df = graph_funcs.con_sleep_stats(con_trial, metric)
             df.insert(0, 'Subj', self.subj)
         df = ls.adding_area(df, self.lbls, pair=1)
         df = ls.adding_region(df, pair=1)
@@ -729,7 +726,7 @@ def start_subj(subj, cluster_method='similarity'):
     if wake:
         # run_main.get_summary_SS(con_trial, CC_summ)
         # run_main.get_node_features(con_trial, 1)
-        run_main.connection_sleep_diff(con_trial, sig=0, skip=1)
+        run_main.connection_sleep_diff(con_trial, metric='LL_w', skip=1)
         # run_main.BM_plots_General(CC_summ, con_trial, 0)
     # con_summary = pd.read_csv(summary_gen_path)
     # run_main.get_subnetworks(con_summary)
