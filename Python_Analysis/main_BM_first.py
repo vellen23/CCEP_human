@@ -35,10 +35,10 @@ get_data = 1
 if get_data:
     for subj in subjs:
         ### cut data in epochs: still in .npy
-        start_cut_resp.compute_cut(subj, skip_exist=1, prots=['BM'])
+        start_cut_resp.compute_cut(subj, skip_exist=0, prots=['BM', 'IO'])
 
         ### get con_trial --for each conenction and trial, save LL value
-        BM_blocks.cal_con_trial(subj, cond_folder='CR', skip_block=1, skip_single=1)
+        BM_blocks.cal_con_trial(subj, cond_folder='CR', skip_block=0, skip_single=0)
         ### concatenates all epoched data into one large h5py file, all responses accessible
         for f in ['BrainMapping']:
             concat.concat_resp_condition(subj, folder=f, cond_folder='CR', skip=0)
@@ -87,6 +87,28 @@ def plot_BM_CR_trial_sig(M, labels, areas, label, t):
     plt.show()
     # plt.close(fig) #plt.show()#
 
+def sort_areas(areas, regions):
+    # Create a mapping of regions to their index for sorting
+    region_order = {region: index for index, region in enumerate(regions)}
+    # Define the sorting key
+    def get_sort_key(area):
+        # Split the label into the side (L_/R_) and the region name
+        side, region_name = area.split("_")
+        # Normalize the region name to match the case of the regions list
+        region_name = region_name.capitalize()
+        # Get the index of the region name from the region_order mapping
+        region_index = region_order.get(region_name, -1)
+        # Return a tuple that Python will use to sort the areas
+        return (side, region_index)
+
+    # Get the sort keys for all areas
+    sort_keys = [get_sort_key(area) for area in areas]
+    # Get the indices for the sorted areas
+    indices = sorted(range(len(areas)), key=lambda i: sort_keys[i])
+    # Sort the areas using the sorting indices
+    sorted_areas = [areas[i] for i in indices]
+    return sorted_areas, indices
+
 
 for subj in subjs:
     cond_folder = 'CR'  # Condition = 'Hour', 'Condition', 'Ph'
@@ -115,14 +137,23 @@ for subj in subjs:
     # channel selection
     badchans = pd.read_csv(
         path_patient_analysis + '\\' + folder + '/data/badchan.csv')  # load bad chan if there are any (artifacts)
-    bad_chans = np.unique(np.array(np.where(badchans.values[:, 1] == 1))[0, :])
+    bad_chans = np.unique(np.array(np.where(badchans.values[:, 1:] == 1))[0, :])
     bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[
         0]  # remove WM, OUT, ...
 
-    regions = np.unique(labels_region)
-    # very bad hardcoded....
-    color_regions = ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31a1c', '#fdbf6f', '#ff7f00', '#cab2d6',
-                     "#8FB996"]
+    # regions = np.unique(labels_region)
+    # # very bad hardcoded....
+    # color_regions = ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31a1c', '#fdbf6f', '#ff7f00', '#cab2d6',
+    #                  "#8FB996"]
+
+    CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\e-Lab shared code\Softwares\Connectogram\circ_areas.xlsx'
+    tab_region = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='plot')
+    tab_region = tab_region.sort_values('Order').reset_index(drop=True)
+    regions = tab_region.Area.values
+    color_regions = tab_region.color.values
+
+    CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\e-Lab shared code\Softwares\Connectogram\circ_areas.xlsx'
+    all_region = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='atlas')
 
     ###### Load data
     file_M = path_patient_analysis + '\\' + folder + '/' + cond_folder + '/data/M_npy'
@@ -177,9 +208,9 @@ for subj in subjs:
     labels_sel = np.delete(labels_all, bad_all, 0)
     labels_sel = labels_sel + ' (' + labels_clin + ')'
     order_anat = 1
-    ll = 'H_clinic_order'
+    ll = 'H_clinic'
     if order_anat:
-        ind = np.argsort(areas_sel_sort)
+        sorted_areas, ind = sort_areas(areas_sel_sort, regions)
         labels_sel = labels_sel[ind]
         areas_sel = areas_sel[ind]
         M_resp = M_resp[ind, :]
@@ -187,3 +218,8 @@ for subj in subjs:
         ll = 'H_anat'
 
     plot_BM_CR_trial_sig(M_resp, labels_sel, areas_sel, ll, 't')
+    print('Stop')
+
+
+# Correcting the sorting function
+

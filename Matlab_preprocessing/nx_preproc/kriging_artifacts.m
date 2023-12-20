@@ -6,7 +6,7 @@ function [EEG_c] = kriging_artifacts(EEG_c, trig1, trig2, IPI, Fs, scalp)
     d_pk_l          = round([0.002 0.002]*Fs);
     d_pk_l          = round([0.002 0.005]*Fs);
     d_pk_c          = round([0.003 0.003]*Fs);
-    d_pk_stim       = round([0.002 0.015]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
+    d_pk_stim       = round([0.002 0.017]*Fs);%[0.005 0.015]*Fs;, 2-8 , EL003:7-15
     % remove DC shift (only for neuralynx)
     le = round(0.01*Fs);%(pk_stim-d_pk_stim(1)-2) - (pk_op+d_pk(2)+1);
     RMS_pre = nanmedian(EEG_c(pk_op-d_pk(1)-le:pk_op-d_pk(1)));

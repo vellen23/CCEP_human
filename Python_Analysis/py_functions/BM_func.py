@@ -173,22 +173,49 @@ def cal_correlation_condition(con_trial, metric='LL', condition='Block'):
     return correlation_matrix, np.unique(con_trial_cleaned[condition])
 
 
-def get_con_summary_SS(con_trial, CC_summ, sleep='Wake'):
+def get_con_summary_SS(con_trial, con_summary_gen, CC_summ, EEG_resp, sleep='Wake', delay = 0):
     """Create summary table of each conenction showing mean response strength, probability, DI, distance and delay"""
     # Clean table
     con_trial_cleaned = con_trial[
-        (con_trial.SleepState == sleep) & (con_trial.Sig > -1) & (con_trial.Artefact < 1)].copy()
-    con_trial_cleaned['LL_sig'] = con_trial_cleaned['Sig'] * con_trial_cleaned['LL']
-    con_summary = con_trial_cleaned.groupby(['Stim', 'Chan'], as_index=False)[['LL', 'LL_sig', 'd',
-                                                                               'Sig']].mean()  # con_summary = con_trial_cleaned.groupby(['Stim', 'Chan'], as_index=False)['LL', 'LL_sig', 'd', 'Sig'].mean()
+        (con_trial.SleepState == sleep) & (con_trial.Sig > -1) & (con_trial.Artefact < 1)
+        ].copy()
+
+    # Calculate weighted LL (LL when non-significant trials are set to 0)
+    con_trial_cleaned['LL_w'] = con_trial_cleaned['Sig'] * con_trial_cleaned['LL']
+
+    # Define a custom aggregation dictionary
+    aggregation = {
+        'LL': ['mean', 'var'],  # Mean and variance of LL
+        'LL_w': 'mean',  # Mean of weighted LL (LL when non-significant trials are set to 0)
+        'Sig': 'mean',  # Mean significance
+        'd': 'mean'  # Mean significance
+    }
+
+    # Calculate metrics for all trials
+    con_summary = con_trial_cleaned.groupby(['Stim', 'Chan']).agg(aggregation)
+
+    # Flatten MultiIndex columns
+    con_summary.columns = ['_'.join(col).strip() for col in con_summary.columns.values]
+
+    # Calculate metrics for significant trials only
+    sig_trials = con_trial_cleaned[con_trial_cleaned.Sig == 1]
+    sig_metrics = sig_trials.groupby(['Stim', 'Chan'])['LL'].agg(['mean', 'var'])
+
+    # Rename columns for clarity
+    sig_metrics = sig_metrics.rename(columns={'mean': 'LL_sig_mean', 'var': 'LL_sig_var'})
+
+    # Merge the two summaries
+    final_summary = pd.merge(con_summary, sig_metrics, on=['Stim', 'Chan'], how='left')
+    final_summary = final_summary.rename(columns={'d_mean': 'd', 'Sig_mean': 'Sig'})
+
     # con_summary = con_summary[(con_summary.Sig >0)]
     # CC_summ = CC_summ[(CC_summ.sig == 1)]
-    CC_summ = CC_summ.groupby(['Stim', 'Chan'], as_index=False)[['t_WOI']].mean()
-    con_summary = pd.merge(con_summary, CC_summ, on=['Stim', 'Chan'], how='outer')
+    # CC_summ = CC_summ.groupby(['Stim', 'Chan'], as_index=False)[['t_WOI']].mean()
+    final_summary = pd.merge(final_summary, con_summary_gen[['Stim', 'Chan', 't_WOI', 'delay']], on=['Stim', 'Chan'], how='outer')
     # con_summary.insert(4, 'DI', np.nan)  # asym[rc, sc, 1]
     ## adding DI value
     # Ensure that for every A->B, B->A also exists in the dataframe
-    df = con_summary.copy()
+    df = final_summary.copy()
     all_pairs = pd.concat([df[['Stim', 'Chan', 'Sig']],
                            df.rename(columns={'Stim': 'Chan', 'Chan': 'Stim'})[['Chan', 'Stim', 'Sig']]]).reset_index(
         drop=True)
@@ -201,7 +228,7 @@ def get_con_summary_SS(con_trial, CC_summ, sleep='Wake'):
     # Calculate the DI column values
     all_pairs['DI'] = np.where((all_pairs['min'] == 0) & (all_pairs['max'] == 0), np.nan,
                                np.where(all_pairs['min'] == all_pairs['max'], 0,
-                                        (1 - all_pairs['min'] / all_pairs['max']) * all_pairs['is_min'].map(
+                                        abs(all_pairs['min'] - all_pairs['max'])*(1 - all_pairs['min'] / all_pairs['max']) * all_pairs['is_min'].map(
                                             {True: -1, False: 1})))
     # Merge the DI and 'is_min' columns back to the original dataframe
     con_summary = df.merge(all_pairs[['Stim', 'Chan', 'DI', 'Sig']],
@@ -209,6 +236,12 @@ def get_con_summary_SS(con_trial, CC_summ, sleep='Wake'):
                            how='left')
     con_summary.insert(2, 'SleepState', sleep)
     con_summary = con_summary.drop_duplicates().reset_index(drop=True)
+    if delay:
+        con_summary.delay = np.nan
+        con_summary['Num_sig_trial'] = 0
+        con_summary['Mean_P2P'] = np.nan
+        con_summary['Mean_LL'] = np.nan
+        con_summary = get_delay(con_summary, CC_summ, con_trial_cleaned, EEG_resp)
     return con_summary
 
 
@@ -239,33 +272,50 @@ def get_con_summary(con_trial, CC_summ, EEG_resp):
     # Calculate the DI column values
     all_pairs['DI'] = np.where((all_pairs['min'] == 0) & (all_pairs['max'] == 0), np.nan,
                                np.where(all_pairs['min'] == all_pairs['max'], 0,
-                                        (1 - all_pairs['min'] / all_pairs['max']) * all_pairs['is_min'].map(
+                                        abs(all_pairs['min'] - all_pairs['max'])*(1 - all_pairs['min'] / all_pairs['max']) * all_pairs['is_min'].map(
                                             {True: -1, False: 1})))
     # Merge the DI and 'is_min' columns back to the original dataframe
     con_summary = df.merge(all_pairs[['Stim', 'Chan', 'DI', 'Sig']],
                            on=['Stim', 'Chan', 'Sig'],
                            how='left')
     con_summary = con_summary.drop_duplicates().reset_index(drop=True)
+    con_summary = get_delay(con_summary, CC_summ, con_trial_cleaned, EEG_resp)
+
+    return con_summary
+def get_delay(con_summary, CC_summ, con_trial_cleaned, EEG_resp, t0 = 1, Fs = 500):
     # add delay
     for i in range(len(con_summary[con_summary.Sig > 0])):
         sc = con_summary.loc[con_summary.Sig > 0, 'Stim'].values[i]
         rc = con_summary.loc[con_summary.Sig > 0, 'Chan'].values[i]
+        if (sc==6) & (rc==64):
+            print('stop')
         # only significant trials
         num = con_trial_cleaned.loc[(con_trial_cleaned.Stim == sc) & (con_trial_cleaned.Chan == rc) & (
                 con_trial_cleaned.Sig == 1), 'Num'].values
-        trials_score = CCEP_func.zscore_CCEP(EEG_resp[rc, num, :], t_0=1, w0=0.2, Fs=500)
-        signal = np.nanmean(trials_score, 0)
-        # signal = np.nanmean(EEG_resp[rc, num, :], 0)
+        # only significant trials
+        num_z = con_trial_cleaned.loc[(con_trial_cleaned.Stim == sc) & (con_trial_cleaned.Chan == rc), 'Num'].values
         WOI = CC_summ.loc[(CC_summ.Stim == sc) & (CC_summ.Chan == rc), 't_WOI'].values
         if len(WOI) > 0:
             WOI = WOI[0]
         else:
             WOI = 0
-        delay, _, _, _ = CCEP_func.cal_delay(signal, WOI=WOI)
+
+
+        trials_score = ff.bp_filter(EEG_resp[rc, num, :],2 , 45, Fs) # EEG_resp[rc, num, :] ##CCEP_func.zscore_CCEP(EEG_resp[rc, num, :], t_0=1, w0=0.2, Fs=500)
+        signal = np.nanmean(trials_score, 0)
+        P2P = np.max(signal[int(1*Fs):int((t0+WOI+0.25)*Fs)])- np.min(signal[int(t0*Fs):int((t0+WOI+0.25)*Fs)])
+        LL_transform = LLf.get_LL_all(np.expand_dims(signal, [0, 1]), Fs, 0.25)[0, 0]
+        LL_pk = np.max(LL_transform[int((t0-0.125)*Fs):int((t0+WOI+0.25)*Fs)])
+        # signal = np.nanmean(EEG_resp[rc, num, :], 0)
+        # delay, _, _, _ = CCEP_func.cal_delay(signal, WOI=WOI)
+        delay = CCEP_func.CCEP_onset(signal, WOI=WOI)
+        zscore = CCEP_func.zscore_CCEP(np.nanmean(EEG_resp[rc, num_z, :],0), t_0=t0, w0=0.2,w1 = 0.05,  Fs=500)
         con_summary.loc[(con_summary.Stim == sc) & (con_summary.Chan == rc), 'delay'] = delay
-
+        con_summary.loc[(con_summary.Stim == sc) & (con_summary.Chan == rc), 'Num_sig_trial'] = len(num)
+        con_summary.loc[(con_summary.Stim == sc) & (con_summary.Chan == rc), 'Mean_P2P'] = P2P
+        con_summary.loc[(con_summary.Stim == sc) & (con_summary.Chan == rc), 'Mean_LL'] = LL_pk
+        con_summary.loc[(con_summary.Stim == sc) & (con_summary.Chan == rc), 'Zscore'] = np.max(abs(zscore[int(Fs*(t0+0.05)):int(Fs*(t0+0.5))]))
     return con_summary
-
 def get_peaks_AUC(data, EEG_resp, t0=1, Fs=500):
     new_lab = ['N1', 'N2', 'AUC', 'P2P_1s']
     for l in new_lab:

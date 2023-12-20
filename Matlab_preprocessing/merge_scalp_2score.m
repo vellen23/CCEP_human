@@ -1,5 +1,5 @@
-% clear all
-% close all
+clear all
+close all
 
 %% merge scalp files to score
 
@@ -21,7 +21,7 @@ warning('off','MATLAB:xlswrite:AddSheet'); %optional
 
 %%
 
-subj            = 'EL027';
+subj            = 'EL013';
 %block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
@@ -48,6 +48,7 @@ while i<= length(block_files)
         i = i+1;
     end
 end
+stop
 %%
 % files= dir([dir_files '\*CR*.EDF']);
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
@@ -56,7 +57,7 @@ path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 scalp_all       = [];
 score_all = [];
 Fs1 = 1024; %1024
-for sf=1:height(score_files)
+for sf=2:height(score_files)
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
     for i=3:length(block_files)

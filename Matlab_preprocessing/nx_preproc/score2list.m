@@ -36,7 +36,9 @@ function [] = score2list(path, badtimes)
         score = zeros(1,12000);
     end
     
-    
+    if isempty(score)
+         score = zeros(1,12000);
+    end
     % sleep score
 
     Fs_score    = 1;
@@ -47,7 +49,7 @@ function [] = score2list(path, badtimes)
     [tf, loc] = ismember(score_fs,x);
     %[x, ~, indAval] = unique(scores);
     %wake, n1,n2,n3,rem, benzo, fluma, .., .., sz
-    Avalnew = [0,1,2,3,4,0,9,0,0,0];
+    Avalnew = [0,1,2,3,4,5,9,0,0,0];
     score_fs = Avalnew(loc);
     
     stim_list.sleep = zeros(size(stim_list,1), 1);    %0

@@ -15,18 +15,24 @@ clearvars cwp idcs
 addpath([pwd '/nx_preproc']);
 % ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
+%%
+% Stack the two tables
+combinedTable = [table1; table2];
+
+% Sort the combined table by 'date', 'h', 'min', 's'
+sortedTable = sortrows(combinedTable, {'date', 'h', 'min', 's'});
 
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL028'; %% change name if another data is used !!
+subj            = 'EL020'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 % load([path_patient, '\\Electrodes\\labels.mat']);
 
 %% 1. log 
 log_files= dir([dir_files '\*CR*.log']);
-log_ix = 1; % find automated way or select manually
+log_ix = 3; % find automated way or select manually
 log             = importfile_log_2([dir_files '\' log_files(log_ix).name]);
 stimlist_all = log(log.date~="WAIT",:);
 % stimlist_all = stimlist_all(stimlist_all.type=="BMCT",:);
@@ -38,7 +44,7 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date1 = 20231121;
+date1 = 20231123;
 % Calculate the corresponding dates for each day
 correspondingDates = datetime(num2str(date1), 'Format', 'yyyyMMdd') + days(stimlist_all.date - 1);
 stimlist_all.date = correspondingDates;
@@ -48,18 +54,45 @@ integerDates = year(stimlist_all.date) * 10000 + month(stimlist_all.date) * 100 
 
 % Update the "date" column in the table with integer date values
 stimlist_all.date = integerDates;
+% adding 'CR' to CT (cognitive task)
+stimlist_all.Var18{1,1} = 'CR';
+stimlist_all.Properties.VariableNames{18} = 'CT';
+% todo: add RS, S_A, S_V, C_A, or C_V for specific cognitive tasks
 %% update block number
-n_block = 16;
+n_block = 1;
 stimlist_all.stim_block = stimlist_all.stim_block+n_block;
 
 %% type
 type                = 'CR';
 path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 
-%% 
+%% Only CR
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 files= dir([dir_files '\*CR*.EDF']);
-for j=8:length(files)
+% Define the directory path
+%% CR or CT
+dir_files = fullfile(path_patient, 'data_raw', 'EL_Experiment');
+% Search for files ending with .EDF and containing 'CR'
+filesCR = dir(fullfile(dir_files, '*CR*.EDF'));
+% Search for files ending with .EDF and containing 'CT'
+filesCT = dir(fullfile(dir_files, '*CT*.EDF'));
+% Combine the results from both searches
+files = [filesCR; filesCT];
+% Extract the names of the files
+fileNames = {files.name};
+% Sort the file names
+[sortedNames, sortOrder] = sort(fileNames);
+% Reorder the files array based on the sorted order
+files = files(sortOrder);
+%%
+for j=2:3
+    file = files(j).name;
+    filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
+    
+    H                      = Epitome_edfExtractHeader(filepath);
+end
+%%
+for j=3:3
     %% 1. read first raw data
     file = files(j).name
     filepath               = [dir_files '/' file]; %'/Volumes/EvM_T7/EL008/Data_raw/EL008_BM_1.edf';
@@ -180,7 +213,7 @@ end
     IPI    = stimlist.IPI_ms(n_trig);
     x_s = 10;
     x_ax        = -x_s:1/Fs:x_s;
-    c= 82;% stimlist.ChanP(n_trig);
+    c= 5;% stimlist.ChanP(n_trig);
     plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
     hold on
     plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));
@@ -214,22 +247,22 @@ end
         % cut_block_edf(EEG_block, stim_list,type,block_num, Fs, subj,BP_label, path_pp)
         %(EEG_block, stim_list,type,block_num, Fs, subj,BP_label, path_pp)
     end
-    assignin('base',['stimlist' file(end-8:end-4)], stimlist)
-    if height(stimlist_all)<10
-        log_ix = log_ix+1;
-        log             = import_logfile([dir_files '\' log_files(log_ix).name]);
-        % file_log =[dir_files '/20220622_EL015_log.log'];
-        % file_log = 'T:\EL_experiment\Patients\EL016\infos\20220921_EL016_log.log';
-        % log                 = import_logfile(file_log);
-        stimlist_all   = read_log(log);
-        stimlist_all=stimlist_all(startsWith(string(stimlist_all.type), "CR"),:);
-        stimlist_all.keep = ones(height(stimlist_all),1);
-        % update block numbers
-      
-        idx = find(stimlist_all.stim_block>0);
-        stimlist_all.stim_block(idx) = stimlist_all.stim_block(idx)+max(stimlist.b);
-
-    end
+    assignin('base',['stimlist' file(end-14:end-4)], stimlist)
+%     if height(stimlist_all)<10
+%         log_ix = log_ix+1;
+%         log             = import_logfile([dir_files '\' log_files(log_ix).name]);
+%         % file_log =[dir_files '/20220622_EL015_log.log'];
+%         % file_log = 'T:\EL_experiment\Patients\EL016\infos\20220921_EL016_log.log';
+%         % log                 = import_logfile(file_log);
+%         stimlist_all   = read_log(log);
+%         stimlist_all=stimlist_all(startsWith(string(stimlist_all.type), "CR"),:);
+%         stimlist_all.keep = ones(height(stimlist_all),1);
+%         % update block numbers
+%       
+%         idx = find(stimlist_all.stim_block>0);
+%         stimlist_all.stim_block(idx) = stimlist_all.stim_block(idx)+max(stimlist.b);
+% 
+%     end
 end
 
 %%%%%

@@ -25,15 +25,15 @@ dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 load([path_patient, '\\Electrodes\\labels.mat']);
 
 %% 1. log 
-log_files= dir([dir_files '\*BMCT.log']);
-i = 1; % find automated way or select manually
+log_files= dir([dir_files '\*CT*.log']);
+i = 2; % find automated way or select manually
 log             = importfile_log_2([dir_files '\' log_files(i).name]);
 stimlist_all = log(log.date~="WAIT",:);
 stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date = 20230511;
+date = 20231124;
 midnight = find(stimlist_all.h==0);
 if ~isempty(midnight)
     midnight = midnight(1);
@@ -44,7 +44,7 @@ else
 end
 stimlist_all = stimlist_all(stimlist_all.type == "BMCT",:);
 %% update block number
-n_block = 31;
+n_block = 18;
 stimlist_all.stim_block = stimlist_all.stim_block+n_block;
 
 %% type

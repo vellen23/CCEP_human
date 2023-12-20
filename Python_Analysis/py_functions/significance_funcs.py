@@ -124,6 +124,88 @@ def get_pearson2mean_windowed(x_gt, x_trials, tx=1, win=0.25, Fs=500):
         corr_all[:,i]= np.corrcoef(x_gt[x0:x1], EEG_pad[:, i:int(i+(win*Fs))])[0, 1:]
     return corr_all
 
+def calculate_max_cross_correlation(x_gt, x_trials, tx=1, ty=1, win=0.25, Fs = 500, max_lag_ms = 10):
+    """
+    Calculate the maximum cross-correlation for each trial with the ground truth time series.
+
+    :param ground_truth: Ground truth time series (array-like).
+    :param trials: Trials to be investigated (2D array-like, each row is a trial).
+    :param fs: Sampling frequency in Hz.
+    :param max_lag_ms: Maximum time lag allowed in milliseconds.
+    :return: Array of maximum cross-correlations for each trial.
+    """
+    max_lag = int(Fs * max_lag_ms / 1000)  # Convert max lag from ms to samples
+    x0 = int(tx * Fs)
+    x1 = int(x0 + win * Fs)
+    y0 = int(ty * Fs)-max_lag
+    y1 = int(y0 + win * Fs)+max_lag
+    ground_truth = x_gt[x0:x1]
+    trials = x_trials[:,y0:y1]
+
+    max_correlations = np.zeros(trials.shape[0])
+
+    for i, trial in enumerate(trials):
+        max_corr = 0
+
+        for lag in range(-max_lag, max_lag + 1):
+            if lag < 0:
+                shifted_trial = np.pad(trial[:lag], (abs(lag), 0), 'constant')
+                shifted_gt = ground_truth
+            else:
+                shifted_trial = trial
+                shifted_gt = np.pad(ground_truth[lag:], (0, lag), 'constant')
+
+            corr = np.corrcoef(shifted_trial, shifted_gt)[0, 1]
+
+            if abs(corr) > abs(max_corr):
+                max_corr = corr
+
+        max_correlations[i] = max_corr
+
+    return max_correlations
+
+def get_shifted_pearson_correlation(x_gt, x_trials, tx, ty, win, Fs, max_shift_ms=10):
+    # Define the window for the ground truth based on WOI
+    x0 = int(tx * Fs)
+    x1 = int(x0 + win * Fs)
+
+    # Calculate the maximum allowed shift in samples
+    max_shift = int(max_shift_ms * Fs / 1000)
+
+    # Initialize an array to store the maximum correlation for each trial
+    if len(x_trials.shape) == 1:
+        trials = [x_trials]
+    else:
+        trials = x_trials
+
+    max_correlations = np.zeros(len(trials))
+    max_correlations_lag = np.zeros(len(trials))
+
+    # Iterate over each trial
+    for i, trial in enumerate(trials):
+        max_corr = -1
+        max_corr_lag = 0
+        # Iterate over the allowed shift range
+        for shift in range(-max_shift, max_shift + 1):
+            y0 = int((ty + shift / Fs) * Fs)
+            y1 = int(y0 + win * Fs)
+
+            # Ensure the window is within the bounds of the trial
+            if y0 >= 0 and y1 <= len(trial):
+                # Calculate Pearson correlation coefficient
+                corr = np.corrcoef(x_gt[x0:x1], trial[y0:y1])[0, 1]
+
+                # Check if this is the maximum correlation for this trial
+                if corr > max_corr:
+                    max_corr = corr
+                    max_corr_lag = y0
+
+
+        max_correlations[i] = max_corr
+        max_correlations_lag[i] = max_corr_lag
+
+    return max_correlations, max_correlations_lag
+
 def get_pearson2mean(x_gt, x_trials, tx=1, ty=1, win=0.25, Fs=500):
     # get pearson coeff for all trials to ground truth for selected time window
     x0 = int(tx * Fs)

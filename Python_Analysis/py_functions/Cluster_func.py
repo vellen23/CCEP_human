@@ -96,7 +96,7 @@ def ts_cluster(X, n=2, method='euclidean'):
         y = ks.predict(X)  # cluster label
         CC = cc[:, :, 0]
     elif method == 'similarity':
-        dist, y, CC = KMeans_similarity(X, 2, t=method, max_it=30)
+        dist, y, CC = KMeans_similarity(X, 2, t=method, max_it=50)
     else:
         X = np.expand_dims(X, -1)
         ks = TimeSeriesKMeans(n_clusters=n, metric=method, max_iter=10, max_iter_barycenter=10, random_state=0).fit(X)

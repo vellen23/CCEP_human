@@ -746,13 +746,10 @@ def start_subj(subj, cluster_method='similarity'):
         run_main.get_summary(con_trial, CC_summ, EEG_resp)
     wake = 1
     if wake:
-        run_main.get_summary_SS(con_trial, CC_summ, EEG_resp, delay=1, skip=0)
-        more = 0
-        if more:
-            run_main.get_node_features(con_trial, 'LL', skip=0)
-            run_main.get_node_features(con_trial, 'P', skip=0)
-            run_main.connection_sleep_P_diff(con_trial, skip=0)
-            run_main.connection_sleep_diff(con_trial, metric='LL', skip=0)
+        run_main.get_node_features(con_trial, 'LL', skip=0)
+        run_main.get_node_features(con_trial, 'P', skip=0)
+        run_main.connection_sleep_P_diff(con_trial, skip=0)
+        run_main.connection_sleep_diff(con_trial, metric='LL', skip=0)
         # run_main.BM_plots_General(CC_summ, con_trial, 0)
     # con_summary = pd.read_csv(summary_gen_path)
     # run_main.get_subnetworks(con_summary)
@@ -767,8 +764,8 @@ def start_subj(subj, cluster_method='similarity'):
 
 thread = 0
 sig = 0
-subjs = ["EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL019", "EL020", "EL021",
-         "EL022", "EL024", "EL026", "EL027", "EL028"]
+subjs = ["EL012", "EL013", "EL014", "EL015", "EL016", "EL017", "EL019", "EL020", "EL021",
+         "EL022", "EL024", "EL025", "EL026", "EL027", "EL028"]
 
 for subj in subjs:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
     if thread:

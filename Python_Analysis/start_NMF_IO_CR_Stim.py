@@ -8,23 +8,16 @@ import time
 import _thread
 import numpy as np
 import pandas as pd
-from tkinter import filedialog
 from tkinter import *
 import matplotlib.pyplot as plt
 from pathlib import Path
 
 root = Tk()
 root.withdraw()
-import scipy
-from scipy import signal
-import pylab
-import scipy.cluster.hierarchy as sch
-import platform
 from glob import glob
 import basic_func as bf
-import IO_func as IOf
-import LL_funcs as LLf
 import NMF_funcs as NMFf
+import NMF_funcs_plot as NMFf_plot
 from sklearn.decomposition import NMF
 
 ##all
@@ -56,29 +49,8 @@ cwd = os.getcwd()
 folder = 'InputOutput'
 cond_folder = 'CR'
 
-sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
+sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
-if platform.system() == 'Windows':
-    # sep = ','
-    path = sub_path+'\\Patients\\'  # + subj
-    # path_patient_analysis = 'T:\EL_experiment\Projects\EL_experiment\Analysis\Patients\\' + subj
-    # path_patient = 'T:\EL_experiment\Patients\\' + subj + '\Data\EL_experiment'  # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-    CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx",
-                             header=0)
-    regions = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\elab_labels.xlsx", sheet_name='regions',
-                            header=0)
-
-    # path_patient    = 'E:\PhD\EL_experiment\Patients\\'+subj # os.path.dirname(os.path.dirname(cwd))+'/Patients/'+subj
-else:  # 'Darwin' for MAC
-    path = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/'  # + subj
-    CR_color = pd.read_excel("/Volumes/EvM_T7/PhD/EL_experiment/Patients/all/Analysis/BrainMapping/CR_color.xlsx",
-                             header=0)
-    regions = pd.read_excel("/Volumes/EvM_T7/PhD/EL_experiment/Patients/all/elab_labels.xlsx", sheet_name='regions',
-                            header=0)
-
-sep = ';'
-color_regions = regions.color.values
-C = regions.label.values
 cond_folder = 'CR'
 
 
@@ -86,7 +58,7 @@ def compute_subj(subj, metric='LL'):
     print(f'Performing calculations on {subj}')
 
     ######## General Infos
-    path_patient_analysis = sub_path+'\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
     path_gen = os.path.join(sub_path + '\\Patients\\' + subj)
     if not os.path.exists(path_gen):
         path_gen = 'T:\\EL_experiment\\Patients\\' + subj
@@ -117,8 +89,9 @@ def compute_subj(subj, metric='LL'):
     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
     # load patient specific information
     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
-    lbls = lbls[lbls.type == 'SEEG']
-    lbls = lbls.reset_index(drop=True)
+    if "type" in lbls:
+        lbls = lbls[lbls.type == 'SEEG']
+        lbls = lbls.reset_index(drop=True)
 
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(
         stimlist,
@@ -166,13 +139,15 @@ def compute_subj(subj, metric='LL'):
         title_LL = subj + ', Stim: ' + labels_all[sc] + ', ' + metric + ' as input'
         # todo: remove
         # run_again = 0
-        if os.path.isfile(V_path):
+        skip = 0
+        if os.path.isfile(V_path)*skip:
             con_trial_nan = con_trial_Ph[
                 (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1)]  # con_trial_Ph.copy(deep=True)
             NMF_input = np.load(V_path)
         else:
             con_trial_nan = con_trial_Ph[
-                (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1) & (con_trial_Ph.Artefact <1)]  # con_trial_Ph.copy(deep=True)
+                (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1) & (
+                            con_trial_Ph.Artefact < 1)]  # con_trial_Ph.copy(deep=True)
             con_trial_nan = con_trial_nan.reset_index(drop=True)
             if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
                 con_trial_nan.groupby(['Chan', 'Sleep', 'Int'])[metric].transform(
@@ -218,7 +193,7 @@ def compute_subj(subj, metric='LL'):
             labels_clean = np.delete(labels_all, bad_all, 0)
             NMF_input_clean = np.delete(NMF_input, bad_all, 0)
             file = nmf_fig_path + 'NMF_input_IO_' + metric
-            NMFf.plot_V(NMF_input_clean, subj + ' -- NMF input matrix: ' + metric, ylabels=labels_clean, file=file)
+            NMFf_plot.plot_V(NMF_input_clean, subj + ' -- NMF input matrix: ' + metric, ylabels=labels_clean, file=file)
 
         k0 = 3
         k1 = 7
@@ -228,10 +203,11 @@ def compute_subj(subj, metric='LL'):
         if os.path.isfile(stab_path):
             stability, instability = np.load(stab_path)
         else:
-            stability, instability = NMFf.get_stability(NMF_input, num_it=num_it, k0=k0, k1=k1)
+            # stability, instability = NMFf.get_stability(NMF_input, num_it=num_it, k0=k0, k1=k1)
+            stability, instability = NMFf.stabNMF(NMF_input, num_it=num_it, k0=k0, k1=k1)
             np.save(stab_path, [stability, instability])
             title_stab = subj + ' -- IO CR -- Stability NNMF, iterations: ' + str(num_it)
-            NMFf.plot_stability(stability, instability, k0, k1, title_stab, nmf_fig_path)
+            NMFf_plot.plot_stability(stability, instability, k0, k1, title_stab, nmf_fig_path)
         # select rank
         stab_sel = (stability / stability.max() - instability / instability.max())
         ix0 = np.argmax(stab_sel)
@@ -243,7 +219,7 @@ def compute_subj(subj, metric='LL'):
         p = 1
         for rk in [ranks[ix0]]:  # rank_sel:  # range(k0, k1 + 1):
             if rk == 2: rk = 3
-            [W, W0, H] = NMFf.get_nnmf_Epi(NMF_input, rk, it=4000)
+            W, H = NMFf.get_nnmf(NMF_input, rk, it=4000)
             # columns label
             col0 = ['Stim', 'Int', 'Block', 'Hour', 'Date', 'Sleep']  #  'Hour',
             col = ['Stim', 'Int', 'Block', 'Hour', 'Date', 'Sleep']  #  'Hour',
@@ -268,14 +244,14 @@ def compute_subj(subj, metric='LL'):
             con_nmf.insert(0, 'Stim_L', labels_all[sc])
             con_nmf.insert(0, 'Area', labels_region[sc])
             # todo: plot all H against Int
-            NMFf.plot_H_trial(con_nmf, 'Int', 'Stim_L', title_LL, nmf_fig_path)
+            NMFf_plot.plot_H_trial(con_nmf, 'Int', 'Stim_L', title_LL, nmf_fig_path)
             # NMFf.plot_H_trial(pd_con_nnmf, 'Int', 'Block', title_LL, nmf_fig_path)
             # W
             labels_clean = np.delete(labels_all, bad_all, 0)
             W_clean = np.delete(W, bad_all, 0)
             file = nmf_fig_path + 'W_r' + str(rk)
             title = subj + ' -- Basic Function, Rank: ' + str(rk) + '  -- ' + cond_folder
-            NMFf.plot_W(W_clean, title, labels_clean, file)
+            NMFf_plot.plot_W(W_clean, title, labels_clean, file)
 
             if np.isin(rk, rank_sel):
                 # NMFf.plot_H_trial(con_nmf, 'Int', 'Block', title_LL, nmf_fig_path)
@@ -283,9 +259,9 @@ def compute_subj(subj, metric='LL'):
                 con_nmf.to_csv(file, index=False, header=True)
 
                 # associate H to stim channel
-                NNMF_ass = NMFf.get_NMF_Stim_association(con_nmf, H_col)
+                NNMF_ass = NMFf_plot.get_NMF_Stim_association(con_nmf, H_col)
                 for cond in ['Block', 'Sleep', 'SleepState']:
-                    NNMF_AUC = NMFf.get_NMF_AUC(con_nmf, NNMF_ass, cond_sel=cond)
+                    NNMF_AUC = NMFf_plot.get_NMF_AUC(con_nmf, NNMF_ass, cond_sel=cond)
                     NNMF_AUC.insert(0, 'Stim_L', labels_all[sc])
                     NNMF_AUC.insert(0, 'Area', labels_region[sc])
 
@@ -301,18 +277,18 @@ def compute_subj(subj, metric='LL'):
                 # plot AUC
                 # ssave H
                 file = nmf_fig_path + 'NMF_H_rk' + str(rk)
-                NMFf.plot_H(H, subj + ' -- Activation Function H ', file=file)
+                NMFf_plot.plot_H(H, subj + ' -- Activation Function H ', file=file)
                 # NNMF_AUC = NNMF_AUC[NNMF_AUC.Pearson > -1]
                 for sc in np.unique(NNMF_ass.Stim).astype('int'):
                     for H in np.unique(NNMF_ass.loc[NNMF_ass.Stim == sc, 'H_num']).astype('int'):
                         file = nmf_fig_path + 'IO_Sleep_AUC_rk' + str(rk) + '_H' + str(H) + '_Stim_' + labels_all[
                             sc]  # +'.npy'
                         title = subj + ' -- Sleep -- ' + labels_all[sc] + ', H' + str(H) + '/' + str(rk)
-                        NMFf.plot_NMF_AUC_Sleep(con_nmf, sc, H, title, file)
+                        NMFf_plot.plot_NMF_AUC_Sleep(con_nmf, sc, H, title, file)
                         title = subj + ' -- SleepStat -- ' + labels_all[sc] + ', H' + str(H) + '/' + str(rk)
                         file = nmf_fig_path + 'IO_SleepState_AUC_rk' + str(rk) + '_H' + str(H) + '_Stim_' + labels_all[
                             sc]  # +'.npy'
-                        NMFf.plot_NMF_AUC_SleepState(con_nmf, sc, H, title, file)
+                        NMFf_plot.plot_NMF_AUC_SleepState(con_nmf, sc, H, title, file)
                 p = p + 1
     print(subj + ' ---- DONE ------ ')
 
@@ -322,7 +298,8 @@ def compute_subj(subj, metric='LL'):
 
 print('START')
 metrics = ['LL']  # 'sN2','sN1',
-for subj in ["EL025"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
+for subj in ["EL020", "EL021", "EL022", "EL025", "EL026",
+             "EL027"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
     for m in metrics:
         compute_subj(subj, m)
 #         try:

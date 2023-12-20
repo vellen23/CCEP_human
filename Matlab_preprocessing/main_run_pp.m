@@ -21,14 +21,14 @@ block_path = [path_patient,'/data_raw/EL_Experiment/experiment1'];
 % % subj            = 'EL020';
 % %block_path = ['Y:\eLab\Patients\' subj '\Data\LT_experiment\data_blocks'];
 % %block_path = [path_patient '\Data\EL_experiment\experiment1\data_blocks'];
-% start 
+start 
 %% get rescale factor based on one block during 5min baseline
 % load one file, EEG and scalpEEG
 if exist( [path_patient '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'], 'file')
     load([path_patient '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'])
 else
-    [sclA, sclC]             = get_rescale_factors(EEG, Fs, 0, 280);
-    [sclA_scalp, sclC_scalp] = get_rescale_factors(scalpEEG, scalpFs, 1, 280);
+    [sclA, sclC]             = get_rescale_factors(EEG, Fs, 0, 30);
+    [sclA_scalp, sclC_scalp] = get_rescale_factors(scalpEEG, scalpFs, 1, 30);
     save([path_patient '\Data\EL_experiment\experiment1\data_blocks\scale_fac.mat'],'sclA','sclA_scalp', 'sclC','sclC_scalp');
 end
 

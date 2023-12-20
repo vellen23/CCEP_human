@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import sys
-
+import statsmodels
 sys.path.append('T:\\EL_experiment\\Codes\\CCEP_human\\Python_Analysis\\py_functions')
 import pandas as pd
 from glob import glob
@@ -11,13 +11,33 @@ import tqdm
 import significant_connections as SCF
 import matplotlib.font_manager as fm
 import h5py
-
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
 from pathlib import Path
 
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
+def trial_significance(subj, folder='BrainMapping', cond_folder='CR', p=0.05):
+    print(subj + ' ---- START ------ ')
 
-def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method='kmeans', skipt_GT=1, skip_surr=1,
+    # path_patient_analysis = 'Y:\\eLab\Projects\EL_experiment\Analysis\Patients\\' + subj
+    path_patient_analysis = sub_path + '\\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+    ## get labels for each channel
+    file_con = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
+
+    ## load required data
+    con_trial = pd.read_csv(
+        file_con)  # table of each stimulation and for each response channel the corresponding LL value etc.
+    # update sig threshold
+    req = (con_trial.p_value_LL>=0)&(con_trial.Artefact<1)
+    con_trial.loc[req, 'Sig'] = 0
+    p_values =con_trial.loc[req, 'p_value_LL'].values
+    p_sig, p_corr = statsmodels.stats.multitest.fdrcorrection(abs(p_values-1))
+    con_trial.loc[req, 'Sig'] = np.array(p_sig*1)
+    con_trial['Sig'] = pd.to_numeric(con_trial['Sig'], errors='coerce')
+    con_trial.to_csv(file_con, header=True, index=False)
+
+def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method='kmeans', skipt_GT=1, skip_surr=1,skip_summ=1,
                   trial_sig_labeling=1):
     print(subj + ' ---- START ------ ')
 
@@ -94,7 +114,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
         M_t_resp[:, :, 0] = -1  # sig_LL of mean
         for sc in tqdm.tqdm(np.unique(con_trial.Stim)):
             sc = int(sc)
-            resp_chans = np.unique(con_trial.loc[(con_trial.Artefact < 1) & (con_trial.Stim == sc), 'Chan']).astype(
+            resp_chans = np.unique(con_trial.loc[(con_trial.Ictal == 0) &(con_trial.Artefact < 1) & (con_trial.Stim == sc), 'Chan']).astype(
                 'int')
             for rc in resp_chans:
                 # GT output: M_GT, [r, t_onset, t_WOI], LL_CC
@@ -120,9 +140,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
         surr_thr = pd.read_csv(file_CC_surr)
         update_sig_con = 0
     else:
-        # M_CCp_surr = np.zeros((len(labels_all), 2))
         M_CC_LL_surr = np.zeros((len(labels_all), 6))
-        # M_mean_LL_surr = np.zeros((len(labels_all), 3))
         CC_LL_surr = np.zeros((len(labels_all), n_surr, 2, 2000))
         CC_WOI = np.zeros((len(labels_all), n_surr))
         stims = np.zeros((len(labels_all), 1))
@@ -150,31 +168,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
                                    np.nanpercentile(LL_surr, 99), np.nanpercentile(LL_mean_surr, 50),
                                    np.nanpercentile(LL_mean_surr, 95),
                                    np.nanpercentile(LL_mean_surr, 99)]
-            # M_mean_LL_surr[rc, :] = [np.nanpercentile(LL_mean_surr, 50), np.nanpercentile(LL_mean_surr, 95),
-            #                       np.nanpercentile(LL_mean_surr, 99)]
 
-            # plot
-            surr_plot = 0
-            if surr_plot:
-                fig = plt.figure(figsize=(10, 10))
-                fig.patch.set_facecolor('xkcd:white')
-                plt.title(labels_all[rc] + ' Surrogate Testing of CC LL', fontsize=20)
-                plt.hist(LL_surr.reshape(-1), color=[0, 0, 0], alpha=0.3, label='surrogates, n: ' + str(len(LL_surr)))
-                plt.xlim([0, np.max([np.nanpercentile(LL_surr, 99) * 1.5, 1])])
-                plt.axvline(np.nanpercentile(LL_surr, 99), color=[1, 0, 0], label='99th')
-                plt.axvline(np.nanpercentile(LL_surr, 95), color=[1, 0, 0], label='95th')
-                plt.axvline(np.nanpercentile(LL_surr, 50), color=[0, 0, 0], label='50th')
-                plt.legend(fontsize=15)
-                plt.xticks(fontsize=15)
-                plt.yticks(fontsize=15)
-                plt.xlabel('LL of CC', fontsize=20)
-                plt.ylabel('Number of Tests', fontsize=20)
-                plt.savefig(fig_path + subj + '_' + labels_all[rc] + '_LL.svg')
-                plt.savefig(fig_path + subj + '_' + labels_all[rc] + '.jpg')
-                plt.close()
-
-        # np.savez(file_CC_LL_surr, name1=CC_LL_surr, name2=CC_WOI)
-        # np.save(file_GT, M_GT_all)
         with h5py.File(file_CC_LL_surr, 'w') as hf:
             hf.create_dataset("CC_LL_surr", data=CC_LL_surr)
             hf.create_dataset("CC_WOI", data=CC_WOI)
@@ -190,7 +184,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
         update_sig_con = 1
         print(subj + ' -- CC surrogate calculation DONE --', end='\r')
     # SUMMARY
-    if os.path.isfile(file_CC_summ) * skip_surr * skipt_GT:
+    if os.path.isfile(file_CC_summ) * skip_surr * skipt_GT*skip_summ:
         CC_summ = pd.read_csv(file_CC_summ)
     else:
         files_list = glob(path_patient_analysis + '\\' + folder + '/data/Stim_list_*')
@@ -204,7 +198,10 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
             M_GT_all = h5py.File(file_GT)
             M_GT_all = M_GT_all['M_GT_all']
 
-        CC_summ = SCF.get_CC_summ(M_GT_all, M_t_resp, surr_thr, coord_all, t_0=1, w=0.25, Fs=500)
+            CC_LL_surr = h5py.File(file_CC_LL_surr)
+            CC_LL_surr = CC_LL_surr['CC_LL_surr']
+
+        CC_summ = SCF.get_CC_summ(M_GT_all, M_t_resp, CC_LL_surr, surr_thr, coord_all, t_0=1, w=0.25, Fs=500)
         CC_summ.insert(0, 'Subj', subj)
         CC_summ.to_csv(file_CC_summ, header=True, index=False)
         print(subj + ' -- CC summary saved --', end='\r')
@@ -234,6 +231,11 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
             if col in con_trial:
                 con_trial = con_trial.drop(columns=col)
         print('Get sig trial label....')
+        CC_summ["sig"] = 0
+        p = abs(CC_summ.p_val.values-1)
+        p_sig, _ = statsmodels.stats.multitest.fdrcorrection(p)
+        CC_summ['sig'] = np.array(p_sig * 1)
+        CC_summ['sig'] = pd.to_numeric(CC_summ['sig'], errors='coerce')
         for sc in tqdm.tqdm(np.unique(con_trial.Stim), desc='Stimulation Channel'):
             sc = int(sc)
             resp_chans = np.unique(con_trial.loc[(con_trial.Artefact < 1) & (con_trial.Stim == sc), 'Chan']).astype(
@@ -241,8 +243,7 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
             for rc in resp_chans:
                 # decide for sig threhsold (only CC or also mean)
                 dat = CC_summ.loc[
-                    (CC_summ.Stim == sc) & (CC_summ.Chan == rc) & (CC_summ.sig > 0.5) & (
-                            CC_summ.art == 0)]  # & (CC_summ.art == 0)
+                    (CC_summ.Stim == sc) & (CC_summ.Chan == rc) & (CC_summ.sig == 1) & (CC_summ.sig_w == 1)]  # & (CC_summ.art == 0)
                 # if there is a significant CC in this connection
                 if len(dat) > 0:
                     ix_cc = dat.CC.values.astype('int')
@@ -260,6 +261,15 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
                          index=False,
                          header=True)
         print(subj + ' -- single trial DONE --', end='\r')
+        rem_art = 1
+        if rem_art:
+            con_trial.loc[(con_trial.Artefact == 3), 'Artefact'] = 0
+            con_trial = mark_artefacts(con_trial, 'LL_pre')
+            con_trial.to_csv(file_con,
+                             index=False,
+                             header=True)
+            print(subj + ' -- bad trial removed --', end='\r')
+
     get_SNR = 0
 
     if get_SNR:
@@ -279,6 +289,20 @@ def start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method=
 
     print(subj + ' -- all DONE --')
 
+
+def mark_artefacts(con_trial, metric):
+    from scipy.stats import zscore
+    # group['z_score'] = zscore(group['P2P_BL'])
+    # group['Artefact'] = group['z_score'].apply(lambda x: 1 if x > 6 else group['Artefact'])
+    for c in np.unique(con_trial.Chan):
+        val_dist = con_trial.loc[(con_trial.Chan==c)&((con_trial.Artefact==0)), metric].values
+        val_dist_z = (val_dist-np.nanmean(val_dist))/np.nanstd(val_dist)
+        con_trial.loc[(con_trial.Chan==c)&((con_trial.Artefact==0)), 'zscore'] = val_dist_z
+        con_trial.loc[(con_trial.Chan == c) & (con_trial.Artefact == 0)& (con_trial.LL_pre >12)& (con_trial.zscore >8), 'Artefact'] = 3
+        con_trial.loc[(con_trial.Chan == c) & (con_trial.Artefact == 0) & (con_trial.P2P_BL > 3000) & (
+                    con_trial.zscore > 8), 'Artefact'] = 3
+    con_trial.drop('zscore', axis = 1, inplace = True)
+    return con_trial
 
 def sig_con_keller(subj, folder='BrainMapping', cond_folder='CR', t0=1, Fs=500):
     import CCEP_func

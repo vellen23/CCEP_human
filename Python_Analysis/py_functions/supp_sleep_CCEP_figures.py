@@ -57,7 +57,7 @@ def plot_SleepState(sc, rc, EEG_resp, con_trial, labels_all, metrics=['LL']):
     lists = con_trial[(con_trial['Chan'] == rc) & (con_trial['Stim'] == sc)].reset_index(drop=True)
     # Use GridSpec for custom subplot sizes
     # fig = plt.figure(figsize=(6+num_metrics*2.5, 3))
-    fig = plt.figure(figsize=(9, 3))
+    fig = plt.figure(figsize=(10.5, 3))
     width_ratios = [2] * 3 + [1] * num_metrics
     gs = gridspec.GridSpec(1, num_subplots, width_ratios=width_ratios)
     axes = [fig.add_subplot(gs[0])]
@@ -119,3 +119,40 @@ def plot_SleepState(sc, rc, EEG_resp, con_trial, labels_all, metrics=['LL']):
         ax.set_xticklabels([])
         ax.set_xlabel(metric)
     return axes
+
+def plot_CCEP_onset(EEG_resp, con_trial, labels_all, sc, rc, SS_summ, w_LL = 0.25, Fs = 500, t0 = 1):
+    fig, axes = plt.subplots(2,3, figsize=(6, 4))  # Create a 1x3 subplot grid
+    fig.patch.set_facecolor('xkcd:white')
+    plt.suptitle(labels_all[sc]+ ' -- '+labels_all[rc])
+    for ix, ss in enumerate(label_sleep):
+        lists = con_trial[(con_trial['Chan'] == rc) & (con_trial['Stim'] == sc)& (con_trial['Sig'] == 1)& (con_trial['Artefact'] <1)& (con_trial['SleepState']==s)].reset_index(drop=True)
+        stimnum = lists['Num'].values.astype('int')
+        data_CCEP = np.mean(EEG_resp[rc, stimnum, :], 0)
+        st = np.std(EEG_resp[rc, stimnum, :], 0)
+        LL_transform = LL_funcs.get_LL_all(np.expand_dims(data_CCEP, [0, 1]), Fs, 0.05)[0, 0]
+        delay = SS_summ.loc[(SS_summ.Stim==sc)&(SS_summ.Chan ==rc), 'delay_'+ss].values[0]
+        # CCEP
+        ax = axes[0, ix]
+        ax.plot(x_ax, data_CCEP, linewidth=2, color = [1,0,0])
+        ax.fill_between(x_ax, data_CCEP-st, data_CCEP+st,alpha =0.1, color=[1, 0, 0])
+        ax.axvline(0, color=[0, 0, 0])
+        ax.axvline(delay, color=[0, 1, 0])
+        if ix == 0:
+            ax.set_ylabel('[uV]')
+            # ax.set_yticks([0, 3, 6])
+        else:
+            ax.set_yticks([])
+        # LL
+        ax = axes[1, ix]
+        ax.plot(x_ax + w_LL / 2, LL_transform, linewidth=2, color = [1,0,0])
+        ax.set_xlabel('time [s]')
+        ax.set_xticks([0, 0.5])
+        ax.axvline(0, color=[0, 0, 0])
+        if ix == 0:
+            ax.set_ylabel('[uV/ms]')
+            # ax.set_yticks([0, 3, 6])
+        else:
+            ax.set_yticks([])
+        ax.axvline(0, color=[0, 0, 0])
+
+    return fig, axes

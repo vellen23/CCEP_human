@@ -57,10 +57,13 @@ def run_first(subj, prots=['BM', 'IO', 'PP'], cut=1, con_trial=1, hyp=0, concat=
     run_sig_con.start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method='similarity', skipt_GT=1,
                               skip_surr=1, trial_sig_labeling=1)
 
-def run_update(subj, prots=['BM'], cut=1, con_trial=1, hyp=0, concat=1):
-    save_hypnogram.run_main(subj, 1, 0, folders=['BrainMapping', 'InputOutput', 'PairedPulse'])
+def run_update(subj, prots=['BM']):
+    # BM_blocks.cal_con_trial(subj, cond_folder='CR', skip_block=0, skip_single=1)
 
-subjs = ["EL012", "EL015", "EL016", "EL019", "EL020", "EL021",
+    run_sig_con.start_subj_GT(subj, folder='BrainMapping', cond_folder='CR', cluster_method='similarity', skipt_GT=1,
+                              skip_surr=1, trial_sig_labeling=0)
+
+subjs = ["EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL017", "EL019", "EL020", "EL021",
          "EL022", "EL024", "EL025", "EL026", "EL027"]
 
 
@@ -70,7 +73,7 @@ for subj in subjs:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL
         import _thread
         _thread.start_new_thread(run_keller, (subj, ))
     else:
-        run_keller(subj)
+        run_update(subj)
 if thread:
     while 1:
         time.sleep(1)

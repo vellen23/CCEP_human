@@ -26,7 +26,7 @@ cwd = os.getcwd()
 class main:
     def __init__(self, subj, path_patient, dur=np.array([-1, 3])):
 
-        #if not os.path.exists(path_gen):
+        # if not os.path.exists(path_gen):
         #    path_gen = 'T:\\EL_experiment\\Patients\\' + subj  # if not in hulk check in T drive
         # path_patient = path_gen + '\Data\EL_experiment'  # path where data is stored
         path_infos = os.path.join(path_patient, 'infos')  # infos is either in Data or in general
@@ -218,7 +218,7 @@ class main:
             stim_table = pd.read_excel(data_path + "/" + subj + "_stimlist_" + t + ".xlsx")  #
             p = 0
         file_block = path_save + '\\' + folder + '/data/All_resps_' + str(p).zfill(
-                2) + '_' + t + '.npy'
+            2) + '_' + t + '.npy'
 
         if not os.path.exists(path_save + '\\' + folder):
             os.makedirs(path_save + '\\' + folder)
@@ -308,7 +308,7 @@ class main:
         # todo:
         np.save(path_save + '\\Epoch_data_' + prot + '.npy', EEG_block)
 
-    def cut_resp(self, path, block, type, skip = 1):
+    def cut_resp(self, path, block, type, skip=1):
         ###MAIN FUNCTION
         # infos, always the same
         if type == 'PP':
@@ -333,110 +333,115 @@ class main:
             subj = filename[0:5]  # EL000
             # data
             path_patient = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(path))))
-
-            t = filename[9:]  # BM, CR_BM, Ph_BM, Ph etc-
-            if filename[-1].isnumeric():
-                if filename[-2].isnumeric():
-                    t = filename[9:-2]
-                    p = int(filename[-2:])
-                else:
-                    t = filename[9:-1]
-                    p = int(filename[-1])
-                if t[-1] == '_':
-                    t = t[:-1]
-                stim_table = pd.read_excel(data_path + "/" + subj + "_stimlist_" + t + ".xlsx",
-                                           sheet_name='Sheet' + str(p))  #
-            else:
-                stim_table = pd.read_excel(data_path + "/" + subj + "_stimlist_" + t + ".xlsx")  #
-                p = 0
-            condition = t[0:2]
-            filename_block = self.path_patient_analysis + '\\' + folder + '/data/All_resps_' + str(block).zfill(
-                    2) + '_' + condition + str(p).zfill(2) + '.npy'
-            short_name = str(block).zfill(
-                    2) + '_' + condition + str(p).zfill(2)
-            if os.path.isfile(filename_block)*skip:
-                print(short_name+' already exist', end='\r')
-            else:
-                print(short_name + ' cutting', end='\r')
-                if type == 'LT':
-                    stim_table = stim_table[stim_table['type'].str.contains('|'.join(types))]
-                    # remove induction stimulations from stim list. we dont anaylze these for now..
-                    stim_table = stim_table[~stim_table['type'].str.contains('Prot')]
-                    folder = folder + '\\' + t
-                else:
-                    stim_table = stim_table[stim_table['type'].isin(types)]
-                if not os.path.exists(self.path_patient_analysis + '\\' + folder):
-                    os.makedirs(self.path_patient_analysis + '\\' + folder)
-                    os.makedirs(self.path_patient_analysis + '\\' + folder + '\\data')
-
-                stim_table = stim_table.drop(columns="Num", errors='ignore')
-                stim_table = stim_table.reset_index(drop=True)
-                stim_table = stim_table[stim_table.ChanP > 0]
-                stim_table = stim_table[stim_table.ChanN > 0]
-                stim_table = stim_table.reset_index(drop=True)
-                stim_table.insert(10, "Num", np.arange(0, len(stim_table), True))
-                if len(stim_table) > 0:
-                    if not os.path.exists(self.path_patient_analysis + '\\' + folder + '/data/'):
-                        os.makedirs(self.path_patient_analysis + '\\' + folder + '/data/')
-                    # Get bad channels
-                    if os.path.isfile(path + "/bad_chs.mat"):
-                        try:  # load bad channels
-                            matfile = h5py.File(path + "/bad_chs.mat", 'r')['bad_chs']
-                            bad_chan = matfile[()].T
-                        except IOError:
-                            bad_chan = scipy.io.loadmat(path + "/bad_chs.mat")['bad_chs']
-                        if len(bad_chan) == 0:
-                            bad_chan = np.zeros((len(self.labels), 1))
+            if os.path.isfile(path + "/ppEEG.mat"):
+                t = filename[9:]  # BM, CR_BM, Ph_BM, Ph etc-
+                if filename[-1].isnumeric():
+                    if filename[-2].isnumeric():
+                        t = filename[9:-2]
+                        p = int(filename[-2:])
                     else:
-                        bad_chan = np.zeros((len(self.labels), 1))
-                    try:
-                        badchans = pd.read_csv(self.path_patient_analysis + '\\' + folder + '/data/badchan.csv')
-                        badchans = badchans.drop(columns=str(block), errors='ignore')
-                        badchans.insert(loc=1, column=str(block), value=bad_chan[:, 0])
-                        # new_column = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
-                        # badchans[str(block)] = bad_chan[:, 0]
-                    except FileNotFoundError:
-                        badchans = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
-                    badchans.to_csv(self.path_patient_analysis + '\\' + folder + '/data/badchan.csv', index=False,
-                                    header=True)  # scat_plot
-
-                    # get data
-                    EEG_block = np.zeros((len(self.labels), len(stim_table), self.dur_tot * self.Fs))
-                    EEG_block[:, :, :] = np.NaN
-                    # load matlab EEG
-                    try:
-                        matfile = h5py.File(path + "/ppEEG.mat", 'r')['ppEEG']
-                        EEGpp = matfile[()].T
-                    except IOError:
-                        EEGpp = scipy.io.loadmat(path + "/ppEEG.mat")['ppEEG']
-
-                    print('ppEEG loaded ')
-                    # go through each stim trigger
-                    for s in range(len(stim_table)):
-                        trig = stim_table.TTL_DS.values[s]
-                        if not np.isnan(trig):
-                            if np.int64(trig + self.dur[0, 1] * self.Fs) > EEGpp.shape[1]:
-                                EEG_block[:, s, 0:EEGpp.shape[1] - np.int64(trig + self.dur[0, 0] * self.Fs)] = EEGpp[:,
-                                                                                                                np.int64(
-                                                                                                                    trig +
-                                                                                                                    self.dur[
-                                                                                                                        0, 0] * self.Fs):
-                                                                                                                EEGpp.shape[
-                                                                                                                    1]]
-                            elif np.int64(trig + self.dur[0, 0] * self.Fs) < 0:
-                                EEG_block[:, s, abs(np.int64(trig + self.dur[0, 0] * self.Fs)):] = EEGpp[:, 0:np.int64(
-                                    trig + self.dur[0, 1] * self.Fs)]
-                            else:
-                                EEG_block[:, s, :] = EEGpp[:, np.int64(trig + self.dur[0, 0] * self.Fs):np.int64(
-                                    trig + self.dur[0, 1] * self.Fs)]
-
-                    np.save(filename_block,
-                            EEG_block)
-                    stim_table.to_csv(self.path_patient_analysis + '\\' + folder + '/data/Stim_list_' + str(block).zfill(
-                        2) + '_' + condition + str(p).zfill(2) + '.csv', index=False,
-                                      header=True)  # scat_plot
+                        t = filename[9:-1]
+                        p = int(filename[-1])
+                    if t[-1] == '_':
+                        t = t[:-1]
+                    stim_table = pd.read_excel(data_path + "/" + subj + "_stimlist_" + t + ".xlsx",
+                                               sheet_name='Sheet' + str(p))  #
                 else:
-                    print('No Stimulation in this protocol')
+                    stim_table = pd.read_excel(data_path + "/" + subj + "_stimlist_" + t + ".xlsx")  #
+                    p = 0
+                condition = t[0:2]
+                filename_block = self.path_patient_analysis + '\\' + folder + '/data/All_resps_' + str(block).zfill(
+                    2) + '_' + condition + str(p).zfill(2) + '.npy'
+                short_name = str(block).zfill(
+                    2) + '_' + condition + str(p).zfill(2)
+                if os.path.isfile(filename_block) * skip:
+                    print(short_name + ' already exist', end='\r')
+                else:
+                    print(short_name + ' cutting', end='\r')
+                    if type == 'LT':
+                        stim_table = stim_table[stim_table['type'].str.contains('|'.join(types))]
+                        # remove induction stimulations from stim list. we dont anaylze these for now..
+                        stim_table = stim_table[~stim_table['type'].str.contains('Prot')]
+                        folder = folder + '\\' + t
+                    else:
+                        stim_table = stim_table[stim_table['type'].isin(types)]
+                    if not os.path.exists(self.path_patient_analysis + '\\' + folder):
+                        os.makedirs(self.path_patient_analysis + '\\' + folder)
+                        os.makedirs(self.path_patient_analysis + '\\' + folder + '\\data')
+
+                    stim_table = stim_table.drop(columns="Num", errors='ignore')
+                    stim_table = stim_table.reset_index(drop=True)
+                    stim_table = stim_table[stim_table.ChanP > 0]
+                    stim_table = stim_table[stim_table.ChanN > 0]
+                    stim_table = stim_table.reset_index(drop=True)
+                    stim_table.insert(10, "Num", np.arange(0, len(stim_table), True))
+                    if len(stim_table) > 0:
+                        if not os.path.exists(self.path_patient_analysis + '\\' + folder + '/data/'):
+                            os.makedirs(self.path_patient_analysis + '\\' + folder + '/data/')
+                        # Get bad channels
+                        if os.path.isfile(path + "/bad_chs.mat"):
+                            try:  # load bad channels
+                                matfile = h5py.File(path + "/bad_chs.mat", 'r')['bad_chs']
+                                bad_chan = matfile[()].T
+                            except IOError:
+                                bad_chan = scipy.io.loadmat(path + "/bad_chs.mat")['bad_chs']
+                            if len(bad_chan) == 0:
+                                bad_chan = np.zeros((len(self.labels), 1))
+                        else:
+                            bad_chan = np.zeros((len(self.labels), 1))
+                        try:
+                            badchans = pd.read_csv(self.path_patient_analysis + '\\' + folder + '/data/badchan.csv')
+                            badchans = badchans.drop(columns=str(block), errors='ignore')
+                            badchans.insert(loc=1, column=str(block), value=bad_chan[:, 0])
+                            # new_column = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
+                            # badchans[str(block)] = bad_chan[:, 0]
+                        except FileNotFoundError:
+                            badchans = pd.DataFrame({'Chan': np.arange(len(bad_chan)), str(block): bad_chan[:, 0]})
+                        badchans.to_csv(self.path_patient_analysis + '\\' + folder + '/data/badchan.csv', index=False,
+                                        header=True)  # scat_plot
+
+                        # get data
+                        EEG_block = np.zeros((len(self.labels), len(stim_table), self.dur_tot * self.Fs))
+                        EEG_block[:, :, :] = np.NaN
+                        # load matlab EEG
+                        try:
+                            matfile = h5py.File(path + "/ppEEG.mat", 'r')['ppEEG']
+                            EEGpp = matfile[()].T
+                        except IOError:
+                            EEGpp = scipy.io.loadmat(path + "/ppEEG.mat")['ppEEG']
+
+                        print('ppEEG loaded ')
+                        # go through each stim trigger
+                        for s in range(len(stim_table)):
+                            trig = stim_table.TTL_DS.values[s]
+                            if not np.isnan(trig):
+                                if np.int64(trig + self.dur[0, 1] * self.Fs) > EEGpp.shape[1]:
+                                    EEG_block[:, s,
+                                    0:EEGpp.shape[1] - np.int64(trig + self.dur[0, 0] * self.Fs)] = EEGpp[:,
+                                                                                                    np.int64(
+                                                                                                        trig +
+                                                                                                        self.dur[
+                                                                                                            0, 0] * self.Fs):
+                                                                                                    EEGpp.shape[
+                                                                                                        1]]
+                                elif np.int64(trig + self.dur[0, 0] * self.Fs) < 0:
+                                    EEG_block[:, s, abs(np.int64(trig + self.dur[0, 0] * self.Fs)):] = EEGpp[:,
+                                                                                                       0:np.int64(
+                                                                                                           trig +
+                                                                                                           self.dur[
+                                                                                                               0, 1] * self.Fs)]
+                                else:
+                                    EEG_block[:, s, :] = EEGpp[:, np.int64(trig + self.dur[0, 0] * self.Fs):np.int64(
+                                        trig + self.dur[0, 1] * self.Fs)]
+
+                        np.save(filename_block,
+                                EEG_block)
+                        stim_table.to_csv(
+                            self.path_patient_analysis + '\\' + folder + '/data/Stim_list_' + str(block).zfill(
+                                2) + '_' + condition + str(p).zfill(2) + '.csv', index=False,
+                            header=True)  # scat_plot
+                    else:
+                        print('No Stimulation in this protocol')
         else:
             print('ERROR: no type defined (BM, IO, PP)')
 

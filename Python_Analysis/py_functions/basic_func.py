@@ -58,6 +58,32 @@ def get_Stim_chans(stimlist, lbls):
 
     return labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist
 
+def check_stim_labels(c, labels_all):
+    import re
+    selected_label = labels_all[c]
+    # Identify the middle hyphen to split the label
+    hyphens = [i for i, char in enumerate(selected_label) if char == '-']
+    middle_hyphen = hyphens[len(hyphens) // 2]
+
+    # Split the label into two sub-labels
+    sub_label1 = selected_label[:middle_hyphen]
+    sub_label2 = selected_label[middle_hyphen + 1:]
+
+    # Prepare regex patterns for exact match
+    pattern1 = r'\b' + re.escape(sub_label1) + r'(\b|-)'
+    pattern2 = r'\b' + re.escape(sub_label2) + r'(\b|-)'
+
+    # List to hold indices of matching labels
+    matching_indices = []
+
+    # Iterate over all labels
+    for ix, label in enumerate(labels_all):
+        # Check if the label contains either of the two sub-labels
+        if re.search(pattern1, label) or re.search(pattern2, label):
+            matching_indices.append(ix)
+
+    return matching_indices
+
 
 def check_inStimChan_C(c_s, sc_s, labels_all):
     rr = np.zeros((len(c_s), len(sc_s)))
@@ -96,6 +122,8 @@ def add_sleepstate(con_trial):
     con_trial.loc[(con_trial.Sleep == 1), 'SleepState'] = 'NREM1'
     con_trial.loc[(con_trial.Sleep == 6), 'SleepState'] = 'SZ'
     con_trial.loc[(con_trial.Sleep == 4), 'SleepState'] = 'REM'
+    con_trial.loc[(con_trial.Sleep == 5), 'SleepState'] = 'Unknown'
+    con_trial.loc[(con_trial.Ictal != 0), 'SleepState'] = 'SZ'
     return con_trial
 
 def check_inStimChan(c, sc_s, labels_all):
