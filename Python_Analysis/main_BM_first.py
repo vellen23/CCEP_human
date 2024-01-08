@@ -34,12 +34,12 @@ subjs = ["EL028"]
 get_data = 1
 if get_data:
     for subj in subjs:
-        ### cut data in epochs: still in .npy
+        ### cut .mat files (each 1h-block) into epochs (.npy)
         start_cut_resp.compute_cut(subj, skip_exist=0, prots=['BM', 'IO'])
 
-        ### get con_trial --for each conenction and trial, save LL value
+        ### get con_trial --for each conenction and trial, save LL value (Pandas table containing all information of each stimulation)
         BM_blocks.cal_con_trial(subj, cond_folder='CR', skip_block=0, skip_single=0)
-        ### concatenates all epoched data into one large h5py file, all responses accessible
+        ### concatenates all epoched data into one large h5py file, all responses accessible - afterwards, epoched .npy files of single blocks can be deleted.
         for f in ['BrainMapping']:
             concat.concat_resp_condition(subj, folder=f, cond_folder='CR', skip=0)
 
@@ -87,9 +87,11 @@ def plot_BM_CR_trial_sig(M, labels, areas, label, t):
     plt.show()
     # plt.close(fig) #plt.show()#
 
+
 def sort_areas(areas, regions):
     # Create a mapping of regions to their index for sorting
     region_order = {region: index for index, region in enumerate(regions)}
+
     # Define the sorting key
     def get_sort_key(area):
         # Split the label into the side (L_/R_) and the region name
@@ -141,11 +143,6 @@ for subj in subjs:
     bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[
         0]  # remove WM, OUT, ...
 
-    # regions = np.unique(labels_region)
-    # # very bad hardcoded....
-    # color_regions = ['#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31a1c', '#fdbf6f', '#ff7f00', '#cab2d6',
-    #                  "#8FB996"]
-
     CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\e-Lab shared code\Softwares\Connectogram\circ_areas.xlsx'
     tab_region = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='plot')
     tab_region = tab_region.sort_values('Order').reset_index(drop=True)
@@ -177,17 +174,18 @@ for subj in subjs:
                 data = con_trial[(con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)]
                 stimnum = data.Num.values.astype('int')
                 if len(stimnum) > 0:
+                    # mean response for given stimulation and response channel (sc, rc)
                     resp = np.mean(EEG_resp[rc, stimnum, :], 0)
-                    resp = ff.lp_filter(resp, 45, Fs)
-                    resp_LL = LLf.get_LL_all(np.expand_dims(resp, [0, 1]), Fs, w)[0][0]
-
-                    thr = np.percentile(np.concatenate([resp_LL[int((w / 2) * Fs):int((t_0 - w / 2) * Fs)],
-                                                        resp_LL[int(3 * Fs):int((4 - w / 2) * Fs)]]),
+                    resp_LL = LLf.get_LL_all(np.expand_dims(resp, [0, 1]), Fs, w)[0][0]  # get LL transform
+                    # threshold based on 99th percentile of BL LL (keep time shift of LL transform in mind)
+                    thr = np.percentile(resp_LL[int((w / 2) * Fs):int((t_0 - w / 2) * Fs)],
                                         99)  # LL_resp[0, 0, int((t_0+0.5) * Fs):] = 0 * Fs):] = 0
+                    # check when LL passes threshold
                     LL_t = np.array(resp_LL[int((t_0 - w / 2) * Fs):int((t_0 + 0.5 - w / 2) * Fs)] > thr) * 1
-                    t_resp_all = sf.search_sequence_numpy(LL_t, np.ones((int((w) * Fs),)))
-
+                    # if LL passes threshold for at leasta given time window w, it seems to be a significant CCEP response, otherwise set it to 0 (no response)
+                    t_resp_all = sf.search_sequence_numpy(LL_t, np.ones((int(w * Fs),)))
                     if len(t_resp_all) > 0:
+                        # get max LL value
                         M[sc, rc] = np.nanmax(resp_LL[int((t_0 + w / 2) * Fs):int((t_0 + 0.3 + w / 2) * Fs)])
                 else:
                     M[sc, rc] = np.nan
@@ -220,6 +218,4 @@ for subj in subjs:
     plot_BM_CR_trial_sig(M_resp, labels_sel, areas_sel, ll, 't')
     print('Stop')
 
-
 # Correcting the sorting function
-

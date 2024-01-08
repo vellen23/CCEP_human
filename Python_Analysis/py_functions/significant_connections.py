@@ -200,7 +200,7 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
                 # pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
                 #                                          win=w_cluster,
                 #                                          Fs=500)], 0)
-                # allow small time shift. 
+                # allow small time shift.
                 pear_run, lag_run = sf.get_shifted_pearson_correlation(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
                                                               win=w_cluster,
                                                               Fs=500, max_shift_ms=dt)
@@ -275,11 +275,11 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
         P2P = np.ptp(EEG_trials[0, :, int((t_test) * Fs):int((t_test + 0.5) * Fs)], axis=1)
         compound_metric = np.sign(pear) * abs(pear ** exp) * LL
         compound_metric_P2P = np.sign(pear) * abs(pear ** exp) * P2P
-        sig = (compound_metric > np.nanpercentile(pear_surr_all, p)) * 1
+        # sig = (compound_metric > np.nanpercentile(pear_surr_all, p)) * 1
         pv = get_pvalue_trial(compound_metric, pear_surr_all)
         pv_P2P = get_pvalue_trial(compound_metric_P2P, pear_surr_all_P2P)
-        con_trial.loc[
-            req, 'Sig'] = sig  # * sig_mean
+        #con_trial.loc[
+        #    req, 'Sig'] = sig  # * sig_mean
         con_trial.loc[
             req, 'LL_WOI'] = LL
         con_trial.loc[
