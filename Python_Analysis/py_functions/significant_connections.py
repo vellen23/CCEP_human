@@ -144,24 +144,26 @@ def get_CC_surr(rc, LL_CCEP, EEG_resp, n_trials, Fs=500, w_cluster=0.25, n_clust
     # return pear_surr, [np.percentile(pear_surr, 95), np.percentile(pear_surr, 99)], LL_surr[1:, :]
 
 
-def get_CC_summ(M_GT_all, M_t_resp, CC_LL_surr, surr_thr, coord_all, t_0=1, w=0.25, w_LL_onset=0.1, smooth_win=0.1, Fs=500):
+def get_CC_summ(M_GT_all, M_t_resp, CC_LL_surr, surr_thr, coord_all, t_0=1, w=0.25, w_LL_onset=0.1, smooth_win=0.1,
+                Fs=500):
     # creates a table for each stim-chan pair with the two CC found indicating the WOI, LL and whether it's signficant
     start = 1
     t0_surr = 3.2
     for rc in range(M_GT_all.shape[0]):
-        LL_resp_chan = LLf.get_LL_all(CC_LL_surr[rc], win = 0.25, Fs = Fs)
+        LL_resp_chan = LLf.get_LL_all(CC_LL_surr[rc], win=0.25, Fs=Fs)
         LL_resp_chan = LL_resp_chan.reshape(-1, LL_resp_chan.shape[2])
-        LL_surr = np.max(LL_resp_chan[:,int((t0_surr + w / 2) * Fs):int((t0_surr + 0.5 - w / 2) * Fs)],1)
+        LL_surr = np.max(LL_resp_chan[:, int((t0_surr + w / 2) * Fs):int((t0_surr + 0.5 - w / 2) * Fs)], 1)
         for sc in range(M_GT_all.shape[0]):
             d = np.round(distance.euclidean(coord_all[sc], coord_all[rc]), 2)
-            LL_CC = LLf.get_LL_all(np.expand_dims(M_GT_all[sc, rc, :], 0), Fs = Fs, win = 0.25)[0]
+            LL_CC = LLf.get_LL_all(np.expand_dims(M_GT_all[sc, rc, :], 0), Fs=Fs, win=0.25)[0]
             WOI = M_t_resp[sc, rc, 2]
             if M_t_resp[sc, rc, 0] > -1:
                 # thr = surr_thr.loc[surr_thr.Chan == rc, 'CC_LL95'].values[0]
                 for i in range(1, 3):
                     LL_peak = np.max(LL_CC[i, int((t_0 + w / 2) * Fs):int((t_0 + 0.5 - w / 2) * Fs)])
                     LL_WOI = LL_CC[i, int((t_0 + WOI + w / 2) * Fs)]
-                    p_value = get_pvalue_trial(np.expand_dims(LL_peak,0), LL_surr)[0]#sig = np.array(LL_WOI > thr) * 1
+                    p_value = get_pvalue_trial(np.expand_dims(LL_peak, 0), LL_surr)[
+                        0]  # sig = np.array(LL_WOI > thr) * 1
                     thr_BL = np.percentile(LL_CC[i, int((w / 2) * Fs):int((t_0 - w / 2) * Fs)], 95)
                     LL_t_pk = np.array(LL_CC[i] >= thr_BL) * 1
                     LL_t_pk[:int((t_0 - w / 2) * Fs)] = 0
@@ -181,7 +183,7 @@ def get_CC_summ(M_GT_all, M_t_resp, CC_LL_surr, surr_thr, coord_all, t_0=1, w=0.
     return CC_summ
 
 
-def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, w_cluster=0.25, t_0=1, t_0_BL=0.5,
+def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, exp=2, w_cluster=0.25, t_0=1, t_0_BL=0.5,
                   Fs=500):
     req = (con_trial.Stim == sc) & (con_trial.Chan == rc) & (con_trial.Artefact < 1)
     dat = con_trial[req].reset_index(drop=True)
@@ -192,30 +194,31 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
         # for each trial get significance level based on surrogate (Pearson^2 * LL)
         #### first get surrogate data
         pear_surr_all = []
-        pear_surr_all_P2P= []
+        # pear_surr_all_P2P = []
         for t_test in [2.7, 3.2]:  # surrogates times, todo: in future blockwise
             pear = np.zeros((len(EEG_trials[0]),)) - 1  # pearson to each CC
-            lags = np.zeros((len(EEG_trials[0]),)) +t_test*Fs
+            lags = np.zeros((len(EEG_trials[0]),)) + t_test * Fs
             for n_c in range(len(M_GT)):
                 # pear = np.max([pear, sf.get_pearson2mean(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
                 #                                          win=w_cluster,
                 #                                          Fs=500)], 0)
                 # allow small time shift.
-                pear_run, lag_run = sf.get_shifted_pearson_correlation(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
-                                                              win=w_cluster,
-                                                              Fs=500, max_shift_ms=dt)
+                pear_run, lag_run = sf.get_shifted_pearson_correlation(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp,
+                                                                       ty=t_test,
+                                                                       win=w_cluster,
+                                                                       Fs=500, max_shift_ms=dt)
                 lags[pear_run > pear] = lag_run[pear_run > pear]
                 pear = np.max(
                     [pear, pear_run], 0)
 
             # LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
-            lags = lags+Fs*(w_cluster / 2)
-            LL = [LL_trials[0,i, lags.astype('int')[i]] for i in range(len(lags.astype('int')))]
-            P2P = np.ptp(EEG_trials[0, :, int((t_test) * Fs):int((t_test+0.5) * Fs)], axis=1)
+            lags = lags + Fs * (w_cluster / 2)
+            LL = [LL_trials[0, i, lags.astype('int')[i]] for i in range(len(lags.astype('int')))]
+            # P2P = np.ptp(EEG_trials[0, :, int((t_test) * Fs):int((t_test + 0.5) * Fs)], axis=1)
             pear_surr = np.sign(pear) * abs(pear ** exp) * LL
             pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
-            pear_surr_P2P = np.sign(pear) * abs(pear ** exp) * P2P
-            pear_surr_all_P2P = np.concatenate([pear_surr_all_P2P, pear_surr_P2P])
+            # pear_surr_P2P = np.sign(pear) * abs(pear ** exp) * P2P
+            # pear_surr_all_P2P = np.concatenate([pear_surr_all_P2P, pear_surr_P2P])
 
         # other surr trials
         real_trials = np.unique(
@@ -241,7 +244,8 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
                 pear = np.zeros((len(EEG_surr[0]),)) - 1
                 lags = np.zeros((len(EEG_surr[0]),)) + t_test * Fs
                 for n_c in range(len(M_GT)):
-                    pear_run, lag_run = sf.get_shifted_pearson_correlation(M_GT[n_c, :], EEG_surr[0], tx=t_0 + t_resp, ty=t_test,
+                    pear_run, lag_run = sf.get_shifted_pearson_correlation(M_GT[n_c, :], EEG_surr[0], tx=t_0 + t_resp,
+                                                                           ty=t_test,
                                                                            win=w_cluster,
                                                                            Fs=500, max_shift_ms=dt)
                     lags[pear_run > pear] = lag_run[pear_run > pear]
@@ -250,10 +254,11 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
 
                 # LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
                 lags = lags + Fs * (w_cluster / 2)
-                LL = [LL_surr[0,i, lags.astype('int')[i]] for i in range(len(lags.astype('int')))] # LL_surr[0, :, lags.astype('int')]
-                P2P = np.ptp(EEG_surr[0, :, int((t_test) * Fs):int((t_test + 0.5) * Fs)], axis=1)
-                pear_surr_P2P = np.sign(pear) * abs(pear ** exp) * P2P
-                pear_surr_all_P2P = np.concatenate([pear_surr_all_P2P, pear_surr_P2P])
+                LL = [LL_surr[0, i, lags.astype('int')[i]] for i in
+                      range(len(lags.astype('int')))]  # LL_surr[0, :, lags.astype('int')]
+                # P2P = np.ptp(EEG_surr[0, :, int((t_test) * Fs):int((t_test + 0.5) * Fs)], axis=1)
+                # pear_surr_P2P = np.sign(pear) * abs(pear ** exp) * P2P
+                # pear_surr_all_P2P = np.concatenate([pear_surr_all_P2P, pear_surr_P2P])
                 # pear_surr = np.arctanh(np.max([pear,pear2],0))*LL
                 pear_surr = np.sign(pear) * abs(pear ** exp) * LL
                 pear_surr_all = np.concatenate([pear_surr_all, pear_surr])
@@ -263,22 +268,24 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
         pear = np.zeros((len(EEG_trials[0]),)) - 1
         lags = np.zeros((len(EEG_trials[0]),)) + t_test * Fs
         for n_c in range(len(M_GT)):
-            pear_run, lag_run = sf.get_shifted_pearson_correlation(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp, ty=t_test,
+            pear_run, lag_run = sf.get_shifted_pearson_correlation(M_GT[n_c, :], EEG_trials[0], tx=t_0 + t_resp,
+                                                                   ty=t_test,
                                                                    win=w_cluster,
-                                                                   Fs=500, max_shift_ms=dt)
+                                                                   Fs=500, max_shift_ms=3 * dt)
             lags[pear_run > pear] = lag_run[pear_run > pear]
             pear = np.max(
                 [pear, pear_run], 0)
         # LL = LL_trials[0, :, int((t_test + w_cluster / 2) * Fs)]
         lags = lags + Fs * (w_cluster / 2)
-        LL = [LL_trials[0,i, lags.astype('int')[i]] for i in range(len(lags.astype('int')))] #LL = LL_trials[0, :, lags.astype('int')]
-        P2P = np.ptp(EEG_trials[0, :, int((t_test) * Fs):int((t_test + 0.5) * Fs)], axis=1)
+        LL = [LL_trials[0, i, lags.astype('int')[i]] for i in
+              range(len(lags.astype('int')))]  # LL = LL_trials[0, :, lags.astype('int')]
+        # P2P = np.ptp(EEG_trials[0, :, int((t_test) * Fs):int((t_test + 0.5) * Fs)], axis=1)
         compound_metric = np.sign(pear) * abs(pear ** exp) * LL
-        compound_metric_P2P = np.sign(pear) * abs(pear ** exp) * P2P
+        # compound_metric_P2P = np.sign(pear) * abs(pear ** exp) * P2P
         # sig = (compound_metric > np.nanpercentile(pear_surr_all, p)) * 1
         pv = get_pvalue_trial(compound_metric, pear_surr_all)
-        pv_P2P = get_pvalue_trial(compound_metric_P2P, pear_surr_all_P2P)
-        #con_trial.loc[
+        # pv_P2P = get_pvalue_trial(compound_metric_P2P, pear_surr_all_P2P)
+        # con_trial.loc[
         #    req, 'Sig'] = sig  # * sig_mean
         con_trial.loc[
             req, 'LL_WOI'] = LL
@@ -286,8 +293,7 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
             req, 'rho'] = pear
         con_trial.loc[
             req, 'p_value_LL'] = pv
-        con_trial.loc[
-            req, 'p_value_P2P'] = pv_P2P
+        # con_trial.loc[req, 'p_value_P2P'] = pv_P2P
 
     ##### real trials, LL pre stim
     t_test = t_0_BL + t_resp  # 
@@ -296,13 +302,15 @@ def get_sig_trial(sc, rc, con_trial, M_GT, t_resp, EEG_CR, test=1, p=90, exp=2, 
     con_trial.loc[req, 'LL_pre'] = LL_pre
     return con_trial
 
+
 def get_pvalue_trial(real_array, surr_array):
     count = np.sum(surr_array <= real_array[:, np.newaxis], axis=1)
 
     # Calculate the p-values
-    p_values = np.array(count)/len(surr_array)
+    p_values = np.array(count) / len(surr_array)
 
     return p_values
+
 
 def get_sig_trial_surr(sc, rc, con_trial, M_GT, t_resp, EEG_CR, exp=2, w_cluster=0.25, t_0=1,
                        Fs=500):

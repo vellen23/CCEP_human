@@ -113,7 +113,7 @@ def cal_con_trial(subj, cond_folder='Ph', skip_block=1, skip_single=1):
         files_list = glob(path_patient_analysis + '/' + folder + '/data/Stim_list_*CR*')
 
     stimlist = pd.read_csv(files_list[
-                               0])  # pd.read_csv(path_patient_analysis+'/' + folder + '/data/Stimlist.csv')# pd.read_csv(files_list[i])
+                               -1])  # pd.read_csv(path_patient_analysis+'/' + folder + '/data/Stimlist.csv')# pd.read_csv(files_list[i])
     # EEG_resp = np.load(path_patient + '/Analysis/' + folder + '/data/ALL_resps_'+files_list[i][-11:-4]+'.npy')
     lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
     labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist = bf.get_Stim_chans(

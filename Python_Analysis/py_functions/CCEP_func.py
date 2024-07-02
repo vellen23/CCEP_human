@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import scipy.fftpack
-from scipy.signal import find_peaks
+from scipy.signal import savgol_filter, find_peaks, peak_prominences
 import scipy.io as sio
 import freq_funcs as ff
 import LL_funcs as LLf
@@ -68,13 +68,242 @@ def zscore_CCEP(data, t_0=1, w0=0.5, w1=0.05, Fs=500):
         data = (data - m) / s
     return data
 
+def get_peak(signal):
+    """
+       Find the location of the first peak among the two strongest peaks in both polarities.
 
-def CCEP_onset(data_CCEP, WOI=0, t0=1, Fs=500, w_LL_onset=0.05):
+       Parameters:
+       - signal (array): Time signal.
+
+       Returns:
+       - float: Location of the first peak in seconds.
+       """
+    # Find positive peaks and their prominences
+    positive_peaks, _ = find_peaks(signal)
+    positive_prominences = peak_prominences(signal, positive_peaks)[0]
+
+    # Find negative peaks and their prominences
+    negative_peaks, _ = find_peaks(-signal)
+    negative_prominences = peak_prominences(-signal, negative_peaks)[0]
+
+    # Handle the case when no peaks are found
+    if len(positive_prominences) == 0:
+        sorted_positive_peaks = np.array([np.nan])
+    else:
+        # Sort positive peaks by prominence in descending order
+        sorted_positive_peaks = positive_peaks[np.argsort(-positive_prominences)]
+
+    if len(negative_prominences) == 0:
+        sorted_negative_peaks = np.array([np.nan])
+    else:
+        # Sort negative peaks by prominence in descending order
+        sorted_negative_peaks = negative_peaks[np.argsort(-negative_prominences)]
+
+    # Get the two strongest peaks from both polarities
+    first_peak = np.nanmin([sorted_positive_peaks[0], sorted_negative_peaks[0]])
+
+    return first_peak
+def peak_latency(trials, WOI, t0=1, Fs=500, w_LL=0.25):
+    BL_period = [int((t0 - 0.5) * Fs), int((t0 - 0.02) * Fs)]
+    bl_median = np.median(trials[:, BL_period[0]:BL_period[1]], axis=1)
+    trials = ff.lp_filter(trials, 45, Fs)
+    trials = trials - bl_median[:, None]
+
+    # 2. Average signal
+    mean_signal = np.mean(trials, axis=0)
+
+    # 3. Subtract BL median
+    mean_signal = mean_signal - np.median(mean_signal[BL_period[0]:BL_period[1]])
+
+    # 4. Calculate standard deviation of baseline period
+    std = np.std(mean_signal[BL_period[0]:BL_period[1]])
+    # 5. Threshold: +/- 3.4 std, find first peak crossing this threshold
+    factor = 3.4
+    # mean_signal[:int((t0 + 0.015) * Fs)] = 0
+    # mean_signal[int((t0 + WOI + 2 * w_LL / 3) * Fs):] = 0
+
+    threshold = factor * std
+    peaks, _ = find_peaks(mean_signal, height=threshold)
+    neg_peaks, _ = find_peaks(-mean_signal, height=threshold)
+    peaks = peaks[(peaks > int((t0 + 0.015) * Fs)) & (peaks < int((t0 + WOI + 2 * w_LL / 3) * Fs))]
+    neg_peaks = neg_peaks[(neg_peaks > int((t0 + 0.015) * Fs)) & (neg_peaks < int((t0 + WOI + 2 * w_LL / 3) * Fs))]
+    #todo:  filter peak between 0.01 and WOI + 2 * w_LL / 3 post stimulation
+    peak_detected = 1
+    # Finding the first peak crossing statistical threshold
+    if peaks.size > 0 or neg_peaks.size > 0:
+        all_peaks = np.sort(np.concatenate((peaks, neg_peaks)))
+        first_peak = all_peaks[0]
+    else: # try again with lower threshold
+        threshold = 2.5 * std
+        peaks, _ = find_peaks(mean_signal, height=threshold)
+        neg_peaks, _ = find_peaks(-mean_signal, height=threshold)
+        # todo:  filter peak between 0.01 and WOI + 2 * w_LL / 3 post stimulation
+        peaks = peaks[(peaks > int((t0 + 0.015) * Fs)) & (peaks < int((t0 + WOI + 2 * w_LL / 3) * Fs))]
+        neg_peaks = neg_peaks[(neg_peaks > int((t0 + 0.015) * Fs)) & (neg_peaks < int((t0 + WOI + 2 * w_LL / 3) * Fs))]
+        # Finding the first peak crossing statistical threshold
+        if peaks.size > 0 or neg_peaks.size > 0:
+            all_peaks = np.sort(np.concatenate((peaks, neg_peaks)))
+            first_peak = all_peaks[0]
+            peak_detected = 0.5
+        else:
+            mean_signal = np.mean(trials, axis=0)
+            mean_signal = mean_signal - np.median(mean_signal[BL_period[0]:BL_period[1]])
+            mean_signal[:int((t0 + 0.010) * Fs)] = 0
+            mean_signal[int((t0 + WOI + 0.3) * Fs):] = 0
+            first_peak = get_peak(mean_signal)
+            peak_detected = 0
+    if np.isnan(first_peak):
+        polarity = np.nan
+    else:
+        polarity = np.sign(mean_signal[int(first_peak)])
+    return first_peak / Fs - t0, polarity, peak_detected
+
+
+def peak_latency_finetuning(trials, WOI, peak_lat_general, polarity, t0=1, Fs=500, w_LL=0.25):
+    BL_period = [int((t0 - 0.5) * Fs), int((t0 - 0.00) * Fs)]
+    bl_median = np.median(trials[:, BL_period[0]:BL_period[1]], axis=1)
+    trials = ff.lp_filter(trials, 45, Fs)
+    trials = trials - bl_median[:, None]
+
+    # 2. Average signal
+    mean_signal = np.mean(trials, axis=0)
+
+    # 3. Subtract BL median
+    mean_signal = mean_signal - np.median(mean_signal[BL_period[0]:BL_period[1]])
+
+    # 4. Calculate standard deviation of baseline period
+    std = np.std(mean_signal[BL_period[0]:BL_period[1]])
+    # 5. Threshold: +/- 3.4 std, find first peak crossing this threshold
+    get_peak_check = 1
+    factor = 1
+    mean_signal[:int((t0 + 0.010) * Fs)] = mean_signal[int((t0 + 0.010) * Fs)]
+    # mean_signal[int((t0 + WOI + 2 * w_LL / 3) * Fs)] = 0
+
+    first_peak = None
+
+    threshold = 1 * std
+    if polarity == 1:
+        peaks, _ = find_peaks(mean_signal, prominence=threshold)
+    else:
+        peaks, _ = find_peaks(-mean_signal, prominence=threshold)
+
+    if peaks.size > 0:
+        # find closest peak to peak_lat_general
+        peak_lat_general_datapoint = (t0 + peak_lat_general) * Fs
+        first_peak = peaks[np.argmin(np.abs(peaks - peak_lat_general_datapoint))]
+        peak_detected = 1
+    else:
+        min_thr = np.max([peak_lat_general - 0.03, 0.005])
+        mean_signal[:int((t0 + min_thr) * Fs)] = 0
+        mean_signal[int((t0 + peak_lat_general + 0.03) * Fs):] = 0
+        first_peak = np.argmax(polarity*mean_signal)
+        peak_detected = 0
+
+    return first_peak / Fs - t0, peak_detected
+
+
+def CCEP_onset_finetuning(trials, onset_general, peak_lat_general, polarity, WOI=0, t0=1, Fs=500, w_LL=0.25):
+    """
+    Calculate the onset of a Cortico-Cortical Evoked Potential (CCEP) in a signal based on the second derivative.
+
+    Parameters:
+    - trials (array): all trials for given connection .
+    - onset_general (float): Expected CCEP onset in seconds after stimulation (t0).
+    - WOI (float): Onset of Window Of Interest based on previous LL calculations (connection-specific).
+    - t0 (float): Time of stimulation in the signal (e.g., for epoch: [-1, 3] -> t0 = 1).
+    - Fs (int): Sampling frequency.
+    - w_LL (float): Window length for onset detection.
+
+    Returns:
+    - float: Time of response onset after stimulation, in seconds.
+    - float: Peak latency in seconds.
+    """
+    signal = np.mean(trials, axis=0)
+
+    # Calculate peak latency based on trials
+    peak_lat, peak_det = peak_latency_finetuning(trials, WOI, peak_lat_general, polarity, t0=1, Fs=500, w_LL=0.25)
+
+    t_onset, signal_derivative, true_onset = get_onset_der(trials, peak_lat, polarity, t0=t0, Fs=Fs)
+
+    return t_onset, peak_lat, peak_det, true_onset
+
+
+def get_onset_der(trials, peak_lat, polarity, t0 = 1, Fs = 500):
+    kernel_size = int(0.05 * Fs)# + 1
+    # Calculate the second derivative for each trial
+    derivatives = []
+    for trial in trials:
+        derivative = savgol_filter(trial, window_length=kernel_size, polyorder=3, deriv=2)
+        derivatives.append(derivative)
+    # Average the second derivatives
+    avg_derivative = np.mean(derivatives, axis=0)
+
+    # Subtract the median baseline value
+    baseline_start = int(0.5 * Fs)
+    baseline_end = int(Fs * (t0 - 0.02))
+    avg_derivative -= np.median(avg_derivative[baseline_start:baseline_end])
+
+    # Define the baseline for threshold calculation
+    BL_data = np.abs(avg_derivative[baseline_start:baseline_end])
+    factor = 2
+    thr = factor * np.std(BL_data)
+
+    # Detect peaks based on polarity
+    if polarity == 1:
+        peaks, _ = find_peaks(avg_derivative, height=thr)
+    elif polarity == -1:
+        peaks, _ = find_peaks(-avg_derivative, height=thr)
+    else:
+        peaks, _ = find_peaks(np.abs(avg_derivative), height=thr)
+
+    # Filter peaks to be within a specific time range around the stimulus
+    peak_start = int((t0 - 0.01) * Fs)
+    peak_end = int((t0 + peak_lat - 0.01) * Fs)
+    peaks = peaks[(peaks > peak_start) & (peaks < peak_end)]
+    # peaks = peaks[(peaks > int((t0 - 0.005) * Fs)) & (peaks < int(((t0 + peak_CCEP) * Fs)))]
+    peaks = peaks[(peaks > int((t0 - 0.01) * Fs)) & (peaks < int(((t0 + peak_lat - 0.01) * Fs)))]
+    peak_times = peaks / Fs - t0  # Adjusting for epoched time
+
+    if len(peak_times) > 0:  # take strongest peak poststim (before N1 peak)
+        # t_onset = peak_times[np.argmin(peak_lat - peak_times)]  # peak_times[0]
+        t_onset =  peak_times[np.argmax(abs(avg_derivative[peaks]))]# peak_times[0]
+        true_onset = 1
+    else:  # if there is no peak passing the threshold, take max within specifc window
+        if polarity == 1:
+            peaks, _ = find_peaks(avg_derivative)
+        elif polarity == -1:
+            peaks, _ = find_peaks(-avg_derivative)
+        else:
+            peaks, _ = find_peaks(np.abs(avg_derivative))
+        # peaks = peaks[(peaks > int((t0 - 0.005) * Fs)) & (peaks < int(((t0 + peak_CCEP) * Fs)))]
+        peaks = peaks[(peaks > int((t0 - 0.01) * Fs)) & (peaks < int(((t0 + peak_lat - 0.01) * Fs)))]
+        peak_times = peaks / Fs - t0
+        if len(peak_times) > 0:  # take strongest peak poststim (before N1 peak)
+            t_onset = peak_times[np.argmin(peak_lat - peak_times)]  # peak_times[0]
+        elif peak_lat < 0.05:
+            t_onset = 0
+        else:
+            avg_derivative[:int((t0 - 0.01) * Fs)] = 0
+            avg_derivative[int((t0 + peak_lat - 0.01) * Fs):] = 0
+            if polarity == 1:
+                peaks = np.argmax(avg_derivative)
+            elif polarity == -1:
+                peaks = np.argmin(avg_derivative)
+            else:
+                peaks = np.argmax(abs(avg_derivative))
+
+            t_onset = peaks /Fs - t0
+        true_onset = 0
+
+    if t_onset < 0:
+        t_onset = 0
+    return t_onset, avg_derivative, true_onset
+def CCEP_onset(trials, WOI=0, t0=1, Fs=500, w_LL=0.25, plot=False, skip_nonpeak = 0):
     """
     Calculate the onset of a Cortico-Cortical Evoked Potential (CCEP) in a signal.
 
     Parameters:
-    - signal (array): Mean signal of one connection.
+    - trials (array): all trials for given connection .
     - WOI (float): Onset of Window Of Interest based on previous LL calculations (connection-specific).
     - t_0 (float): Time of stimulation in the signal (e.g., for epoch: [-1, 3] -> t_0 = 1).
     - Fs (int): Sampling frequency.
@@ -83,92 +312,30 @@ def CCEP_onset(data_CCEP, WOI=0, t0=1, Fs=500, w_LL_onset=0.05):
     Returns:
     - float: Time of response onset after stimulation, in seconds.
     """
-    data_CCEP_z = zscore_CCEP(data_CCEP, w0=0.1, w1=WOI)
-
-    # Get LL transformation of the filtered signal
-    w_LL_short = 0.05
-    w_LL_long = 0.25
-    pk_LL_s = 0.5
-    pk_search_end = 0.5
-    # Calculate smoothing window length
-    smooth_win = int(w_LL_short * Fs)
-    if np.mod(smooth_win, 2) == 0:
-        smooth_win += 1
-
-    LL_transform_short = LLf.get_LL_all(np.expand_dims(data_CCEP, [0, 1]), Fs, w_LL_short)[0, 0]
-    LL_transform_long = LLf.get_LL_all(np.expand_dims(data_CCEP, [0, 1]), Fs, w_LL_long)[0, 0]
-    thr_long = np.percentile(LL_transform_long[int((w_LL_long / 2) * Fs):int((t0 - w_LL_long / 2) * Fs)], 95)
-    LL_thr = np.array(
-        LL_transform_long[int((t0 - w_LL_long / 2) * Fs):int((t0 - w_LL_long / 2 + 0.5) * Fs)] > thr_long) * 1
-    t_resp_all = sf.search_sequence_numpy(LL_thr, np.ones((int(w_LL_long * Fs),)))
-
-    # get loc of LL peak (short and long), keep first peak
-    for LL_transform, w_LL, fac in zip([LL_transform_long, LL_transform_short], [w_LL_long, w_LL_short], [0.85, 0.9]):
-        LL_pk = np.argmax(
-            LL_transform[int((t0 - w_LL / 2) * Fs):int((t0 + pk_search_end + w_LL / 2) * Fs)]) / Fs  # - 0.75*w_LL
-        pk_search_end = np.max([np.min([pk_search_end, LL_pk - fac * w_LL]), 0])
-        pk_LL_s = np.max([np.min([pk_LL_s, LL_pk - fac * w_LL]), 0])
-    # Find the peak CCEP location
-    start_idx = int(t0 * Fs)
-    end_idx = int(start_idx + 0.1 * Fs)
-    # min and max value of CCEP
-    pk_CCEP_loc = 0.5
-    # pk_CCEP_loc = np.min([pk_CCEP_loc, (np.nanargmax(data_CCEP[start_idx:end_idx]) + start_idx - int(t0 * Fs)) / Fs])
-    # pk_CCEP_loc = np.min([pk_CCEP_loc, (np.nanargmin(data_CCEP[start_idx:end_idx]) + start_idx - int(t0 * Fs)) / Fs])
-    thr_pos = np.percentile(data_CCEP_z[int((t0 - 0.1) * Fs):int((t0 - 0.002) * Fs)], 95)
-    thr_neg = np.percentile(data_CCEP_z[int((t0 - 0.1) * Fs):int((t0 - 0.002) * Fs)], 5)
-    pks_pos, _ = find_peaks(data_CCEP_z[start_idx:end_idx], width=0.01 * Fs, height=2*thr_pos)
-    if len(pks_pos) == 0: pks_pos = [250]
-    pks_neg, _ = find_peaks(-data_CCEP_z[start_idx:end_idx], width=0.01 * Fs, height=-2*thr_neg)
-    if len(pks_neg) == 0: pks_neg = [250]
-    # Combine positive and negative peaks
-    pk_CCEP_loc = np.min(
-        [(pks_pos[0] + start_idx - int(t0 * Fs)) / Fs, (pks_neg[0] + start_idx - int(t0 * Fs)) / Fs, pk_CCEP_loc])
-    pk_lim = np.min([pk_CCEP_loc,pk_LL_s])
-    # second derivative of LL and CCEP
-    d1_LL = scipy.signal.savgol_filter(LL_transform_short, smooth_win, 3, 1)  # Second derivative
-    d2_LL = scipy.signal.savgol_filter(LL_transform_short, smooth_win, 3, 2)  # Second derivative
-    # d2_LL[int((t0 - w_LL_short / 2 + pk_LL_s) * Fs):] = np.nan
-    #
-    d2_CCEP = np.zeros(d2_LL.shape)
-    d2_CCEP[:-int(w_LL_short / 2 * Fs)] = abs(
-        scipy.signal.savgol_filter(data_CCEP, smooth_win, 3, 2)[int(w_LL_short / 2 * Fs):])
-    CCEP_shift= np.zeros(d2_LL.shape)
-    CCEP_shift[:-int(w_LL_short / 2 * Fs)] = data_CCEP_z[int(w_LL_short / 2 * Fs):]
-
-    # Apply constraints to second derivative data
-    d1_LL[:int((t0 - w_LL_short / 2) * Fs)] = np.nan  # Ignore values before stimulation
-    pk_lim = np.min([pk_lim, np.nanargmax(d1_LL)/Fs-1+w_LL_short/2])
-    #d2_LL[np.nanargmax(d1_LL):] = np.nan  # before max of d1
-    d2_LL[:int((t0 - w_LL_short / 2 - 0.02) * Fs)] = np.nan  # Ignore values before stimulation
-    d2_LL[CCEP_shift > 3 * thr_pos] = np.nan  # before CCEP too high
-    d2_LL[CCEP_shift < 3 * thr_neg] = np.nan  # before CCEP too high
-    d2_LL[LL_transform_short > 3 * np.percentile(LL_transform_short[int((t0 - w_LL_short / 2-0.1) * Fs):int((t0 - w_LL_short / 2) * Fs)],95)] = np.nan  # before CCEP too high
-    d2_LL = d2_LL / np.nanmax(d2_LL)
-    d2_CCEP[np.nanargmax(d1_LL):] = np.nan  # before max of d1
-    d2_CCEP[:int((t0 - w_LL_short / 2 - 0.02) * Fs)] = np.nan  # Ignore values before stimulation
-    d2_CCEP = d2_CCEP / np.nanmax(d2_CCEP)
-    comb = d2_LL * d2_CCEP
-    comb[0] = -1
-    # Find the peak in the second derivative, which indicates the strongest acceleration (response onset)
-    # peaks, par = find_peaks(comb)
-    peaks= [] # peaks[peaks < int((t0 - w_LL_short / 2 + pk_lim) * Fs)]
-    if len(peaks) > 0:
-        t_onset = peaks[np.argmax(comb[peaks])]/ Fs - t0
-        #t_onset = np.nanargmax(comb) / Fs - t0
-        t_onset += w_LL_short / 2  # Realign to account for window offset
-
+    signal = np.mean(trials, 0)
+    peak_lat, polarity, peak_detected = peak_latency(trials, WOI, t0=1, Fs=500, w_LL=0.25)
+    if skip_nonpeak:
+        if peak_detected:
+            t_onset, signal_derivative,true_onset = get_onset_der(trials, peak_lat, polarity, t0=t0, Fs=Fs)
+        else:
+            t_onset = np.nan
     else:
-        comb[int((t0 - w_LL_short / 2 + pk_lim) * Fs):] = np.nan
-        t_onset = np.nanargmax(comb) / Fs - t0
-        t_onset += w_LL_short / 2
-    # Ensure onset time is not negative
-    if t_onset < 0:
-        t_onset = 0
+        t_onset, signal_derivative,true_onset = get_onset_der(trials, peak_lat, polarity, t0=t0, Fs=Fs)
+    if plot:
+        x_ax = np.linspace(-1, 3, len(signal))
+        plt.plot(x_ax, signal, color=[0, 0, 0])
+        plt.plot(x_ax, signal_derivative * 100, color=[0, 0, 1])
+        # plt.plot(x_ax + w_LL / 2, LL_transform * 100, color=[0, 0, 0], alpha=0.7)
+        plt.axvline(0, color=[1, 0, 0])
+        plt.axvline(peak_lat, color=[0, 0, 0])
+        plt.axvline(t_onset, color=[0, 0, 0], ls='--')
+        plt.xlim([-0.2, 0.7])
+        plt.show()
+    return t_onset, peak_lat, polarity, peak_detected
 
-    return t_onset
 
-
+## old
+    #
 def CCEP_onset2(signal, WOI=0, t_0=1, Fs=500, w_LL_onset=0.05):
     """
     Calculate the onset of a Cortico-Cortical Evoked Potential (CCEP) in a signal.
@@ -259,7 +426,12 @@ def CCEP_onset2(signal, WOI=0, t_0=1, Fs=500, w_LL_onset=0.05):
             t_onset = 0
     else:
         t_onset = 0
-
+    if plot:
+        x_ax = np.linspace(-1, 3, len(signal))
+        plt.plot(x_ax, ff.lp_filter(signal, 45, Fs), color=[0, 0, 0])
+        plt.axvline(0, color=[1, 0, 0])
+        plt.axvline(t_onset, color=[0, 0, 0], ls='--')
+        plt.xlim([-0.2, 0.3])
     return t_onset
 
 
@@ -322,3 +494,106 @@ def cal_delay(signal, WOI=0, t_0=1, Fs=500, w_LL_onset=0.05, plot=0):
         plt.plot(x_ax + w_LL_onset / 2, d2_LL * 10000, color=[1, 0.3, 0])
         plt.show()
     return t_onset, LL_transform, d1_LL, d2_LL0
+
+
+
+def CCEP_onset_3(data_CCEP, WOI=0, t0=1, Fs=500, w_LL_onset=0.05):
+    """
+    Calculate the onset of a Cortico-Cortical Evoked Potential (CCEP) in a signal.
+
+    Parameters:
+    - signal (array): Mean signal of one connection.
+    - WOI (float): Onset of Window Of Interest based on previous LL calculations (connection-specific).
+    - t_0 (float): Time of stimulation in the signal (e.g., for epoch: [-1, 3] -> t_0 = 1).
+    - Fs (int): Sampling frequency.
+    - w_LL_onset (float): Window length for onset detection.
+
+    Returns:
+    - float: Time of response onset after stimulation, in seconds.
+    """
+    data_CCEP_z = zscore_CCEP(data_CCEP, w0=0.1, w1=WOI)
+
+    # Get LL transformation of the filtered signal
+    w_LL_short = 0.05
+    w_LL_long = 0.25
+    pk_LL_s = 0.5
+    pk_search_end = 0.5
+    # Calculate smoothing window length
+    smooth_win = int(w_LL_short * Fs)
+    if np.mod(smooth_win, 2) == 0:
+        smooth_win += 1
+
+    LL_transform_short = LLf.get_LL_all(np.expand_dims(data_CCEP, [0, 1]), Fs, w_LL_short)[0, 0]
+    LL_transform_long = LLf.get_LL_all(np.expand_dims(data_CCEP, [0, 1]), Fs, w_LL_long)[0, 0]
+    thr_long = np.percentile(LL_transform_long[int((w_LL_long / 2) * Fs):int((t0 - w_LL_long / 2) * Fs)], 95)
+    LL_thr = np.array(
+        LL_transform_long[int((t0 - w_LL_long / 2) * Fs):int((t0 - w_LL_long / 2 + 0.5) * Fs)] > thr_long) * 1
+    t_resp_all = sf.search_sequence_numpy(LL_thr, np.ones((int(w_LL_long * Fs),)))
+
+    # get loc of LL peak (short and long), keep first peak
+    for LL_transform, w_LL, fac in zip([LL_transform_long, LL_transform_short], [w_LL_long, w_LL_short], [0.85, 0.9]):
+        LL_pk = np.argmax(
+            LL_transform[int((t0 - w_LL / 2) * Fs):int((t0 + pk_search_end + w_LL / 2) * Fs)]) / Fs  # - 0.75*w_LL
+        pk_search_end = np.max([np.min([pk_search_end, LL_pk - fac * w_LL]), 0])
+        pk_LL_s = np.max([np.min([pk_LL_s, LL_pk - fac * w_LL]), 0])
+    # Find the peak CCEP location
+    start_idx = int(t0 * Fs)
+    end_idx = int(start_idx + 0.1 * Fs)
+    # min and max value of CCEP
+    pk_CCEP_loc = 0.5
+    # pk_CCEP_loc = np.min([pk_CCEP_loc, (np.nanargmax(data_CCEP[start_idx:end_idx]) + start_idx - int(t0 * Fs)) / Fs])
+    # pk_CCEP_loc = np.min([pk_CCEP_loc, (np.nanargmin(data_CCEP[start_idx:end_idx]) + start_idx - int(t0 * Fs)) / Fs])
+    thr_pos = np.percentile(data_CCEP_z[int((t0 - 0.1) * Fs):int((t0 - 0.002) * Fs)], 95)
+    thr_neg = np.percentile(data_CCEP_z[int((t0 - 0.1) * Fs):int((t0 - 0.002) * Fs)], 5)
+    pks_pos, _ = find_peaks(data_CCEP_z[start_idx:end_idx], width=0.01 * Fs, height=2 * thr_pos)
+    if len(pks_pos) == 0: pks_pos = [250]
+    pks_neg, _ = find_peaks(-data_CCEP_z[start_idx:end_idx], width=0.01 * Fs, height=-2 * thr_neg)
+    if len(pks_neg) == 0: pks_neg = [250]
+    # Combine positive and negative peaks
+    pk_CCEP_loc = np.min(
+        [(pks_pos[0] + start_idx - int(t0 * Fs)) / Fs, (pks_neg[0] + start_idx - int(t0 * Fs)) / Fs, pk_CCEP_loc])
+    pk_lim = np.min([pk_CCEP_loc, pk_LL_s])
+    # second derivative of LL and CCEP
+    d1_LL = scipy.signal.savgol_filter(LL_transform_short, smooth_win, 3, 1)  # Second derivative
+    d2_LL = scipy.signal.savgol_filter(LL_transform_short, smooth_win, 3, 2)  # Second derivative
+    # d2_LL[int((t0 - w_LL_short / 2 + pk_LL_s) * Fs):] = np.nan
+    #
+    d2_CCEP = np.zeros(d2_LL.shape)
+    d2_CCEP[:-int(w_LL_short / 2 * Fs)] = abs(
+        scipy.signal.savgol_filter(data_CCEP, smooth_win, 3, 2)[int(w_LL_short / 2 * Fs):])
+    CCEP_shift = np.zeros(d2_LL.shape)
+    CCEP_shift[:-int(w_LL_short / 2 * Fs)] = data_CCEP_z[int(w_LL_short / 2 * Fs):]
+
+    # Apply constraints to second derivative data
+    d1_LL[:int((t0 - w_LL_short / 2) * Fs)] = np.nan  # Ignore values before stimulation
+    pk_lim = np.min([pk_lim, np.nanargmax(d1_LL) / Fs - 1 + w_LL_short / 2])
+    # d2_LL[np.nanargmax(d1_LL):] = np.nan  # before max of d1
+    d2_LL[:int((t0 - w_LL_short / 2 - 0.02) * Fs)] = np.nan  # Ignore values before stimulation
+    d2_LL[CCEP_shift > 3 * thr_pos] = np.nan  # before CCEP too high
+    d2_LL[CCEP_shift < 3 * thr_neg] = np.nan  # before CCEP too high
+    d2_LL[LL_transform_short > 3 * np.percentile(
+        LL_transform_short[int((t0 - w_LL_short / 2 - 0.1) * Fs):int((t0 - w_LL_short / 2) * Fs)],
+        95)] = np.nan  # before CCEP too high
+    d2_LL = d2_LL / np.nanmax(d2_LL)
+    d2_CCEP[np.nanargmax(d1_LL):] = np.nan  # before max of d1
+    d2_CCEP[:int((t0 - w_LL_short / 2 - 0.02) * Fs)] = np.nan  # Ignore values before stimulation
+    d2_CCEP = d2_CCEP / np.nanmax(d2_CCEP)
+    comb = d2_LL * d2_CCEP
+    comb[0] = -1
+    # Find the peak in the second derivative, which indicates the strongest acceleration (response onset)
+    # peaks, par = find_peaks(comb)
+    peaks = []  # peaks[peaks < int((t0 - w_LL_short / 2 + pk_lim) * Fs)]
+    if len(peaks) > 0:
+        t_onset = peaks[np.argmax(comb[peaks])] / Fs - t0
+        # t_onset = np.nanargmax(comb) / Fs - t0
+        t_onset += w_LL_short / 2  # Realign to account for window offset
+
+    else:
+        comb[int((t0 - w_LL_short / 2 + pk_lim) * Fs):] = np.nan
+        t_onset = np.nanargmax(comb) / Fs - t0
+        t_onset += w_LL_short / 2
+    # Ensure onset time is not negative
+    if t_onset < 0:
+        t_onset = 0
+
+    return t_onset

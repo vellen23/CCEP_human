@@ -62,13 +62,14 @@ def compute_list_update(subj, prots = ['BM', 'IO', 'PP']):
     # path_patient    = '/Volumes/EvM_T7/PhD/EL_experiment/Patients/'+subj
     path_patient = 'X:\\4 e-Lab\\Patients\\' + subj
     CUT = cut_resp.main(subj, path_patient)
-    paths = os.listdir(path_patient + '\Data\EL_experiment')
-    n_ex = len(paths)
-    n_ex = len(paths)
+    #paths = os.listdir(path_patient + '\Data\EL_experiment')
+    #n_ex = len(paths)
+    #n_ex = len(paths)
     k = 0  # todo: 0
 
-    for n in range(n_ex):
-        path_data = os.path.join(path_patient, 'Data\EL_experiment', paths[n], 'data_blocks')
+    for n in range(1):
+        #path_data = os.path.join(path_patient, 'Data\EL_experiment', paths[n], 'data_blocks')
+        path_data = os.path.join(path_patient, 'Data\EL_experiment', 'experiment1', 'data_blocks')
         folders = glob.glob(path_data + '\\' + subj + '_*')
 
         if len(folders) > 0:

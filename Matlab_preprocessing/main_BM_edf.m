@@ -20,7 +20,7 @@ addpath([pwd '/nx_preproc']);
 %% patient specific
 path = 'Y:\eLab\Patients\';
 path = 'X:\\4 e-Lab\\Patients\\';
-subj            = 'EL028'; %% change name if another data is used !!
+subj            = 'EL029'; %% change name if another data is used !!
 path_patient    = [path,  subj];  
 dir_files       = [path_patient,'/data_raw/EL_Experiment'];
 
@@ -39,7 +39,7 @@ stimlist_all.Properties.VariableNames{8} = 'stim_block';
 stimlist_all.Properties.VariableNames{2} = 'h';
 stimlist_all.keep = ones(height(stimlist_all),1);
 stimlist_all.date = double(stimlist_all.date);
-date1 = 20231121;
+date1 = 20230123;
 % Calculate the corresponding dates for each day
 correspondingDates = datetime(num2str(date1), 'Format', 'yyyyMMdd') + days(stimlist_all.date - 1);
 stimlist_all.date = correspondingDates;
@@ -129,12 +129,12 @@ for j=1:length(files)
     clf(figure(1))
     Fs     = hdr_edf.frequency(1);
     %Fs = 148;
-    n_trig = 20;
+    n_trig = 1;
     t      = stimlist.TTL(n_trig);
     IPI    = stimlist.IPI_ms(n_trig);
     x_s = 3;
     x_ax        = -x_s:1/Fs:x_s;
-    c = 70;%stimlist.ChanP(n_trig);
+    c = 3;%stimlist.ChanP(n_trig);
     plot(x_ax,EEG_all(c,t-x_s*Fs:t+x_s*Fs));
     hold on
     plot(x_ax,trig(1,t-x_s*Fs:t+x_s*Fs));

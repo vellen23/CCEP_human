@@ -268,7 +268,8 @@ def plot_CCEP_CC(EEG_resp, CC_all, con_trial, labels_all, sc_all, rc_all, w_LL =
         ax_hist.set_box_aspect(1.5 / 2)
     return fig, axes
 
-def plot_trial_test(EEG_resp, CC_all, surr_data, trials, sc, rc,t_WOI, w_LL = 0.25, Fs = 500, t0 = 1):
+
+def plot_trial_test(EEG_resp, CC_all, surr_data, trials, sc, rc, t_WOI, w_LL=0.25, Fs=500, t0=1):
     xlim = [-0.3, 0.7]
     ylim_CCEP = [-600, 600]
     ylim_LL = [0, 12]
@@ -276,7 +277,7 @@ def plot_trial_test(EEG_resp, CC_all, surr_data, trials, sc, rc,t_WOI, w_LL = 0.
     fig.patch.set_facecolor('xkcd:white')
     # 1. plot both Cluster Centers
     for ix_CC in [1, 2]:
-        ax = axes[0, ix_CC-1]
+        ax = axes[0, ix_CC - 1]
         ax.plot(x_ax, CC_all[sc, rc, ix_CC], linewidth=2, color=color_elab[ix_CC])
         ax.set_xticks([])
         ax.axvline(0, color=[0, 0, 0])
@@ -295,7 +296,7 @@ def plot_trial_test(EEG_resp, CC_all, surr_data, trials, sc, rc,t_WOI, w_LL = 0.
         ax.remove()
     axbig = fig.add_subplot(gs[0, 2:])
     axbig.hist(surr_data)  # Assuming surr_data is in the correct format
-    axbig.axvline(np.percentile(surr_data, 90), color=[1,0,0])
+    axbig.axvline(np.percentile(surr_data, 95), color=[1, 0, 0])
     axbig.set_title('Surrogate Distribution')
 
     # 3. for each trial plot 1) the signal 2) the LL transform 3) the pearson corr to both CC and 4) the correcponding p^2 *LL for both CC
@@ -308,16 +309,18 @@ def plot_trial_test(EEG_resp, CC_all, surr_data, trials, sc, rc,t_WOI, w_LL = 0.
         ax.set_xlim(xlim)
         ax.set_ylim(ylim_CCEP)
         ax.axvline(0, color=[0, 0, 0])
-        ax.axvspan(t_WOI, t_WOI+w_LL, color=[0, 0, 0], alpha = 0.1)
+
+        # ax.axvspan(t_WOI, t_WOI+w_LL, color=[0, 0, 0], alpha = 0.1)
         # get LL transform
         data_LL = LL_funcs.get_LL_all(np.expand_dims(np.expand_dims(data_CCEP, axis=0), 0), Fs, w_LL)[0, 0]
-        ax = axes[2, ix_trial]
-        ax.set_box_aspect(1.5 / 2)
-        ax.set_xlim(xlim)
-        ax.plot(x_ax+w_LL/2, data_LL)
-        ax.set_ylim(ylim_LL)
-        ax.axvline(0, color=[0, 0, 0]) #t_WOI+0.25
-        ax.axvline(t_WOI+w_LL, color=[0, 0, 0])
+        ax_LL = axes[2, ix_trial]
+        ax_LL.set_box_aspect(1.5 / 2)
+        ax_LL.set_xlim(xlim)
+        ax_LL.plot(x_ax + w_LL / 2, data_LL)
+        ax_LL.set_ylim(ylim_LL)
+        ax_LL.axvline(0, color=[0, 0, 0])  # t_WOI+0.25
+        # ax.axvline(t_WOI+w_LL, color=[0, 0, 0], ls = '--')
+        # ax.axvspan(t_WOI+w_LL-0.01, t_WOI+w_LL+0.01, color=[0, 0, 0], alpha=0.1)
         # correlation to both CC (in specific WOI)
         ax_corr = axes[3, ix_trial]
         ax_comb = axes[4, ix_trial]
@@ -329,13 +332,29 @@ def plot_trial_test(EEG_resp, CC_all, surr_data, trials, sc, rc,t_WOI, w_LL = 0.
         ax_comb.axvline(0, color=[0, 0, 0])
         ax_comb.set_ylim(ylim_LL)
         ax_corr.axvline(0, color=[0, 0, 0])
-        ax_corr.axvline(t_WOI + w_LL, color=[0, 0, 0])
-        ax_comb.axvline(t_WOI + w_LL, color=[0, 0, 0])
-        ax_comb.axhline(np.percentile(surr_data, 90), color=[1,0,0])
+        ax_corr.axvline(t_WOI + w_LL, color=[0, 0, 0], ls='--', linewidth=0.5)
+        ax_corr.axvspan(t_WOI + w_LL - 0.02, t_WOI + w_LL + 0.02, color=[0, 0, 0], alpha=0.1)
+        ax_comb.axvline(t_WOI + w_LL, color=[0, 0, 0], ls='--', linewidth=0.5)
+        ax_comb.axvspan(t_WOI + w_LL - 0.02, t_WOI + w_LL + 0.02, color=[0, 0, 0], alpha=0.1)
+
+        # ax_comb.axvline(t_WOI + w_LL, color=[0, 0, 0])
+        ax_comb.axhline(np.percentile(surr_data, 95), color=[1, 0, 0])
         for ix_CC in [1, 2]:
-            corr = sig_funcs.get_pearson2mean_windowed(CC_all[sc, rc,ix_CC], np.expand_dims(data_CCEP,0), t0+t_WOI, 0.25, 500 )[0]
-            ax_corr.plot(x_ax +w_LL/2, corr, color=color_elab[ix_CC])
-            ax_comb.plot(x_ax +w_LL/2, np.sign(corr) *corr**2*data_LL, color=color_elab[ix_CC])
+            corr = \
+            sig_funcs.get_pearson2mean_windowed(CC_all[sc, rc, ix_CC], np.expand_dims(data_CCEP, 0), t0 + t_WOI, 0.25,
+                                                500)[0]
+            ax_corr.plot(x_ax + w_LL / 2, corr, color=color_elab[ix_CC])
+            ax_comb.plot(x_ax + w_LL / 2, np.sign(corr) * corr ** 2 * data_LL, color=color_elab[ix_CC])
+        if ix_trial > 0:
+            ax.set_yticks([])
+            ax_LL.set_yticks([])
+            ax_corr.set_yticks([])
+            ax_comb.set_yticks([])
+
+        ax.set_xticks([])
+        ax_LL.set_xticks([])
+        ax_corr.set_xticks([])
+        ax_comb.set_xlabel('time [s]')
     return fig, axes
 
 

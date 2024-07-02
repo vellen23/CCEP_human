@@ -11,7 +11,7 @@ import pandas as pd
 from tkinter import *
 import matplotlib.pyplot as plt
 from pathlib import Path
-
+import sklearn
 root = Tk()
 root.withdraw()
 from glob import glob
@@ -101,28 +101,30 @@ def compute_subj(subj, metric='LL'):
     bad_stims = np.where(labels_region == 'OUT')[0]
     bad_all = np.unique(np.concatenate([bad_region, bad_chans]))
     file_con_trial = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_trial_all.csv'
+    # load data
     con_trial_Ph = pd.read_csv(file_con_trial)
-    #
-    con_trial_Ph = con_trial_Ph[~(np.isin(con_trial_Ph.Chan, bad_all)) & ~(np.isin(con_trial_Ph.Stim, bad_stims))]
+    # clean data
+    con_trial_Ph = con_trial_Ph[~(np.isin(con_trial_Ph.Chan, bad_all)) & ~(np.isin(con_trial_Ph.Stim, bad_stims))].reset_index(drop=True)
     Stims_Ph = np.unique(con_trial_Ph['Stim'])
     con_trial_Ph = con_trial_Ph[np.isin(con_trial_Ph.Stim, Stims_Ph)]
     con_trial_Ph.loc[con_trial_Ph.Sleep == 9, 'Sleep'] = 0
     con_trial_Ph.loc[
         con_trial_Ph.Artefact == 1, metric] = np.nan  # con_trial_Ph.loc[con_trial_Ph.Artefact!=0, metric] =np.nan
-    # remove outliers
+    con_trial_Ph = con_trial_Ph[(con_trial_Ph.Artefact <1)].reset_index(drop=True)
+    # remove outliers based on baseline
+    con_trial_Ph.insert(0, 'zLL', con_trial_Ph.groupby(['Chan'])['LL_BL'].transform(
+        lambda x: (x - x.mean()) / x.std()).values)
+    con_trial_Ph = con_trial_Ph[(con_trial_Ph.zLL < 8)].reset_index(drop=True)
+    con_trial_Ph = con_trial_Ph.drop(columns='zLL')
+    # remove outliers based on high LL
     con_trial_Ph.insert(0, 'zLL', con_trial_Ph.groupby(['Stim', 'Chan', 'Int'])['LL'].transform(
         lambda x: (x - x.mean()) / x.std()).values)
-    con_trial_Ph.loc[(con_trial_Ph.zLL > 6), metric] = np.nan
-    con_trial_Ph.loc[(con_trial_Ph.zLL < -3), metric] = np.nan
+    con_trial_Ph = con_trial_Ph[(con_trial_Ph.zLL < 5) & (con_trial_Ph.zLL > -5)].reset_index(drop=True)
+    con_trial_Ph = con_trial_Ph.drop(columns='zLL')
 
-    con_trial_Ph = con_trial_Ph.reset_index(drop=True)
-    if not 'SleepState' in con_trial_Ph:
-        # con_trial= con_trial[con_trial.d>0]
-        con_trial_Ph.insert(5, 'SleepState', 'Wake')
-        con_trial_Ph.loc[(con_trial_Ph.Sleep > 1) & (con_trial_Ph.Sleep < 4), 'SleepState'] = 'NREM'
-        con_trial_Ph.loc[(con_trial_Ph.Sleep == 4), 'SleepState'] = 'REM'
+    # add labels
+    con_trial_Ph = bf. add_sleepstate(con_trial_Ph)
 
-    sleepstate_labels = np.unique(con_trial_Ph['SleepState'])[::-1]
     # add path
     stimchans = np.unique(con_trial_Ph.Stim).astype('int')
     for i_sc, sc in zip(np.arange(len(stimchans)), stimchans):
@@ -139,57 +141,46 @@ def compute_subj(subj, metric='LL'):
         title_LL = subj + ', Stim: ' + labels_all[sc] + ', ' + metric + ' as input'
         # todo: remove
         # run_again = 0
-        skip = 0
+        skip = 1
+        df = con_trial_Ph[
+            (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1) & (
+                    con_trial_Ph.Artefact < 1)].reset_index(drop=True)
+        if not "Hour" in df:
+            df['Time'] = pd.to_datetime(df['Time'])
+            df['Hour'] = df['Time'].dt.hour
+            df['Date'] = df['Time'].dt.strftime('%Y%m%d').astype(int)
         if os.path.isfile(V_path)*skip:
-            con_trial_nan = con_trial_Ph[
-                (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1)]  # con_trial_Ph.copy(deep=True)
             NMF_input = np.load(V_path)
         else:
-            con_trial_nan = con_trial_Ph[
-                (con_trial_Ph.Stim == sc) & (con_trial_Ph.d > -1) & (
-                            con_trial_Ph.Artefact < 1)]  # con_trial_Ph.copy(deep=True)
-            con_trial_nan = con_trial_nan.reset_index(drop=True)
-            if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
-                con_trial_nan.groupby(['Chan', 'Sleep', 'Int'])[metric].transform(
+            if np.sum(np.isnan(df[metric])) > 0: df[metric] = \
+                df.groupby(['Chan', 'SleepState', 'Int'])[metric].transform(
                     lambda x: x.fillna(x.mean()))
-            if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
-                con_trial_nan.groupby(['Chan', 'Block', 'Int'])[metric].transform(
+            if np.sum(np.isnan(df[metric])) > 0: df[metric] = \
+                df.groupby(['Chan', 'Block', 'Int'])[metric].transform(
                     lambda x: x.fillna(x.mean()))
-            if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = \
-                con_trial_nan.groupby(['Chan', 'Int'])[metric].transform(
+            if np.sum(np.isnan(df[metric])) > 0: df[metric] = \
+                df.groupby(['Chan', 'Int'])[metric].transform(
                     lambda x: x.fillna(x.mean()))
-            # if np.sum(np.isnan(con_trial_nan[metric])) > 0: con_trial_nan[metric] = con_trial_nan.groupby(['Chan', 'Block'])[
-            #     metric].transform(
-            # chan_nans = np.unique(con_trial_nan.loc[np.isnan(con_trial_nan[metric]), 'Chan'])
-            # if len(chan_nans > 0):
-            #     for rc in chan_nans.astype('int'):
-            #         mn = np.nanmean(con_trial_nan.loc[(con_trial_nan.Int < 1) & (con_trial_nan.Chan == rc) & (
-            #             np.isnan(con_trial_nan[metric])), metric])
-            #         st = np.nanstd(con_trial_nan.loc[(con_trial_nan.Int < 1) & (con_trial_nan.Chan == rc) & (
-            #             np.isnan(con_trial_nan[metric])), metric])
-            #         n = len(
-            #             con_trial_nan.loc[(con_trial_nan.Chan == rc) & (np.isnan(con_trial_nan[metric])), metric].values)
-            #         con_trial_nan.loc[
-            #             (con_trial_nan.Chan == rc) & (np.isnan(con_trial_nan[metric])), metric] = np.random.normal(loc=mn,
-            #                                                                                                        scale=st,
-            #                                                                                                        size=n)
-            # todo:  add random normal distributed value from chan when Int < 1mA (expected value if no response), especially for N peaks
+            chan_all = np.unique(df.Chan).astype('int')
+            trials_all = np.unique(df.Num).astype('int')
 
-            NMF_input = np.zeros((len(labels_all), len(np.unique(con_trial_nan.Num).astype('int'))))
-            i = 0
-            nums = con_trial_nan.Num.values
-            nums, idx = np.unique(nums, return_index=True)
+            # Pivot the DataFrame to create a matrix with 'Chan' as rows, 'Num' as columns, and 'LL' as values
+            pivot_df = df.pivot_table(index='Chan', columns='Num', values=metric, aggfunc='mean')
 
-            for num in nums.astype('int'):
-                # for num in nums[np.sort(idx)].astype('int'):
-                dat = con_trial_nan[con_trial_nan.Num == num]
-                chan = dat.Chan.values.astype('int')
-                NMF_input[chan, i] = abs(dat[metric].values)
-                i = i + 1
-            NMF_input = np.nan_to_num(NMF_input, nan=0)
+            # Calculate the mean of each channel (row) and use it to fill NaN values
+            channel_means = pivot_df.mean(axis=1)
+            pivot_df_filled = pivot_df.T.fillna(channel_means).T
+
+            # Convert the filled DataFrame to a numpy array
+            NMF_input_val = pivot_df_filled.values
+            NMF_input = np.zeros((len(labels_all), len(trials_all)))
+            NMF_input[chan_all, :] = NMF_input_val
+            # put bad channels to zero
+            NMF_input[bad_all, :] = 0
+            NMF_input = sklearn.preprocessing.normalize(NMF_input)
             np.save(V_path, NMF_input)
-            # todo: plot NMF input
-            # W
+
+            # plot NMF input
             labels_clean = np.delete(labels_all, bad_all, 0)
             NMF_input_clean = np.delete(NMF_input, bad_all, 0)
             file = nmf_fig_path + 'NMF_input_IO_' + metric
@@ -233,7 +224,7 @@ def compute_subj(subj, metric='LL'):
             con_nmf = np.zeros((H.shape[1], len(col0) + H.shape[0]))
             con_nmf[:, len(col0):] = H.T
             # add stim channel, Hour and Intensity
-            summ = con_trial_nan.groupby(['Num'], as_index=False)[col0].mean()
+            summ = df.groupby(['Num'], as_index=False)[col0].mean()
             con_nmf[:, 0:len(col0)] = summ.values[:, 1:]
             con_nmf = pd.DataFrame(con_nmf, columns=col)
             # sleepstate
@@ -243,10 +234,8 @@ def compute_subj(subj, metric='LL'):
 
             con_nmf.insert(0, 'Stim_L', labels_all[sc])
             con_nmf.insert(0, 'Area', labels_region[sc])
-            # todo: plot all H against Int
             NMFf_plot.plot_H_trial(con_nmf, 'Int', 'Stim_L', title_LL, nmf_fig_path)
-            # NMFf.plot_H_trial(pd_con_nnmf, 'Int', 'Block', title_LL, nmf_fig_path)
-            # W
+
             labels_clean = np.delete(labels_all, bad_all, 0)
             W_clean = np.delete(W, bad_all, 0)
             file = nmf_fig_path + 'W_r' + str(rk)
@@ -256,15 +245,14 @@ def compute_subj(subj, metric='LL'):
             if np.isin(rk, rank_sel):
                 # NMFf.plot_H_trial(con_nmf, 'Int', 'Block', title_LL, nmf_fig_path)
                 file = nmf_path + 'IO_CR_' + str(p) + 'rk' + str(rk) + '.csv'
+                con_nmf['Num'] = np.unique(df.Num).astype('int')
                 con_nmf.to_csv(file, index=False, header=True)
-
                 # associate H to stim channel
                 NNMF_ass = NMFf_plot.get_NMF_Stim_association(con_nmf, H_col)
-                for cond in ['Block', 'Sleep', 'SleepState']:
-                    NNMF_AUC = NMFf_plot.get_NMF_AUC(con_nmf, NNMF_ass, cond_sel=cond)
-                    NNMF_AUC.insert(0, 'Stim_L', labels_all[sc])
-                    NNMF_AUC.insert(0, 'Area', labels_region[sc])
-
+                for cond in ['SleepState']: #
+                    NNMF_AUC = NMFf_plot.get_NMF_AUC_surr(con_nmf, NNMF_ass, cond_sel=cond)
+                    NNMF_AUC.insert(0, 'Subj', subj)
+                    NNMF_AUC['k'] = rk
                     file = nmf_path + 'IO_' + cond + '_AUC_' + str(p) + 'rk' + str(rk) + '.csv'
                     NNMF_AUC.to_csv(file, index=False, header=True)
                 file_ass = nmf_path + 'IO_association_' + str(p) + 'rk' + str(rk) + '.csv'
@@ -275,16 +263,10 @@ def compute_subj(subj, metric='LL'):
                 file = nmf_path + 'W_' + str(p) + 'rk' + str(rk) + '.csv'
                 W_save.to_csv(file, index=False, header=True)
                 # plot AUC
-                # ssave H
                 file = nmf_fig_path + 'NMF_H_rk' + str(rk)
                 NMFf_plot.plot_H(H, subj + ' -- Activation Function H ', file=file)
-                # NNMF_AUC = NNMF_AUC[NNMF_AUC.Pearson > -1]
                 for sc in np.unique(NNMF_ass.Stim).astype('int'):
                     for H in np.unique(NNMF_ass.loc[NNMF_ass.Stim == sc, 'H_num']).astype('int'):
-                        file = nmf_fig_path + 'IO_Sleep_AUC_rk' + str(rk) + '_H' + str(H) + '_Stim_' + labels_all[
-                            sc]  # +'.npy'
-                        title = subj + ' -- Sleep -- ' + labels_all[sc] + ', H' + str(H) + '/' + str(rk)
-                        NMFf_plot.plot_NMF_AUC_Sleep(con_nmf, sc, H, title, file)
                         title = subj + ' -- SleepStat -- ' + labels_all[sc] + ', H' + str(H) + '/' + str(rk)
                         file = nmf_fig_path + 'IO_SleepState_AUC_rk' + str(rk) + '_H' + str(H) + '_Stim_' + labels_all[
                             sc]  # +'.npy'
@@ -293,13 +275,14 @@ def compute_subj(subj, metric='LL'):
     print(subj + ' ---- DONE ------ ')
 
 
-# compute_subj('EL013')
-# compute_subj('EL011')
-
 print('START')
+
 metrics = ['LL']  # 'sN2','sN1',
-for subj in ["EL020", "EL021", "EL022", "EL025", "EL026",
-             "EL027"]:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
+subjs = ["EL004","EL005","EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL019", "EL021",
+         "EL022", "EL024", "EL026", "EL027", "EL020", "EL028"]
+subjs = ["EL005","EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL019", "EL021",
+         "EL022", "EL024", "EL026", "EL027", "EL020", "EL028"]
+for subj in subjs:  # ["EL016", "EL011", "EL004", "EL005", "EL010",  "EL015", "El014"]:  # ["EL011","EL015", "EL010",  "EL012", "El014"]: #, "EL004", "EL010", "EL011", "EL012", "El014"]:  # "EL012", "EL013",
     for m in metrics:
         compute_subj(subj, m)
 #         try:

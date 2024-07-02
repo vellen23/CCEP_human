@@ -11,7 +11,7 @@ def con_sleep_P_stats(con_trial):
     if "SleepState" not in con_trial:
         con_trial = bf.add_sleepstate(con_trial)
     # Clean trials
-    con_trial = con_trial[(con_trial.Sig > -1) & (con_trial.Artefact < 1)]
+    con_trial = con_trial[(con_trial.Sig > -1) & (con_trial.Artefact < 1)].reset_index(drop=True)
 
     # Define the baseline condition
     baseline_condition = 'Wake'
@@ -20,9 +20,6 @@ def con_sleep_P_stats(con_trial):
     results = []
     grouped = con_trial.groupby(['Stim', 'Chan'])
     for (stim, chan), group in grouped:
-        if stim == 6:
-            if chan == 34:
-                print('stop')
         P_table = group.groupby('SleepState')['Sig'].mean()
         if np.mean(P_table.values) > 0:  # significant connections only
             for condition in other_conditions:
@@ -179,9 +176,20 @@ def node_features_sleep(con_trial, metric):
         con_trial = con_trial[(con_trial.Sig == 1) & (con_trial.Artefact < 1)].reset_index(drop=True)
         con_trial_sleep = con_trial.groupby(['Stim', 'Chan', 'SleepState'], as_index=False)[['Sig', 'LL_sig']].mean()
         con_trial_sleep[metric] = con_trial_sleep.LL_sig
-    else:  # Sig
+    elif metric == 'LL_sig':
         con_trial = con_trial[(con_trial.Sig > -1) & (con_trial.Artefact < 1)].reset_index(drop=True)
         con_trial_sleep = con_trial.groupby(['Stim', 'Chan', 'SleepState'], as_index=False)[['Sig', 'LL_sig']].mean()
+        con_trial_sleep[metric] = con_trial_sleep.LL_sig
+
+    elif metric == 'P':
+        con_trial = con_trial[(con_trial.Sig > -1) & (con_trial.Artefact < 1)].reset_index(drop=True)
+        con_trial_sleep = con_trial.groupby(['Stim', 'Chan', 'SleepState'], as_index=False)[['Sig', 'LL_sig']].mean()
+        con_trial_sleep[metric] = con_trial_sleep.Sig
+    else:  # unweighted
+        con_trial = con_trial[(con_trial.Sig > -1) & (con_trial.Artefact < 1)].reset_index(drop=True)
+        con_trial_sleep = con_trial.groupby(['Stim', 'Chan', 'SleepState'], as_index=False)[['Sig', 'LL_sig']].mean()
+        con_trial_sleep.loc[con_trial_sleep.Sig > 0.02, 'Sig'] = 1
+        con_trial_sleep.loc[con_trial_sleep.Sig <= 0.02, 'Sig'] = 0
         con_trial_sleep[metric] = con_trial_sleep.Sig
     con_trial_sleep = con_trial_sleep[np.isin(con_trial_sleep.SleepState, sleepstates)].reset_index(
         drop=True)

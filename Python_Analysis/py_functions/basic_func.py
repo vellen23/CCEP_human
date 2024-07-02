@@ -2,7 +2,7 @@ import numpy as np
 
 import h5py
 import scipy.fftpack
-
+import load_summary as ls
 import scipy.io as sio
 
 cond_vals = np.arange(4)
@@ -24,7 +24,7 @@ def read_mat(filename, dataname):
 def get_Stim_chans(stimlist, lbls):
     labels_all = lbls.label.values
     labels_clinic = lbls.Clinic.values
-    labels_region = lbls.Region.values
+
     coord_all = np.array([lbls.x.values, lbls.y.values, lbls.z.values]).T
     # get stimulation channels directly from stimlist
     StimChanSM = np.unique(stimlist.ChanP)
@@ -50,13 +50,16 @@ def get_Stim_chans(stimlist, lbls):
             StimChanSM = np.delete(StimChanSM, i, 0)
 
     stimlist = stimlist[np.isin(stimlist.ChanP, StimChanSM)]
-
-    labels_region[labels_region == 'Temporal'] = 'Basotemporal'
-    labels_region[labels_region == 'HIPP '] = 'Mesiotemporal'
-    labels_region[labels_region == 'HIPP'] = 'Mesiotemporal'
-    labels_region[labels_region == 'Temporal'] = 'Laterotemporal'
-
+    # if "Region" in lbls:
+    #     labels_region = lbls.Region.values
+    #     labels_region[labels_region == 'Temporal'] = 'Basotemporal'
+    #     labels_region[labels_region == 'HIPP '] = 'Mesiotemporal'
+    #     labels_region[labels_region == 'HIPP'] = 'Mesiotemporal'
+    #     labels_region[labels_region == 'Temporal'] = 'Laterotemporal'
+    # else:
+    labels_region = ls.elab2regions(lbls.Area.values)
     return labels_all, labels_region, labels_clinic, coord_all, StimChans, StimChanSM, StimChansC, StimChanIx, stimlist
+
 
 def check_stim_labels(c, labels_all):
     import re
@@ -116,6 +119,8 @@ def check_inStimChan_C(c_s, sc_s, labels_all):
 def add_sleepstate(con_trial):
     if not 'SleepState' in con_trial:
         con_trial.insert(6, 'SleepState', 'Wake')
+    if not 'Ictal' in con_trial:
+        con_trial.insert(6, 'Ictal', 0)
     con_trial.loc[(con_trial.SleepState == 'W'), 'SleepState'] = 'Wake'
     con_trial.loc[(con_trial.Sleep == 0), 'SleepState'] = 'Wake'
     con_trial.loc[(con_trial.Sleep > 1) & (con_trial.Sleep < 4), 'SleepState'] = 'NREM'
@@ -125,6 +130,7 @@ def add_sleepstate(con_trial):
     con_trial.loc[(con_trial.Sleep == 5), 'SleepState'] = 'Unknown'
     con_trial.loc[(con_trial.Ictal != 0), 'SleepState'] = 'SZ'
     return con_trial
+
 
 def check_inStimChan(c, sc_s, labels_all):
     rr = np.zeros((len(sc_s),))

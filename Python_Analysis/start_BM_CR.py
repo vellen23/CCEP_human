@@ -101,16 +101,25 @@ class main:
         for i in range(len(labels_all)):
             area_sel = " ".join(re.findall("[a-zA-Z_]+", labels_all[i]))
             self.labels_region[i] = atlas_regions.loc[atlas_regions.Abbreviation == area_sel, "Region"].values[0]
-        # self.labels_region = labels_region
+
+        start_r = 20
+        end_r = 20
+        file = os.path.join(sub_path, 'Patients', subj, 'Electrodes', 'Tracts',
+                            f"{subj}_tracts_contacts_s{start_r}_e{end_r}.csv")
+        # self.tract_matrix = pd.read_csv(file)
 
         # regions information
-        # self.CR_color = pd.read_excel("T:\EL_experiment\Patients\\" + 'all' + "\Analysis\BrainMapping\CR_color.xlsx",
-        #                               header=0)
         regions = pd.read_excel(sub_path + "\\EvM\Projects\EL_experiment\Analysis\Patients\Across\elab_labels.xlsx",
                                 sheet_name='regions',
                                 header=0)
         self.color_regions = regions.color.values
         self.regions = regions
+        badblocks_file = self.path_patient_analysis + '/BrainMapping/data/badblocks.csv'
+        if os.path.isfile(badblocks_file):
+            bad_blocks = pd.read_csv(badblocks_file)
+            self.bad_blocks = bad_blocks.Block.values
+        else:
+            self.bad_blocks = [-1]
         badchans = pd.read_csv(self.path_patient_analysis + '/BrainMapping/data/badchan.csv')
         self.bad_chans = np.unique(np.array(np.where(badchans.values[:, 1:] == 1))[0, :])
         # C = regions.label.values
@@ -156,9 +165,7 @@ class main:
         cmap_Dir = 'bwr'
 
         cmap = locals()["cmap_" + method]
-
         M[np.isnan(M)] = -1
-
         fig = plt.figure(figsize=(25, 25))
         fig.patch.set_facecolor('xkcd:white')
         axmatrix = fig.add_axes([0.15, 0.15, 0.7, 0.7])  # x, y, (start posiion), lenx, leny
@@ -389,12 +396,29 @@ class main:
                     # self.plot_BM_CR_block(M_resp, labels_sel, areas_sel, ll, t, metric, savefig)
             np.save(M_dir_path, M_B_all)
 
-    def get_summary(self, con_trial, CC_summ, EEG_resp):
+    def get_summary(self, con_trial, CC_summ, EEG_resp, skip=1):
+        con_trial = con_trial[~np.isin(con_trial.Block, self.bad_blocks)].reset_index(drop=True)
         summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_general.csv'  # summary_general
-        con_summary = BMf.get_con_summary(con_trial, CC_summ, EEG_resp)
+        if os.path.isfile(summary_gen_path) * skip:
+            print(' already calculated  -  skipping .. ')
+            con_summary = pd.read_csv(summary_gen_path)
+        else:
+            con_summary = BMf.get_con_summary(con_trial, CC_summ, EEG_resp)
+        con_summary = ls.adding_area(con_summary, self.lbls, pair=1)
+        con_summary = ls.adding_region(con_summary, pair=1)
+        con_summary = ls.adding_subregion(con_summary, pair=1)
+        con_summary = ls.adding_SOZ(con_summary, self.lbls, pair=1)
+        con_summary = ls.adding_hemisphere(con_summary, self.lbls)
+        con_summary.loc[
+            np.isin(con_summary.Stim, self.bad_chans) | np.isin(con_summary.Chan, self.bad_chans), 'Sig'] = -1
+        # if np.max(self.tracts_counts)>0:
+        #     con_summary = ls.adding_distance_tracts_matrix(con_summary, self.tracts_distances, self.tracts_counts)
+
+        # con_summary = ls.adding_distance_tracts(con_summary, self.tract_matrix)
         con_summary.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
 
     def get_summary_SS(self, con_trial, CC_summ, EEG_resp, delay=0, skip=1):
+        # old
         summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_general.csv'  # summary_general
         con_summary_gen = pd.read_csv(summary_gen_path)
         con_trial = bf.add_sleepstate(con_trial)
@@ -409,6 +433,39 @@ class main:
                 df = ls.adding_subregion(df, pair=1)
                 df.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
 
+    def get_summary_SS_2(self, con_trial, CC_summ, EEG_resp, delay=0, skip=1):
+        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_general.csv'  # summary_general
+        con_summary_gen = pd.read_csv(summary_gen_path)
+        con_trial = bf.add_sleepstate(con_trial)
+        for ss in ['Wake', 'NREM', 'REM']:  # ['Wake', 'NREM', 'REM']
+            for metric in ['ratio']:  # ['ratio', 'combined', 'diff']
+                summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_' + ss + '_' + metric + '.csv'  # summary_general
+                if os.path.isfile(summary_gen_path) * skip:
+                    print(ss + ' already calculated  -  skipping .. ')
+                    df = pd.read_csv(summary_gen_path)
+                    if "peak_latency" in df:
+                        skip = 1
+                    else:
+                        skip = 0
+                if skip == 0:
+                    df = BMf.get_con_summary_SS(con_trial, con_summary_gen, CC_summ, EEG_resp, metric, ss, delay=1)
+                    df = ls.adding_area(df, self.lbls, pair=1)
+                    df = ls.adding_region(df, pair=1)
+                    df = ls.adding_subregion(df, pair=1)
+                df = ls.adding_SOZ(df, self.lbls, pair=1)
+                df.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
+
+    def get_CC_peak(self, con_trial, CC_summ, EEG_resp, delay=0, skip=1):
+        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_general.csv'  # summary_general
+        con_summary_gen = pd.read_csv(summary_gen_path)
+        con_trial = bf.add_sleepstate(con_trial)
+        file_CC_summ = self.path_patient_analysis + '\\' + self.folder + '\\data\\CC_summ_similarity.csv'
+        CC_summ = pd.read_csv(file_CC_summ)
+        file_GT = self.path_patient_analysis + '\\' + self.folder + '\\data\\M_CC_similarity.h5'
+        M_GT_all = h5py.File(file_GT)
+        M_GT_all = M_GT_all['M_GT_all']
+        df = BMf.get_CC_onset(CC_summ, M_GT_all, con_summary_gen)
+
     def get_node_features(self, con_trial, metric='LL', skip=1):
         exp_dir = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Node')
         os.makedirs(exp_dir, exist_ok=True)
@@ -421,6 +478,7 @@ class main:
             df = graph_funcs.node_features_sleep(con_trial, metric)
             df.to_csv(file, header=True, index=False)
             df.insert(0, 'Subj', self.subj)
+        df = ls.adding_SOZ(df, self.lbls)
         df = ls.adding_area(df, self.lbls, pair=0)
         df = ls.adding_subregion(df, pair=0)
         df = ls.adding_region(df, pair=0)
@@ -496,6 +554,9 @@ class main:
 
     def plot_pearson_hypnogram(self, con_trial, hyp_style='Block'):
         path_file = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'BM_figures', 'Block')
+        con_trial = con_trial[
+            ~np.isin(con_trial.Chan, self.bad_chans) & ~np.isin(con_trial.Block, self.bad_blocks)].reset_index(
+            drop=True)  # self.bad_blocks
         M, label = BMf.cal_correlation_condition(con_trial, metric='LL', condition='Block')
         if hyp_style == 'Block':
             hypnogram = np.zeros((len(label),))
@@ -519,6 +580,90 @@ class main:
         else:
             plt.savefig(os.path.join(path_file, 'Block_pearson_full.svg'))
         plt.close(fig)
+
+    def plot_pearson_grouped(self, con_trial, hyp_style='Block'):
+        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_general.csv'  # summary_general
+        con_summary = pd.read_csv(summary_gen_path)
+        path_file = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'BM_figures', 'Block')
+        con_trial = bf.add_sleepstate(con_trial)
+        con_trial = con_trial[
+            ~np.isin(con_trial.Chan, self.bad_chans) & ~np.isin(con_trial.Block, self.bad_blocks)].reset_index(
+            drop=True)  # self.bad_blocks
+        M, label = BMf.cal_correlation_condition(con_trial, con_summary, metric='LL', condition='Block')
+        blocks_all_zeros = con_trial.groupby('Block').filter(lambda x: (x['Sleep'] == 0).all())['Block'].unique()
+        blocks_REM = con_trial.groupby('Block').filter(lambda x: (x['SleepState'] == 'REM').all())['Block'].unique()
+        blocks_NREM = con_trial.groupby('Block').filter(lambda x: (x['SleepState'] == 'NREM').all())['Block'].unique()
+        # Select the first 'Time' entry for each block, based on the first ID within each block
+        first_times = con_trial.groupby('Block')['Time'].first()
+
+        # Recalculate the time differences in hours between the first times of each pair of blocks
+        time_diff_matrix_first_time = np.zeros((M.shape[0], M.shape[1]))  # Initialize a 20x20 matrix
+        arr = []
+        for i in range(M.shape[0]):
+            for j in range(i + 1, M.shape[0]):
+                # Calculate the time difference between the first entries of block 2 and block 3
+                time_block_i = con_trial.loc[con_trial.Block == label[i], 'Time'].values[0]
+                time_block_j = con_trial.loc[con_trial.Block == label[j], 'Time'].values[0]
+                # Calculate difference and convert to hours
+                time_difference_hours = np.floor((pd.to_datetime(time_block_i) - pd.to_datetime(
+                    time_block_j)).total_seconds() / 3600)
+                time_diff_matrix_first_time[i, j] = time_difference_hours
+                time_diff_matrix_first_time[j, i] = -time_difference_hours
+                arr.append([label[i], label[j], -time_difference_hours, M[i, j]])
+        df = pd.DataFrame(arr, columns=['BlockA', 'BlockB', 'Time_diff', 'rho'])
+        df['SleepState'] = 'Mixed'
+        df['SleepState_short'] = 'Mixed'
+        df.loc[np.isin(df.BlockA, blocks_all_zeros) & np.isin(df.BlockB, blocks_all_zeros), 'SleepState_short'] = 'Wake'
+        df.loc[np.isin(df.BlockA, blocks_all_zeros) & np.isin(df.BlockB, blocks_all_zeros), 'SleepState'] = 'Wake-Wake'
+        df.loc[np.isin(df.BlockA, blocks_NREM) & np.isin(df.BlockB, blocks_NREM), 'SleepState'] = 'NREM-NREM'
+        df.loc[np.isin(df.BlockA, blocks_REM) & np.isin(df.BlockB, blocks_REM), 'SleepState'] = 'REM-REM'
+        # df.loc[np.isin(df.BlockA, blocks_all_zeros) & ~np.isin(df.BlockB,
+        #                                                       blocks_all_zeros), 'SleepState'] = 'Wake-MixedSleep'
+        # df.loc[~np.isin(df.BlockA, blocks_all_zeros) & np.isin(df.BlockB,
+        #                                                       blocks_all_zeros), 'SleepState'] = 'Wake-MixedSleep'
+
+        df.loc[np.isin(df.BlockA, blocks_NREM) & np.isin(df.BlockB,
+                                                         blocks_all_zeros), 'SleepState'] = 'Wake-NREM'
+        df.loc[np.isin(df.BlockB, blocks_NREM) & np.isin(df.BlockA,
+                                                         blocks_all_zeros), 'SleepState'] = 'Wake-NREM'
+
+        df.loc[np.isin(df.BlockA, blocks_REM) & np.isin(df.BlockB,
+                                                        blocks_all_zeros), 'SleepState'] = 'Wake-REM'
+        df.loc[np.isin(df.BlockB, blocks_REM) & np.isin(df.BlockA,
+                                                        blocks_all_zeros), 'SleepState'] = 'Wake-REM'
+        df.loc[np.isin(df.BlockA, blocks_NREM) & np.isin(df.BlockB,
+                                                         blocks_REM), 'SleepState'] = 'NREM-REM'
+        df.loc[np.isin(df.BlockB, blocks_NREM) & np.isin(df.BlockA,
+                                                         blocks_REM), 'SleepState'] = 'NREM-REM'
+
+        grouped = 'SleepState'
+        group_order = ['Wake-Wake', 'NREM-NREM', 'REM-REM', 'Wake-NREM', 'Wake-REM', 'NREM-REM']
+        # hypnogram information
+        stimlist_hypno = pd.read_csv(os.path.join(self.path_patient_analysis, 'stimlist_hypnogram.csv'))
+        stimlist_hypno = stimlist_hypno[
+            np.isin(stimlist_hypno.stim_block, label) & (stimlist_hypno.sleep < 5)].reset_index(drop=True)
+        hypnogram = stimlist_hypno.sleep
+        x_ax_h = stimlist_hypno.ix_h  # stimlist_hypno.stim_block + (stimlist_hypno.ix_h % 1)- np.min(stimlist_hypno.stim_block)
+        x_ax = stimlist_hypno.groupby(['stim_block'])['ix_h'].min().values
+
+        x_ax_block = np.arange(len(label))
+
+        fig = BM_plots.plot_block_hypnogram_quantification(M, df, grouped, group_order, hypnogram, x_ax_h, x_ax,
+                                                           x_ax_block)
+
+        plt.suptitle(self.subj + ': Connectivity Maps pairwise Correlation')
+        plt.tight_layout()
+        path_output = os.path.join(self.path_patient_analysis, 'BrainMapping', 'CR', 'BM_figures', 'General')
+        plt.savefig(os.path.join(path_output, 'BM_corr_all.svg'))
+        summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\connectivity_correlation_' + grouped + '.csv'
+        df.to_csv(summary_gen_path)
+        # import statsmodels.formula.api as smf
+        # model = smf.mixedlm("rho ~ Time_diff", df, groups=df["SleepState"], re_formula="~Time_diff")#smf.mixedlm("rho ~ Time_diff * SleepState", df, groups=df["ID"], re_formula="~Time_diff")
+        # result = model.fit()
+        #
+        # # Print the summary of the model
+        # print(result.summary())
+        print('Done')
 
     def get_subnetworks(self, con_summary, parameters=['Sig', 'd', 'delay']):
         con_summary = con_summary[(con_summary.Sig > 0)].reset_index(drop=True)
@@ -740,20 +885,25 @@ def start_subj(subj, cluster_method='similarity'):
     print('loading h5')
     EEG_resp = h5py.File(h5_file)
     EEG_resp = EEG_resp['EEG_resp']
+    # run_main.plot_pearson_grouped(con_trial, hyp_style='full')
+    # delay = 0
+    # if delay:
+    #
+    # else:
+    #     run_main.get_summary(con_trial, CC_summ, EEG_resp, skip=1)
+    #
+    run_main.get_summary(con_trial, CC_summ, EEG_resp, skip=1)
+    # if subj =='EL028':
+    #     skip_n = 0
+    # else:
+    #     skip_n = 1
+    # run_main.connection_sleep_P_diff(con_trial, skip=skip_n)
+    # run_main.connection_sleep_diff(con_trial, metric='LL', skip=skip_n)
+    # run_main.get_node_features(con_trial, 'LL_sig', skip=1)
+    # run_main.get_node_features(con_trial, 'P', skip=1)
+    # run_main.get_node_features(con_trial, 'unweighted', skip=1)
 
-    delay = 0
-    if delay:
-        run_main.get_summary(con_trial, CC_summ, EEG_resp)
-    wake = 1
-    if wake:
-        run_main.get_summary_SS(con_trial, CC_summ, EEG_resp, delay=1, skip=0)
-        more = 0
-        if more:
-            run_main.get_node_features(con_trial, 'LL', skip=0)
-            run_main.get_node_features(con_trial, 'P', skip=0)
-            run_main.connection_sleep_P_diff(con_trial, skip=0)
-            run_main.connection_sleep_diff(con_trial, metric='LL', skip=0)
-        # run_main.BM_plots_General(CC_summ, con_trial, 0)
+    # run_main.BM_plots_General(CC_summ, con_trial, 0)
     # con_summary = pd.read_csv(summary_gen_path)
     # run_main.get_subnetworks(con_summary)
     blocks = 0
@@ -767,8 +917,12 @@ def start_subj(subj, cluster_method='similarity'):
 
 thread = 0
 sig = 0
-subjs = ["EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL019", "EL020", "EL021",
+subjs = ["EL020", "EL021",
          "EL022", "EL024", "EL026", "EL027", "EL028"]
+subjs = ["EL010", "EL011", "EL012", "EL013", "EL014", "EL015", "EL016", "EL019", "EL021",
+         "EL022", "EL024", "EL026", "EL027", "EL020", "EL028"]
+
+# "EL021",
 
 for subj in subjs:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
     if thread:

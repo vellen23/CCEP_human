@@ -1,6 +1,6 @@
 clear all
 close all
-
+sep         = '\';
 %% merge scalp files to score
 
 cwp         = pwd;
@@ -16,57 +16,49 @@ sep         = '\';
 clearvars cwp idcs
 addpath([pwd '/nx_plots_matlab']);
 addpath([pwd '/nx_preproc']);
-ft_defaults;
 warning('off','MATLAB:xlswrite:AddSheet'); %optional
-
 %%
+subj = 'EL024';
+path = 'X:\4 e-Lab\Patients\';
+path_patient = fullfile(path, subj);
 
-subj            = 'EL013';
-%block_path     = uigetdir(['E:\PhD\EL_experiment\Patients\', subj, '/Data']);
-path = 'Y:\eLab\Patients\';
-path = 'X:\\4 e-Lab\\Patients\\';
-path_patient    = [path,  subj];  
+% Use fullfile for creating paths to ensure compatibility across operating systems
+block_path = fullfile(path, subj, 'Data', 'EL_experiment', 'experiment1', 'data_blocks');
 
-block_path     = uigetdir([path, '\\', subj, '\\Data\\EL_experiment\experiment1']); %
-% block_files     = dir(block_path);
-% isdir           = [block_files.isdir]; % Get all the codes
-% block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
-% only CR 
-block_files     = dir(block_path);
-isdir           = [block_files.isdir]; % Get all the codes
-block_files     = block_files(isdir==1); % Select only the p and H codes, delete the rest
-%for i=3:length(block_files)
-i = 3;
-while i<= length(block_files)
-    if  (block_files(i).name(end-3:end-2) == "BM")
-        block_files(i) = [];
-    elseif (block_files(i).name(end-3:end-2) == "IO")
-        block_files(i) = [];
-    elseif (block_files(i).name(end-3:end-2) == "Ph")
-        block_files(i) = [];
-    else 
-        i = i+1;
+% Retrieve directory contents
+block_files = dir(block_path);
+% Filter out non-directory entries and the special directories '.' and '..'
+block_files = block_files([block_files.isdir] & ~ismember({block_files.name}, {'.', '..'}));
+
+% Initialize an empty index vector for deletion
+toDelete = false(size(block_files));
+
+% Check each block file's name for specific endings and mark for deletion
+for i = 1:length(block_files)
+    name = block_files(i).name;
+    suffix = name(end-3:end-2); % Extract the relevant part of the file name
+    % Mark for deletion if the suffix matches any of the specified strings
+    if any(strcmp(suffix, {'BM', 'IO', 'Ph'}))
+        toDelete(i) = true;
     end
 end
-stop
-%%
-% files= dir([dir_files '\*CR*.EDF']);
-path_pp = [path_patient '\Data\EL_experiment\experiment1'];
 
-%% split based on selected files
+% Apply deletion marks
+block_files(toDelete) = [];
+
+path_pp = [path_patient '\Data\EL_experiment\experiment1'];
+load([path_pp '\score_files.mat']);
+%% 1. function_ split based on selected files
+% Initialize variables
 scalp_all       = [];
 score_all = [];
 Fs1 = 1024; %1024
-for sf=2:height(score_files)
+for sf=1:height(score_files)
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
-    for i=3:length(block_files)
-        if block_files(i).name == start_file
-            i_start = i;
-        elseif block_files(i).name == stop_file
-            i_stop = i;
-        end
-    end
+    % Find start and stop indices
+    i_start = find(strcmp({block_files.name}, start_file), 1);
+    i_stop = find(strcmp({block_files.name}, stop_file), 1);
     % concat files
     for i=i_start:i_stop
         disp(block_files(i).name);
@@ -167,17 +159,14 @@ for sf=2:height(score_files)
     scalp_all   = [];
     score_all   = [];
 end
-%% load updated score file
-for sf=1:height(score_files)      
+%% 2. function: load updated score file
+for sf = 1:height(score_files)
     start_file = score_files.start(sf);
     stop_file = score_files.end(sf);
-    for i=3:length(block_files)
-        if block_files(i).name == start_file
-            i_start = i;
-        elseif block_files(i).name == stop_file
-            i_stop = i;
-        end
-    end
+    block_files = dir([block_path sep '*']); % Refresh block_files for each iteration if needed
+    % Find start and stop indices
+    i_start = find(strcmp({block_files.name}, start_file), 1);
+    i_stop = find(strcmp({block_files.name}, stop_file), 1);
     % concat files
     %for i=i_start:i_stop
     % 1. load score file
@@ -206,7 +195,7 @@ for sf=1:height(score_files)
         score_all = score_all(:,size(score,2)+1:end);
     end
 end
-%% score to excel list
+% 3. function: update score to excel list
 for i=3:length(block_files)
     score2list(char([block_path, sep, block_files(i).name]), 0);
 end

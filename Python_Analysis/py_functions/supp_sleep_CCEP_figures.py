@@ -93,22 +93,23 @@ def plot_SleepState(sc, rc, EEG_resp, con_trial, labels_all, metrics=['LL']):
 
     # Half-violin, half-strip plot (Raincloud plot)
     for m_ix, metric in enumerate(metrics):
+        lists_sel = lists[~np.isnan(lists[metric])].reset_index(drop=True)
         # Statistics: Wake-NREM, Wake-REM
-        _, p_value_NREM, _ = graph_funcs.cond_mag_stats(lists.loc[lists.SleepState == 'Wake', metric].values,
-                                                        lists.loc[lists.SleepState == 'NREM', metric].values,
+        _, p_value_NREM, _ = graph_funcs.cond_mag_stats(lists_sel.loc[lists_sel.SleepState == 'Wake', metric].values,
+                                                        lists_sel.loc[lists_sel.SleepState == 'NREM', metric].values,
                                                         permutation=False, test='MWU')
-        _, p_value_REM, _ = graph_funcs.cond_mag_stats(lists.loc[lists.SleepState == 'Wake', metric].values,
-                                                       lists.loc[lists.SleepState == 'REM', metric].values,
+        _, p_value_REM, _ = graph_funcs.cond_mag_stats(lists_sel.loc[lists_sel.SleepState == 'Wake', metric].values,
+                                                       lists_sel.loc[lists_sel.SleepState == 'REM', metric].values,
                                                        permutation=False, test='MWU')
 
         ax = axes[3+m_ix]
         for sleep_state, color in zip(label_sleep, color_sleep):
             #sns.violinplot(x='SleepState', y=metric, data=lists[lists.SleepState == sleep_state], order=label_sleep,
             #                palette=[color], ax=ax, split=True)
-            sns.stripplot(x='SleepState', y=metric, data=lists[lists.SleepState == sleep_state], order=label_sleep,
+            sns.stripplot(x='SleepState', y=metric, data=lists_sel[lists_sel.SleepState == sleep_state], order=label_sleep,
                           palette=[color], linewidth=1, edgecolor='gray', ax=ax, jitter=True, s= 0.5)
 
-            sns.boxplot(x='SleepState', y=metric, data=lists[lists.SleepState == sleep_state], order=label_sleep, palette=[color],
+            sns.boxplot(x='SleepState', y=metric, data=lists_sel[lists_sel.SleepState == sleep_state], order=label_sleep, palette=[color],
                         fliersize=0, ax=ax)
         # Add significance asterisks
         for ix, p_val in enumerate([p_value_NREM, p_value_REM]):

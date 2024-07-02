@@ -6,6 +6,7 @@ import scipy.fftpack
 import matplotlib
 import basic_func as bf
 import pywt
+import sklearn
 from matplotlib.ticker import ScalarFormatter
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -21,9 +22,9 @@ import sys
 import freq_funcs as ff
 import LL_funcs as LLf
 import tqdm
-from tslearn.clustering import TimeSeriesKMeans
-from tslearn.datasets import CachedDatasets
-from tslearn.preprocessing import TimeSeriesScalerMeanVariance, TimeSeriesResampler
+#from tslearn.clustering import TimeSeriesKMeans
+#from tslearn.datasets import CachedDatasets
+#from tslearn.preprocessing import TimeSeriesScalerMeanVariance, TimeSeriesResampler
 from scipy.spatial import distance
 import itertools
 import math
@@ -53,6 +54,13 @@ color_elab[1, :] = np.array([189, 215, 238]) / 255
 color_elab[2, :] = np.array([0.256, 0.574, 0.431])
 
 
+def get_AUC(mag_val, int_val, mag_max = -1):
+    if mag_max == -1:
+        mag_max = np.max(mag_val)
+    mag_norm = (mag_val - np.min(mag_val)) / (mag_max - np.min(mag_val))
+    Int_norm = (int_val - np.min(int_val)) / (np.max(int_val) - np.min(int_val))
+    auc_value = sklearn.metrics.auc(Int_norm, mag_norm)
+    return auc_value, mag_max
 def check_inStimChan_C(c_s, sc_s, labels_all):
     rr = np.zeros((len(c_s), len(sc_s)))
     for j in range(len(c_s)):

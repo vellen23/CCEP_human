@@ -389,9 +389,16 @@ class main:
                     # self.plot_BM_CR_block(M_resp, labels_sel, areas_sel, ll, t, metric, savefig)
             np.save(M_dir_path, M_B_all)
 
-    def get_summary(self, con_trial, CC_summ, EEG_resp):
+    def get_summary(self, con_trial, CC_summ, EEG_resp, skip=1):
         summary_gen_path = self.path_patient_analysis + '\\' + self.folder + '\\' + self.cond_folder + '\\data\\summ_general.csv'  # summary_general
-        con_summary = BMf.get_con_summary(con_trial, CC_summ, EEG_resp)
+        if os.path.isfile(summary_gen_path) * skip:
+            print(' already calculated  -  skipping .. ')
+            con_summary = pd.read_csv(summary_gen_path)
+            con_summary = ls.adding_area(con_summary, self.lbls, pair=1)
+            con_summary = ls.adding_region(con_summary, pair=1)
+            con_summary = ls.adding_subregion(con_summary, pair=1)
+        else:
+            con_summary = BMf.get_con_summary(con_trial, CC_summ, EEG_resp)
         con_summary.to_csv(summary_gen_path, index=False, header=True)  # get_con_summary_wake
 
     def get_summary_SS(self, con_trial, CC_summ, EEG_resp, delay=0, skip=1):
@@ -741,15 +748,18 @@ def start_subj(subj, cluster_method='similarity'):
     EEG_resp = h5py.File(h5_file)
     EEG_resp = EEG_resp['EEG_resp']
 
-    delay = 0
+    delay = 1
     if delay:
-        run_main.get_summary(con_trial, CC_summ, EEG_resp)
-    wake = 1
+        run_main.get_summary(con_trial, CC_summ, EEG_resp, skip=1)
+    wake = 0
     if wake:
-        run_main.get_node_features(con_trial, 'LL', skip=0)
-        run_main.get_node_features(con_trial, 'P', skip=0)
-        run_main.connection_sleep_P_diff(con_trial, skip=0)
-        run_main.connection_sleep_diff(con_trial, metric='LL', skip=0)
+        run_main.get_summary_SS(con_trial, CC_summ, EEG_resp, delay=1, skip=0)
+        more = 0
+        if more:
+            run_main.get_node_features(con_trial, 'LL', skip=0)
+            run_main.get_node_features(con_trial, 'P', skip=0)
+            run_main.connection_sleep_P_diff(con_trial, skip=0)
+            run_main.connection_sleep_diff(con_trial, metric='LL', skip=0)
         # run_main.BM_plots_General(CC_summ, con_trial, 0)
     # con_summary = pd.read_csv(summary_gen_path)
     # run_main.get_subnetworks(con_summary)
@@ -764,9 +774,8 @@ def start_subj(subj, cluster_method='similarity'):
 
 thread = 0
 sig = 0
-subjs = ["EL012", "EL013", "EL014", "EL015", "EL016", "EL017", "EL019", "EL020", "EL021",
-         "EL022", "EL024", "EL025", "EL026", "EL027", "EL028"]
-
+subjs = ["EL010", "EL011","EL012","EL013", "EL014", "EL015", "EL016", "EL019", "EL020", "EL021",
+         "EL022","EL024", "EL026", "EL027", "EL028"]
 for subj in subjs:  # ''El009', 'EL010', 'EL011', 'EL012', 'EL013', 'EL015', 'EL014','EL016', 'EL017'"EL021", "EL010", "EL011", "EL012", 'EL013', 'EL014', "EL015", "EL016",
     if thread:
         _thread.start_new_thread(start_subj, (subj, sig))

@@ -224,3 +224,85 @@ def plot_block_hypnogram(M, hypnogram, x_ax_h, x_ax, x_ax_block, h_diff=12):
     cbar.ax.set_ylabel('Pearsons Correlation')
     plt.tight_layout()
     return fig
+
+
+def plot_block_hypnogram_quantification(M, df, grouped, group_order, hypnogram, x_ax_h, x_ax, x_ax_block):
+    import matplotlib.gridspec as gridspec
+    # Convert values to hour:min format while ensuring they are less than 24
+    x_ticks_labels = []
+    x_ticks_positions = []
+    if np.max(x_ax_block) < 21:
+        h_diff = 4
+    elif np.max(x_ax_block) < 35:
+        h_diff = 6
+    elif np.max(x_ax_block) < 45:
+        h_diff = 8
+    else:
+        h_diff = 12
+    value0 = x_ax_h[0] - h_diff
+
+    for i, value in enumerate(x_ax_h):
+        while value > 24:
+            value -= 24  # Subtract 24 until it's less than 24
+
+        if (value - value0 >= h_diff) or ((value + 24 - value0 >= h_diff) and (value < value0)):
+            # x_ticks_labels.append(f"{int(value):02d}:{int((value % 1) * 60):02d}")
+            x_ticks_labels.append(f"{int(value):02d}:00")
+            x_ticks_positions.append(x_ax_h[i])
+            value0 = value
+
+    fig = plt.figure(figsize=(4, 6))  # Adjust the figure size as needed
+    gs_main = gridspec.GridSpec(3, 1, height_ratios=[1, 4, 2], hspace=0.3)  # Main grid: 3 rows
+
+    # First row: Hypnogram
+    gs_hypno = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_main[0], width_ratios=[5, 0.5], wspace=0.2)
+    ax_h = fig.add_subplot(gs_hypno[0])
+    ax_h.plot(x_ax_h, hypnogram, c='black', linewidth=2)
+    # Customize ax_h as in your original code...
+    ax_h.plot(x_ax_h, hypnogram, c='black', linewidth=2)
+    ax_h.axhspan(-1, 0.2, color=color_elab[0, :])  # Using color map for color
+    ax_h.fill_between(x_ax_h, hypnogram, -1, color=color_elab[0, :])  # Using color map for color
+    ax_h.set_yticks([0, 1, 2, 3, 4])
+    ax_h.set_yticklabels(['Wake', 'N1', 'N2', 'N3', 'REM'])
+    ax_h.set_ylim([-1, 5])
+    ax_h.invert_yaxis()
+    #
+    ax_h.set_xticks(x_ticks_positions)
+    ax_h.set_xticklabels(x_ticks_labels)  # , rotation=45, fontsize=8
+    ax_h.set_ylabel('Score')
+    ax_h.set_xlim(x_ax[0], x_ax[-1])
+
+    # Second row: Correlation Matrix
+    gs_corr = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_main[1], width_ratios=[5, 0.5], wspace=0.2)
+    ax_corr = fig.add_subplot(gs_corr[0], sharex=ax_h)
+    im = ax_corr.pcolormesh(x_ax, x_ax_block, M, cmap='jet', vmin=np.percentile(M, 10), vmax=np.percentile(M, 90))
+    ax_corr.set_ylabel('Block Number')
+    ax_corr.set_xlabel('Time')
+    ax_corr.set_xlim(x_ax[0], x_ax[-1])
+    ax_corr.set_xticks(x_ticks_positions)
+    ax_corr.set_xticklabels(x_ticks_labels)
+    ax_cbar = fig.add_subplot(gs_corr[1])
+    cbar = fig.colorbar(im, cax=ax_cbar)
+    cbar.ax.set_ylabel('Pearsons Correlation')
+
+    # Third row: Regression plot and Boxplot
+    gs_plots = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_main[2], width_ratios=[3, 1.5], wspace=0.2)
+
+    # Regression plot
+    ax_time = fig.add_subplot(gs_plots[0])
+    for group in group_order:
+        subset = df[df[grouped] == group]
+        sns.regplot(x='Time_diff', y='rho', data=subset, ax=ax_time, label=group, scatter_kws={'s': 1, 'alpha': 0.3},
+                    line_kws={'alpha': 1})
+
+    ax_time.set_xlabel('Time difference in hours')
+    ax_time.set_ylabel('rho')
+    ax_time.set_ylim([0.6, 1])
+
+    # Boxplot
+    ax_box = fig.add_subplot(gs_plots[1], sharey=ax_time)
+    sns.boxplot(x=grouped, y='rho', data=df, ax=ax_box, order=group_order)
+    ax_box.set_xticklabels(group_order, rotation=90)
+    ax_box.set_xlabel('')
+    ax_box.set_ylabel('')
+    return fig

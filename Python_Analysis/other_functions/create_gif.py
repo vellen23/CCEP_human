@@ -51,10 +51,7 @@ def create_2(path, name, remove=0, dur = 1):
 #     name = 'BM_CR'  # 'BM_Ph'
 #
 #     create(path, name)
-path = "X:\\4 e-Lab\EvM\Projects\EL_experiment\Analysis\Patients\EL011\BrainMapping\CR\Visualization\inf_brain\Amy20_541\\figures"
+path = "X:\\4 e-Lab\EvM\Projects\EL_experiment\Analysis\Supp_figures\CCEP\concepts\\activation\EL011_Amy20_5749"
 name = 'GIF02'
-create_2(path, name, dur = 0.4)
-path = "X:\\4 e-Lab\EvM\Projects\EL_experiment\Analysis\Patients\EL011\BrainMapping\CR\Visualization\inf_brain\Amy20_9411\\figures"
-name = 'GIF02'
-create_2(path, name, dur = 0.4)
-print('Done')
+create_2(path, name, remove = 0, dur = 0.4)
+print('stop')

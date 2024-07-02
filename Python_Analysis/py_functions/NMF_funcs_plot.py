@@ -9,7 +9,7 @@ from tkinter import *
 from sklearn.decomposition import NMF
 import pandas as pd
 import random
-
+import IO_func
 root = Tk()
 root.withdraw()
 
@@ -17,6 +17,23 @@ root.withdraw()
 cond_vals = np.arange(4)
 cond_labels = ['BM', 'BL', 'Fuma', 'BZD']
 cond_colors = ['#494159', '#594157', "#F1BF98", "#8FB996"]
+
+
+plt.rcParams.update({
+            'font.family': 'arial',
+            'font.size': 12,
+            'xtick.labelsize': 8,
+            'ytick.labelsize': 8,
+            'legend.fontsize': 9,
+            'svg.fonttype': 'none',
+            'font.size': 10,
+            'axes.titlesize': 10,
+            'axes.labelsize': 8,
+            'xtick.labelsize': 8,
+            'ytick.labelsize': 8,
+            'legend.fontsize': 9,
+            'figure.titlesize': 10
+        })
 
 
 def get_nnmf_Epi(X, rank, it=2000):
@@ -181,41 +198,30 @@ def get_stability(M_input, num_it=20, k0=2, k1=10):
 
 
 # protocol specific
-def get_NMF_Stim_association(data, H_all):
-    # cond_sel either block or Ph_conditionn or Sleep
-    # H_all = data.columns[9:] #todo: find better way
+def get_NMF_Stim_association(data, H_all, p_thr = 99):
+    data.Int = np.round(data.Int, 2)
     NNMF_ass = np.zeros((1, 4))
-    Int_all = np.unique(data.Int)
     Stims = np.unique(data.Stim)
-    s = 0
     for sc in Stims:
-        con_nmf_test = data[data.Stim == sc]
-        if len(Stims) > 1:
-            shortcut = 0
-            con_nmf_surr = data[data.Stim != sc]
-            p_thr = 95
-        else:
-            shortcut = 1
-            con_nmf_surr = data[data.Stim == sc]
-            p_thr = 90
-        h = 0
+        con_nmf_test = data[data.Stim == sc].reset_index(drop=True)
+        con_nmf_surr = data[data.Stim == sc].reset_index(drop=True)
         for Hs in H_all:
             con_nmf_test_sum = con_nmf_test.groupby(['Stim', 'Int'])[Hs].mean()
-            auc_test = np.mean(con_nmf_test_sum.values[-3:]) / np.mean(con_nmf_test_sum.values[:3])
-            if shortcut:
-                if auc_test > 1.2:
-                    auc = np.zeros((1, 4))
-                    auc[0, :] = [sc, auc_test, int(Hs[1:]), 1.2]  # , h
-                    NNMF_ass = np.concatenate([NNMF_ass, auc], axis=0)
-            else:
-                # auc_test = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
+            int_all = np.unique(con_nmf_test.Int)
+            H_val = con_nmf_test_sum.values
+            # H_val[int_all<2] = np.median(H_val[int_all<2]) # remove noise
+            auc_test, mag_max = IO_func.get_AUC(H_val, int_all, mag_max = -1)
+            # auc_test = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
+            if np.mean(H_val[-3:])>2*np.mean(H_val[:2]):
                 surr = np.zeros((100,))
                 for i in range(len(surr)):
                     np.random.shuffle(con_nmf_surr[Hs].values)
                     # np.random.shuffle(con_nmf_surr['Int'])
-                    con_nmf_test_sum = con_nmf_surr.groupby(['Stim', 'Int'])[Hs].mean()
-                    # auc_surr = np.trapz(con_nmf_test_sum.values, np.unique(con_nmf_test.Int))
-                    surr[i] = np.mean(con_nmf_test_sum.values[-3:]) / np.mean(con_nmf_test_sum.values[:3])
+                    con_nmf_test_sum = con_nmf_surr.groupby(['Stim', 'Int'])[Hs].median()
+                    H_val = con_nmf_test_sum.values
+                    auc_surr, _ = IO_func.get_AUC(H_val, int_all,
+                                                        mag_max=mag_max)
+                    surr[i] = auc_surr
                 if auc_test > np.percentile(surr, p_thr):
                     auc = np.zeros((1, 4))
                     auc[0, :] = [sc, auc_test, int(Hs[1:]), np.percentile(surr, p_thr)]  # , h
@@ -344,28 +350,79 @@ def get_NMF_AUC_Stim(data, sc, cond_sel='Condition'):
 
     return NNMF_AUC
 
+def get_NMF_AUC_surr(data, NNMF_ass, cond_sel='Condition'):
+    NNMF_AUC = np.zeros((1, 9))
+    Stims = np.unique(NNMF_ass.Stim)
+    for sc in Stims:
+        dat = data[data.Stim == sc].reset_index(drop=True)
+        dat_surr = data[data.Stim == sc].reset_index(drop=True)
+        for Hs in np.unique(NNMF_ass.loc[NNMF_ass.Stim == sc, 'H']):
+            j = NNMF_ass.loc[(NNMF_ass.H == Hs) & (NNMF_ass.Stim == sc), 'H_num'].values[0]
+            val_max = np.max(dat.groupby([cond_sel, 'Int'])[Hs].mean())
+            # Wake
+            cond = 'Wake'
+            dat_c = data[(data.Stim == sc) & (data[cond_sel] == cond)].reset_index(drop=True)
+            Int_all = np.unique(dat_c.Int)
+            dat_mean = dat_c.groupby([cond_sel, 'Int'])[Hs].mean()
+            # H_mean = dat_c.groupby('Int')[Hs].median().values
+            ##  AUC
+            AUC_wake, _ = IO_func.get_AUC(dat_mean.values, Int_all, mag_max=val_max)
+            NNMF_AUC = np.concatenate([NNMF_AUC, [[sc, j, 0, 0, cond, AUC_wake, 1, 0,len(dat_c)]]], axis=0)
+            # Sleep
+            for cond in ['NREM', 'REM']:
+                dat_c = data[(data.Stim == sc) & (data[cond_sel] == cond)].reset_index(drop=True)
+                if len(dat_c)>20:
+                    Int_all = np.unique(dat_c.Int)
+                    dat_mean = dat_c.groupby([cond_sel, 'Int'])[Hs].mean()
+                    AUC_true, _ = IO_func.get_AUC(dat_mean.values, Int_all, mag_max = val_max)
+                    # add surrogates
+                    AUC_surr = np.zeros((100,))
+                    for s in range(100):
+                        dat_surr[cond_sel] = dat_surr[cond_sel].sample(frac=1).reset_index(drop=True)
+                        dat_c = dat_surr[(dat_surr[cond_sel] == cond)].reset_index(drop=True)
+                        Int_all = np.unique(dat_c.Int)
+                        dat_mean = dat_c.groupby([cond_sel, 'Int'])[Hs].mean()
+                        AUC_surr_single, _ = IO_func.get_AUC(dat_mean.values, Int_all, mag_max=val_max)
+                        AUC_surr[s] = AUC_surr_single / AUC_wake
+                    sig = ((AUC_true/AUC_wake)< np.percentile(AUC_surr, 2.5) )| ((AUC_true/AUC_wake) > np.percentile(AUC_surr, 97.5) )
+                    if sig:
+                        sig = 1
+                    else:
+                        sig = 0
+                    NNMF_AUC = np.concatenate([NNMF_AUC, [[sc, j, 0, 0, cond, np.round(AUC_true,3), np.round(AUC_true/AUC_wake,3), sig, len(dat_c)]]], axis=0)
+
+
+    NNMF_AUC = NNMF_AUC[1:, :]
+    NNMF_AUC = pd.DataFrame(NNMF_AUC,
+                            columns=['Stim', 'H', 'Day', 'Hour', cond_sel, 'AUC', 'AUC_ratio', 'Sig', 'N_trial'])  # , 'Hour'
+    for col in ['Stim', 'H', 'Sig', 'N_trial', 'Day', 'Hour', 'AUC', 'AUC_ratio']:
+        NNMF_AUC[col] = NNMF_AUC[col].astype('float')
+    for col in ['Stim', 'H', 'Sig', 'N_trial']:
+        NNMF_AUC[col] = NNMF_AUC[col].astype('int')
+    NNMF_AUC = NNMF_AUC.drop(columns=['Day', 'Hour'])
+    NNMF_AUC = NNMF_AUC.reset_index(drop=True)
+
+    return NNMF_AUC
 
 def get_NMF_AUC(data, NNMF_ass, cond_sel='Condition'):
     NNMF_AUC = np.zeros((1, 8))
     Int_all = np.unique(data.Int)
     Stims = np.unique(NNMF_ass.Stim)
     for sc in Stims:
-        dat = data[data.Stim == sc]
+        dat = data[data.Stim == sc].reset_index(drop=True)
         for Hs in np.unique(NNMF_ass.loc[NNMF_ass.Stim == sc, 'H']):
             j = NNMF_ass.loc[(NNMF_ass.H == Hs) & (NNMF_ass.Stim == sc), 'H_num'].values[0]
             pc = 1
             if (cond_sel == 'Sleep') | (cond_sel == 'SleepState'):
-                # todo: move to mean
-                val_min = np.min(dat.groupby([cond_sel, 'Int'])[Hs].median())
+                #dat_mean = dat.groupby([cond_sel, 'Int'])[Hs].median()
+                #val_min = np.min(dat.groupby([cond_sel, 'Int'])[Hs].median())
                 val_max = np.max(dat.groupby([cond_sel, 'Int'])[Hs].median())
-                AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
-
                 for cond in np.unique(dat[cond_sel]):
-                    dat_c = data[(data.Stim == sc) & (data[cond_sel] == cond)]
-                    # todo: change to mean
-                    H_mean = dat_c.groupby('Int')[Hs].median().values
+                    dat_c = data[(data.Stim == sc) & (data[cond_sel] == cond)].reset_index(drop=True)
+                    dat_mean = dat_c.groupby([cond_sel, 'Int'])[Hs].median()
+                    # H_mean = dat_c.groupby('Int')[Hs].median().values
                     ##  AUC
-                    AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
+                    AUC, _ = IO_func.get_AUC(dat_mean.values, Int_all, mag_max = val_max)
                     NNMF_AUC = np.concatenate([NNMF_AUC, [[sc, j, 0, 0, cond, AUC, pc, len(dat_c)]]], axis=0)
             else:
                 val_min = np.min(dat.groupby(['Date', cond_sel, 'Int'])[Hs].mean())
@@ -413,20 +470,18 @@ def plot_V(M_input, title, ylabels=[0], file=0):
 
     aspect = M_input.shape[1] / 20 * 8 / M_input.shape[0]
 
-    fig = plt.figure(figsize=(20, 8))
+    fig = plt.figure(figsize=(8, 3))
     plt.imshow(M_input, aspect=aspect, vmin=np.percentile(M_input, 20),
                vmax=np.percentile(M_input, 95))  # , vmin=0, vmax=15
     plt.ylabel('Channels')
     if ylabels[0] != 0:
         plt.yticks(np.arange(len(ylabels)), ylabels)
     plt.xlabel('trials')
-    # plt.title(subj + ' -- NMF input matrix: LL ')
     plt.title(title)
-    # file = nmf_fig_path + 'NMF_input_IO_LLpeak'
     plt.colorbar()
     if type(file) == str:
-        plt.savefig(file + '.jpg')
-        plt.savefig(file + '.svg')
+        # plt.savefig(file + '.jpg')
+        plt.savefig(file + '.png', dpi = 600)
         plt.close(fig)
     else:
         plt.show()
@@ -437,7 +492,7 @@ def plot_W(W, title, ylabels=[0], file=0):
     aspect = W.shape[1] / 5 * 8 / W.shape[0]
     fig = plt.figure(figsize=(5, 8))
     plt.title(title, fontsize=15)
-    plt.imshow(W, aspect=aspect, vmin=np.percentile(W, 20), vmax=np.percentile(W, 95), cmap='hot')  # , vmin=0, vmax=15
+    plt.imshow(W, aspect=aspect, interpolation = None, vmin=np.percentile(W, 20), vmax=np.percentile(W, 95), cmap='hot')  # , vmin=0, vmax=15
     plt.ylabel('Channels', fontsize=12)
     plt.xlabel('Ranks', fontsize=12)
 
@@ -450,8 +505,8 @@ def plot_W(W, title, ylabels=[0], file=0):
         plt.yticks(np.arange(len(W)), ylabels)
 
     if type(file) == str:
-        plt.savefig(file + '.jpg')
-        plt.savefig(file + '.svg')
+        plt.savefig(file + '.jpg', dpi = 600)
+        #plt.savefig(file + '.svg')
         plt.close(fig)
     else:
         plt.show()
@@ -462,7 +517,7 @@ def plot_H(H, title, file=0):
     # plot activation functions
     fig = plt.figure(figsize=(20, 5))
     plt.title(title, fontsize=15)
-    plt.imshow(H, aspect=aspect, vmin=np.percentile(H, 20), vmax=np.percentile(H, 95), cmap='hot')  # , vmin=0, vmax=15
+    plt.imshow(H, aspect=aspect,interpolation = None,  vmin=np.percentile(H, 20), vmax=np.percentile(H, 95), cmap='hot')  # , vmin=0, vmax=15
     plt.ylabel('Activation Function (H)', fontsize=12)
     plt.xlabel('Trials', fontsize=12)
     W_col = []
@@ -471,8 +526,8 @@ def plot_H(H, title, file=0):
     plt.yticks(np.arange(len(H)), W_col, fontsize=12)
     # todo change 0 to 1
     if type(file) == str:
-        plt.savefig(file + '.jpg')
-        plt.savefig(file + '.svg')
+        plt.savefig(file + '.jpg', dpi = 600)
+        # plt.savefig(file + '.svg')
         plt.close(fig)
     else:
         plt.show()
@@ -496,7 +551,7 @@ def plot_H_trial_IPI(data, xl, hl, sl, title, nmf_fig_path):
         sns.scatterplot(x=xl, y=Hs, hue=hl, style=sl, data=data, palette=col_sel)
         i = i + 1
     file = nmf_fig_path + 'H_' + hl + '_r' + str(len(H_all))
-    plt.savefig(file + '.jpg')
+    # plt.savefig(file + '.jpg')
     plt.savefig(file + '.svg')
     plt.close(fig)
 
@@ -505,28 +560,23 @@ def plot_H_trial(data, xl, hl, title, nmf_fig_path):
     if 'Hour' in data:
         data = data.drop(columns='Hour')
     H_all = [i for i in data.columns if i.startswith('H')]
-    fac = 5
-    if xl == 'IPI':
-        fac = 8
-    fig = plt.figure(figsize=(len(H_all) * fac, 7))
-    plt.suptitle(title)
-    gs = fig.add_gridspec(1, len(H_all))  # GridSpec(4,1, height_ratios=[1,2,1,2])
-    i = 0
-    if hl == 'Condition':
-        col_sel = [cond_colors[1], cond_colors[3]]
-    else:
-        col_sel = 'colorblind'
-    for Hs in H_all:
-        fig.add_subplot(gs[0, i])
-        #
+
+    fig, axes = plt.subplots(1, len(H_all), figsize=(8, 4), sharey=True)
+    fig.suptitle(title)
+
+    col_sel = [cond_colors[1], cond_colors[3]] if hl == 'Condition' else 'colorblind'
+
+    for i, Hs in enumerate(H_all):
+        ax = axes[i]
         if xl == 'IPI':
-            sns.swarmplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel)
+            sns.swarmplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel, ax=ax)
         else:
-            sns.scatterplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel)
-        i = i + 1
+            sns.scatterplot(x=xl, y=Hs, hue=hl, data=data, palette=col_sel, ax=ax)
+        # Optional: If you want to share the legend only in the first plot
+        if i > 0:
+            ax.legend_.remove()
 
     file = nmf_fig_path + 'H_' + hl + '_r' + str(len(H_all))
-    plt.savefig(file + '.jpg')
     plt.savefig(file + '.svg')
     plt.close(fig)
 
@@ -539,7 +589,7 @@ def plot_H_IPI_cond(data, hl, cond, nmf_fig_path):
     sns.catplot(x='IPI', y=hl, hue=cond, data=data, aspect=4, row='Int', palette=['black', 'blue', 'red'])
     plt.ylim([0, 10])
     file = nmf_fig_path + 'H_' + hl + '_r' + str(len(H_all)) + '_' + cond
-    plt.savefig(file + '.jpg')
+    # plt.savefig(file + '.jpg')
     plt.savefig(file + '.svg')
     # plt.close(fig)
 
@@ -552,19 +602,18 @@ def plot_NMF_AUC_SleepState(data, sc, h, title, file):
     data = data[(data.Sleep < 5) & (data.Sleep != 1) & (data.Stim == sc)]  # & ((data.Hour < 9) | (data.Hour > 20))
     Hs = 'H' + str(h)
     Int_all = np.unique(data.Int)
-    fig = plt.figure(figsize=(15, 15))
-
+    fig = plt.figure(figsize=(3,3))
     val_min = np.min(data.groupby(['SleepState', 'Int'])[Hs].mean())
     val_max = np.max(data.groupby(['SleepState', 'Int'])[Hs].mean())
     AUC1 = np.trapz(np.repeat(val_max, len(Int_all)) - val_min, Int_all)
     for con_val, c_ix in zip(cond_labels, np.arange(3)):  # snp.unique(data.Sleep).astype('int'):
         dat_c = data[(data.SleepState == con_val)]
-        plt.title(title, fontsize=30)
+        plt.title(title)
         H_mean = dat_c.groupby('Int')[Hs].mean().values
         # sns.scatterplot(x='Int', y= Hs, data=dat_c)
         AUC = np.trapz(H_mean - val_min, np.unique(dat_c.Int)) / AUC1
         plt.plot(np.unique(dat_c.Int), H_mean,
-                 label=con_val + '- AUC: ' + str(np.round(AUC, 2)), color=color[c_ix], linewidth=5)
+                 label=con_val + '- AUC: ' + str(np.round(AUC, 2)), color=color[c_ix], linewidth=1)
         ## AUC
 
         plt.fill_between(np.unique(dat_c.Int), val_min, H_mean, color=color[c_ix], alpha=0.1)
@@ -575,12 +624,12 @@ def plot_NMF_AUC_SleepState(data, sc, h, title, file):
     plt.text(2, 1.01 * val_max, 'max "1"')
     plt.text(2, 0.9 * val_min, 'min "0"')
     plt.ylim([0, 1.1 * val_max])
-    plt.xticks(fontsize=25)
-    plt.yticks(fontsize=25)
-    plt.legend(fontsize=25)
-    plt.ylabel('H coefficient', fontsize=30)
-    plt.xlabel('Intensity [mA]', fontsize=30)
-    plt.savefig(file + '.jpg')
+    plt.xticks(fontsize=8)
+    plt.yticks(fontsize=8)
+    plt.legend(fontsize=8)
+    plt.ylabel('H coefficient', fontsize=8)
+    plt.xlabel('Intensity [mA]', fontsize=8)
+    # plt.savefig(file + '.jpg')
     plt.savefig(file + '.svg')
     plt.close(fig)
 
@@ -619,7 +668,7 @@ def plot_NMF_AUC_Sleep(data, sc, h, title, file):
     plt.legend()
     plt.ylabel('H coefficient')
     plt.xlabel('Intensity [mA]')
-    plt.savefig(file + '.jpg')
+    # plt.savefig(file + '.jpg')
     plt.savefig(file + '.svg')
     plt.close(fig)
 
@@ -656,6 +705,6 @@ def plot_NMF_AUC_Ph(data, sc, h, title, file):
     plt.legend()
     plt.ylabel('H coefficient')
     plt.xlabel('Intensity [mA]')
-    plt.savefig(file + '.jpg')
+    # plt.savefig(file + '.jpg')
     plt.savefig(file + '.svg')
     plt.close(fig)

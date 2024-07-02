@@ -30,12 +30,12 @@ x_ax = np.arange(dur[0, 0], dur[0, 1], (1 / Fs))
 sub_path = 'X:\\4 e-Lab\\'  # y:\\eLab
 
 ### Preparation
-subjs = ["EL028"]
-get_data = 1
+subjs = ["EL029"]
+get_data = 0
 if get_data:
     for subj in subjs:
         ### cut .mat files (each 1h-block) into epochs (.npy)
-        start_cut_resp.compute_cut(subj, skip_exist=0, prots=['BM', 'IO'])
+        start_cut_resp.compute_cut(subj, skip_exist=1, prots=['BM', 'IO'])
 
         ### get con_trial --for each conenction and trial, save LL value (Pandas table containing all information of each stimulation)
         BM_blocks.cal_con_trial(subj, cond_folder='CR', skip_block=0, skip_single=0)
@@ -144,7 +144,7 @@ for subj in subjs:
         0]  # remove WM, OUT, ...
 
     CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\e-Lab shared code\Softwares\Connectogram\circ_areas.xlsx'
-    tab_region = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='plot')
+    tab_region = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='plot_all')
     tab_region = tab_region.sort_values('Order').reset_index(drop=True)
     regions = tab_region.Area.values
     color_regions = tab_region.color.values
@@ -205,7 +205,7 @@ for subj in subjs:
     areas_sel_sort = np.delete(hem + '_' + labels_region, bad_all, 0)
     labels_sel = np.delete(labels_all, bad_all, 0)
     labels_sel = labels_sel + ' (' + labels_clin + ')'
-    order_anat = 1
+    order_anat = 0
     ll = 'H_clinic'
     if order_anat:
         sorted_areas, ind = sort_areas(areas_sel_sort, regions)

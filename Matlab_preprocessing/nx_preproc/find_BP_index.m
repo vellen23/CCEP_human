@@ -3,6 +3,7 @@ function [index] = find_BP_index(labels, ChanP, ChanN)
     if iscell(labels)
         for i=1:length(ChanP)
             index(i,1)= find(strcmp(labels, string(ChanP(i)))==1);
+            disp(ChanN(i));
             index(i,2)= find(strcmp(labels, string(ChanN(i)))==1);
         end 
     else

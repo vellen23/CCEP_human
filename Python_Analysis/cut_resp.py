@@ -712,35 +712,36 @@ class main:
 
         files = glob(self.path_patient_analysis + '\\' + folder + '/data/Stim_list_*')
         files = np.sort(files)
-        # prots           = np.int64(np.arange(1, len(files) + 1))  # 43
-        stimlist = []
-        conds = np.empty((len(files),), dtype=object)
-        for p in range(len(files)):
-            file = files[p]
-            # file = glob(self.path_patient + '/Analysis/'+folder+'/data/Stim_list_' + str(p) + '_*')[0]
-            idxs = [i for i in range(0, len(ntpath.basename(file))) if ntpath.basename(file)[i].isdigit()]
 
-            cond = ntpath.basename(file)[idxs[-2] - 2:idxs[-2]]  # ntpath.basename(file)[idxs[-2] + 2:-4]  #
-            conds[p] = cond
-            k = int(ntpath.basename(file)[idxs[0]:idxs[1] + 1])
-            stim_table = pd.read_csv(file)
-            stim_table['type'] = cond
-            if len(stimlist) == 0:
-                stimlist = stim_table
-            else:
-                stimlist = pd.concat([stimlist, stim_table])
-            # os.remove(self.path_patient + '/Analysis/BrainMapping/data/Stim_list_' + str(p) + '_' + cond + '.csv')
+        if len(files)>0:# prots           = np.int64(np.arange(1, len(files) + 1))  # 43
+            stimlist = []
+            conds = np.empty((len(files),), dtype=object)
+            for p in range(len(files)):
+                file = files[p]
+                # file = glob(self.path_patient + '/Analysis/'+folder+'/data/Stim_list_' + str(p) + '_*')[0]
+                idxs = [i for i in range(0, len(ntpath.basename(file))) if ntpath.basename(file)[i].isdigit()]
 
-        col_drop = ['StimNum', 'StimNum.1', 'us', 'ISI_s', 'TTL', 'TTL_PP', 'TTL_DS', 'TTL_PP_DS', 'currentflow']
-        for d in range(len(col_drop)):
-            if (col_drop[d] in stimlist.columns):
-                stimlist = stimlist.drop(columns=col_drop[d])
-        stimlist.insert(0, "StimNum", np.arange(len(stimlist)), True)
+                cond = ntpath.basename(file)[idxs[-2] - 2:idxs[-2]]  # ntpath.basename(file)[idxs[-2] + 2:-4]  #
+                conds[p] = cond
+                k = int(ntpath.basename(file)[idxs[0]:idxs[1] + 1])
+                stim_table = pd.read_csv(file)
+                stim_table['type'] = cond
+                if len(stimlist) == 0:
+                    stimlist = stim_table
+                else:
+                    stimlist = pd.concat([stimlist, stim_table])
+                # os.remove(self.path_patient + '/Analysis/BrainMapping/data/Stim_list_' + str(p) + '_' + cond + '.csv')
 
-        stimlist.to_csv(self.path_patient_analysis + '\\' + folder + '/data/Stimlist.csv', index=False,
-                        header=True)  # scat_plot
-        print('data stored')
-        print(self.path_patient + '/Analysis/' + folder + '/data/Stimlist.csv')
+            col_drop = ['StimNum', 'StimNum.1', 'us', 'ISI_s', 'TTL', 'TTL_PP', 'TTL_DS', 'TTL_PP_DS', 'currentflow']
+            for d in range(len(col_drop)):
+                if (col_drop[d] in stimlist.columns):
+                    stimlist = stimlist.drop(columns=col_drop[d])
+            stimlist.insert(0, "StimNum", np.arange(len(stimlist)), True)
+
+            stimlist.to_csv(self.path_patient_analysis + '\\' + folder + '/data/Stimlist.csv', index=False,
+                            header=True)  # scat_plot
+            print('data stored')
+            print(self.path_patient + '/Analysis/' + folder + '/data/Stimlist.csv')
 
     def cut_BM(self, path, block):
 

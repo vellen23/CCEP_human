@@ -5,6 +5,7 @@ import tqdm
 import pandas as pd
 import sys
 import re
+from scipy.spatial import distance
 
 sys.path.append('./py_functions')
 import scipy.io
@@ -13,9 +14,31 @@ import matplotlib.cm as cm
 # import matplotlib.colors as mcolors
 folder = 'BrainMapping'
 cond_folder = 'CR'
-dist_groups = np.array([[0, 15], [15, 30], [30, 5000]])
-dist_labels = ['local (<15 mm)', 'short (<30mm)', 'long']
+sub_path  ='X:\\4 e-Lab\\' # y:\\eLab
 
+def adding_mni_coord(lbls, subj):
+    # Load Lookup from camille.
+    path_gen = os.path.join(sub_path, 'Patients', subj, 'Electrodes', "Lookup.xlsx")
+    lookup = pd.read_excel(path_gen, header=0, sheet_name='bipoles')
+
+    if "type" in lookup:
+        lookup = lookup[lookup['type'] == 'lead'].reset_index(drop=True)
+
+    # Rounding coordinates
+    for coord in ['native_x', 'native_y', 'native_z', 'mni_x', 'mni_y', 'mni_z']:
+        lookup[coord] = np.round(lookup[coord], 2)
+
+    for coord in ['x', 'y', 'z']:
+        lbls[coord] = np.round(lbls[coord], 2)
+
+    # Preparing for merge: Renaming lbls columns for matching with lookup
+    lbls.rename(columns={'x': 'native_x', 'y': 'native_y', 'z': 'native_z'}, inplace=True)
+
+    # Merging dataframes on rounded coordinates
+    lbls = lbls.merge(lookup[['native_x', 'native_y', 'native_z', 'mni_x', 'mni_y', 'mni_z']],
+                      on=['native_x', 'native_y', 'native_z'], how='left')
+
+    return lbls
 
 def get_color(group='Dist'):
     cmap_org = 'winter'
@@ -68,8 +91,142 @@ def get_color(group='Dist'):
     return color_d, color_dist, color_group, color_elab
 
 
+def group_connections(df):
+    """
+    Group connections into 'local', 'direct', or 'indirect' based on certain conditions.
+
+    - 'local': Connections with d <= 20, h == 0, and not part of the forbidden pairs.
+    - 'direct': Non-local connections with delay <= 20.
+    - 'indirect': Non-local connections with delay > 20.
+
+    Parameters:
+    df (pd.DataFrame): DataFrame containing the connections with columns 'd', 'StimR', 'ChanR', 'H', and 'delay'.
+
+    Returns:
+    pd.DataFrame: DataFrame with a new column 'Group' indicating the group of each connection.
+    """
+
+    # Define impossible local pairs
+    impossible_local_pairs = set([('Frontal', 'Temporal'), ('Frontal', 'Basotemporal')])
+
+    # Initialize all connections as 'direct' first
+    df['Group'] = 'direct'
+
+    # Conditions for local connections
+    is_local = (df['d'] <= 20) & (df['H'] == 0)
+    for pair in impossible_local_pairs:
+        is_local &= ~((df['StimR'] == pair[0]) & (df['ChanR'] == pair[1])) | ~((df['ChanR'] == pair[0]) & (df['StimR'] == pair[1]))
+
+    # Assign 'local' to the filtered connections
+    df.loc[is_local, 'Group'] = 'local'
+
+    # Assign 'indirect' to non-local connections with delay > 20
+    df.loc[(df['Group'] == 'direct') & (df['delay'] > 20), 'Group'] = 'indirect'
+
+    return df
+
+
+def adding_hemisphere(df, lbls):
+    # Determine hemisphere based on x coordinate
+    lbls['Hemisphere'] = np.where(lbls['x'] > 0, 'R', 'L')
+
+    # Map Stim and Chan indices to their corresponding hemispheres
+    df['StimHemi'] = df['Stim'].map(lbls['Hemisphere'])
+    df['ChanHemi'] = df['Chan'].map(lbls['Hemisphere'])
+
+    # Determine if Stim and Chan are in the same hemisphere
+    df['Hemi'] = np.where(df['StimHemi'] == df['ChanHemi'], df['StimHemi'], 'B')
+
+    # Drop the intermediate columns
+    df.drop(['StimHemi', 'ChanHemi'], axis=1, inplace=True)
+
+    return df
+
+def adding_anatomy(df, pair=1, area='Destrieux'):
+    # area == 'Region' or 'Area'
+    df = df.reset_index(drop=True)
+    CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\e-Lab shared code\Softwares\Connectogram\circ_areas.xlsx'
+    atlas = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='atlas')
+    if pair:
+        for subregion in np.unique(df[['StimA', 'ChanA']]):
+            region = atlas.loc[atlas.Abbreviation == subregion, area].values
+
+            if len(region) > 0:
+                if region[0] == "entorhinal_cortex":
+                    region[0] = 'Entorhinal'
+                elif region[0] == "AnteroHippocampus":
+                    region[0] = 'Hippocampus'
+                elif region[0] == "PosteroHippocampus":
+                    region[0] = 'Hippocampus'
+                df.loc[df.StimA == subregion, 'StimR'] = region[0]
+                df.loc[df.ChanA == subregion, 'ChanR'] = region[0]
+            else:
+                region = atlas.loc[atlas.Subregion == subregion, area].values
+                if len(region) > 0:
+                    if region[0] == "entorhinal_cortex":
+                        region[0] = 'Entorhinal'
+                    elif region[0] == "AnteroHippocampus":
+                        region[0] = 'Hippocampus'
+                    elif region[0] == "PosteroHippocampus":
+                        region[0] = 'Hippocampus'
+                    df.loc[df.StimA == subregion, 'StimR'] = region[0]
+                    df.loc[df.ChanA == subregion, 'ChanR'] = region[0]
+                else:
+                    df.loc[df.StimA == subregion, 'StimR'] = 'U'
+                    df.loc[df.ChanA == subregion, 'ChanR'] = 'U'
+    else:
+        for subregion in np.unique(df[['ChanA']]):
+            region = atlas.loc[atlas.Abbreviation == subregion, area].values
+            if len(region) > 0:
+                df.loc[df.ChanA == subregion, 'ChanR'] = region[0]
+            else:
+                df.loc[df.ChanA == subregion, 'ChanR'] = 'U'
+    return df
+
+
+def adding_distance_tracts(df, df_atlas, atlas=False):
+    # Correct renaming of columns with a dictionary and using inplace or assignment
+    df_atlas = df_atlas.rename(columns={'Count': 'tract_num', 'Length': 'tract_dist'})
+    for col in ['tract_num', 'tract_dist']:
+        if col in df:
+            df = df.drop(columns=col)
+    # Ensure that 'Stim' and 'Chan' are columns to be merged on both DataFrames
+    # Correct the usage of selecting multiple columns from df_atlas
+    if atlas:
+        df = df.merge(df_atlas, on=['Stim', 'Chan'],
+                      how='left').reset_index(drop=True)
+
+    else:
+        df = df.merge(df_atlas[['Stim', 'Chan', 'tract_num', 'tract_dist']], on=['Stim', 'Chan'],
+                      how='left').reset_index(drop=True)
+    return df
+
+
+def adding_distance_tracts_matrix(df, M_distances, M_counts):
+    df['tract_dist'] = 0
+    df['tract_num'] = 0
+    for s in np.unique(df.Stim).astype('int'):
+        for c in np.unique(df.Chan).astype('int'):
+            df.loc[(df.Stim == s) & (df.Chan == c), 'tract_dist'] = M_distances[s, c]
+            df.loc[(df.Stim == s) & (df.Chan == c), 'tract_num'] = M_counts[s, c]
+    return df
+
+
+def adding_distance(df, coord_all):
+    df['d'] = 0
+    for s in np.unique(df.Stim):
+        s = np.int64(s)
+        for c in np.unique(df.Chan):
+            c = np.int64(c)
+            df.loc[(df.Stim == s) & (df.Chan == c), 'd'] = np.round(
+                distance.euclidean(coord_all[s], coord_all[c]), 2)
+    return df
+
+
 def adding_area(data_A, lbls, pair=1):
     labels_all = lbls.label.values
+    data_A['ChanA'] = 'Unknown'
+    data_A['StimA'] = 'Unknown'
     if pair:
         for c in np.unique(data_A[['Chan', 'Stim']]).astype('int'):
             data_A.loc[data_A.Chan == c, 'ChanA'] = " ".join(re.findall("[a-zA-Z_]+", labels_all[c]))
@@ -128,6 +285,76 @@ def adding_region(data_con, pair=1, area='Region'):
             else:
                 data_con.loc[data_con.ChanA == subregion, 'ChanR'] = 'U'
     return data_con
+
+
+def adding_SOZ(data_con, lbls, pair=0):
+    # chan_labels = ['SOZ', 'IED', 'Propagation','uninvolved']
+    chan_labels = ['Propagation', 'IED', 'SOZ']
+    if "SOZ" in lbls:
+        if pair:
+            data_con['Stim_Epilepsy'] = 'uninvolved'
+            data_con['Chan_Epilepsy'] = 'uninvolved'
+            for chan in np.unique(data_con['Chan']):
+                val_e = 0
+                for e_label in chan_labels:
+                    val = lbls[e_label].values[chan].astype('int')
+                    if val:
+                        data_con.loc[data_con.Chan == chan, 'Chan_Epilepsy'] = e_label
+                        data_con.loc[data_con.Stim == chan, 'Stim_Epilepsy'] = e_label
+                        val_e = 1
+
+        else:
+            data_con['Tissue'] = 'uninvolved'
+            data_con['Epilepsy'] = 'uninvolved'
+            for chan in np.unique(data_con['Chan']):
+                val_e = 0
+                for e_label in chan_labels:
+                    val = lbls[e_label].values[chan].astype('int')
+                    if val:
+                        data_con.loc[data_con.Chan == chan, 'Epilepsy'] = e_label
+                        val_e = 1
+                if val_e:
+                    data_con.loc[data_con.Chan == chan, 'Tissue'] = 'epileptic'
+
+    return data_con
+
+
+def adding_SOZ_old(data_con, lbls, pair=0):
+    chan_labels = ['uninvolved', 'SOZ', 'Propagation']
+    if "SOZ" in lbls:
+        if pair:
+            data_con['Stim_Epilepsy'] = 'uninvolved'
+            data_con['Chan_Epilepsy'] = 'uninvolved'
+            for chan in np.unique(data_con[['Stim', 'Chan']]):
+                val = lbls.SOZ.values[chan].astype('int')
+                data_con.loc[data_con.Stim == chan, 'Stim_Epilepsy'] = chan_labels[val]
+                data_con.loc[data_con.Chan == chan, 'Chan_Epilepsy'] = chan_labels[val]
+
+        else:
+            data_con['Tissue'] = 'uninvolved'
+            data_con['Epilepsy'] = 'uninvolved'
+            for chan in np.unique(data_con['Chan']):
+                val = lbls.SOZ.values[chan].astype('int')
+                data_con.loc[data_con.Chan == chan, 'Epilepsy'] = chan_labels[val]
+                if val > 0:
+                    data_con.loc[data_con.Chan == chan, 'Tissue'] = 'epileptic'
+    return data_con
+
+
+def elab2regions(labels, output_label='Region'):
+    # output_label = 'Region', output_label = 'Destrieux'
+    # area == 'Region' or 'Area'
+    CIRC_AREAS_FILEPATH = 'X:\\4 e-Lab\EvM\Projects\EL_experiment\Analysis\Patients\Across\elab_labels.xlsx'
+    atlas = pd.read_excel(CIRC_AREAS_FILEPATH, sheet_name='atlas')
+    label_regions = []
+    for label in labels:
+        if len(atlas.loc[atlas.Abbreviation == label, output_label]) > 0:
+            label_region = atlas.loc[atlas.Abbreviation == label, output_label].values[0]
+        else:
+            print(label)
+            label_region = 'TBD'
+        label_regions.append(label_region)
+    return label_regions
 
 
 def get_DI(subjs, sub_path, filename):
@@ -203,121 +430,104 @@ def get_DI(subjs, sub_path, filename):
     data_con.to_csv(filename, header=True, index=False)
 
 
-def get_connections(subjs, sub_path, filename):
-    path_export = os.path.join(sub_path,
-                               'EvM\\Projects\\EL_experiment\Analysis\Patients\Across\BrainMapping\General\data\\')
-    data_con_all = pd.DataFrame()
-    for i in range(len(subjs)):
-        print('loading -- ' + subjs[i], end='\r')
-        subj = subjs[i]
-        path_gen = os.path.join(sub_path + 'Patients\\' + subj)
-        if not os.path.exists(path_gen):
-            path_gen = 'T:\\EL_experiment\\Patients\\' + subj
-        path_patient = path_gen + '\Data\EL_experiment'
-        path_infos = os.path.join(path_patient, 'infos')
-        if not os.path.exists(path_infos):
-            path_infos = path_gen + '\\infos'
+def get_connections(subjs, sub_path):
+    # path_export = os.path.join(sub_path,
+    #                            'EvM\\Projects\\EL_experiment\Analysis\Patients\Across\BrainMapping\General\data\\')
+    start = 1
+    for subj in subjs:
+        path_patient_analysis = os.path.join(sub_path, 'EvM', 'Projects', 'EL_experiment', 'Analysis', 'Patients', subj)
+        summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\summ_general.csv'  # summary_general
 
-        path_patient_analysis = sub_path + '\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
-        summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\' + filename
-        data_A = pd.read_csv(summary_gen_path)
-
-        lbls = pd.read_excel(os.path.join(path_gen, 'Electrodes', subj + "_labels.xlsx"), header=0, sheet_name='BP')
-        labels_all = lbls.label.values
-        labels_clinic = lbls.Clinic.values
-        labels_region = lbls.Region.values
-
-        bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
-
-        StimChanIx = np.unique(data_A.Stim)
-        bad_chans = pd.read_csv(path_patient_analysis + '/BrainMapping/data/badchan.csv')
-        bad_chans = np.unique(np.array(np.where(bad_chans.values[:, 1:] == 1))[0, :])
-        non_stim = np.arange(len(labels_all))
-        non_stim = np.delete(non_stim, StimChanIx.astype('int'), 0)
-        WM_chans = np.where(labels_region == 'WM')[0]
-        bad_all = np.unique(np.concatenate([WM_chans, bad_region, bad_chans, non_stim])).astype('int')
-
-        data_A = data_A[~np.isin(data_A.Chan, bad_all) & ~np.isin(data_A.Stim, bad_all)]
-        data_A.reset_index(drop=True)
-        data_A.insert(0, 'Subj', subjs[i])
-        data_A.insert(1, 'StimA', '0')
-        data_A.insert(2, 'ChanA', '0')
-        data_A.insert(8, 'H', 0)
-        for c in np.unique(data_A[['Chan', 'Stim']]).astype('int'):
-            data_A.loc[data_A.Chan == c, 'ChanA'] = " ".join(re.findall("[a-zA-Z_]+", labels_all[c]))
-            data_A.loc[data_A.Stim == c, 'StimA'] = " ".join(re.findall("[a-zA-Z_]+", labels_all[c]))
-            chans = data_A.loc[data_A.Stim == c, 'Chan'].values.astype('int')
-            data_A.loc[data_A.Stim == c, 'H'] = np.array(lbls.Hemisphere[chans] != lbls.Hemisphere[c]) * 1
-
-        # Concatenate current data with the accumulated results
-        data_con_all = pd.concat([data_con_all, data_A], ignore_index=True)
-    data_con_all.Stim = data_con_all.Stim.astype('int')
-    data_con_all.Chan = data_con_all.Chan.astype('int')
-    data_con_all = adding_subregion(data_con_all)
-    data_con_all = adding_region(data_con_all)
-    data_con_all.to_csv(os.path.join(path_export, filename), header=True, index=False)
+        con_summary_all = pd.read_csv(summary_gen_path)
+        con_summary_all = con_summary_all.drop_duplicates()
+        con_summary_all['Subj'] = subj
+        if start:
+            con_all = con_summary_all
+            start = 0
+        else:
+            con_all = pd.concat([con_all, con_summary_all]).reset_index(drop=True)
+    return con_all
 
 
-def get_connections_sleep(subjs, sub_path, filename):
-    chan_n_max = 0
-    for i in range(len(subjs)):
-        print('loading -- ' + subjs[i], end='\r')
-        subj = subjs[i]
-        path_gen = os.path.join(sub_path + '\Patients\\' + subj)
-        if not os.path.exists(path_gen):
-            path_gen = 'T:\\EL_experiment\\Patients\\' + subj
-        path_patient = path_gen + '\Data\EL_experiment'
-        path_infos = os.path.join(path_patient, 'infos')
-        if not os.path.exists(path_infos):
-            path_infos = path_gen + '\\infos'
-        path_patient_analysis = sub_path + '\EvM\Projects\EL_experiment\Analysis\Patients\\' + subj
+def get_nodes(subjs, sub_path, metric='LL'):
+    # path_export = os.path.join(sub_path,
+    #                            'EvM\\Projects\\EL_experiment\Analysis\Patients\Across\BrainMapping\General\data\\')
+    start = 1
+    for subj in subjs:
+        path_patient_analysis = os.path.join(sub_path, 'EvM', 'Projects', 'EL_experiment', 'Analysis', 'Patients', subj)
+        exp_dir = os.path.join(path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Node')
+        # summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\summ_general.csv'  # summary_general
+        file = os.path.join(exp_dir, 'node_features_sleep_' + metric + '.csv')
+        con_summary_all = pd.read_csv(file)
+        con_summary_all = con_summary_all.drop_duplicates()
+        con_summary_all['Subj'] = subj
+        if start:
+            con_all = con_summary_all
+            start = 0
+        else:
+            con_all = pd.concat([con_all, con_summary_all]).reset_index(drop=True)
+    return con_all
 
-        file_con_sleep = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\con_sleep_stats.csv'
-        # , con_sleep_stats, con_sleep
-        if os.path.exists(file_con_sleep):
-            data_A = pd.read_csv(file_con_sleep)
 
-            lbls = pd.read_excel(os.path.join(path_infos, subj + "_labels.xlsx"), header=0, sheet_name='BP')
-            labels_all = lbls.label.values
-            labels_region = lbls.Region.values
-            bad_region = np.where((labels_region == 'WM') | (labels_region == 'OUT') | (labels_region == 'Putamen'))[0]
+def get_AUC(subjs, sub_path, ss='general'):
+    # path_export = os.path.join(sub_path,
+    #                            'EvM\\Projects\\EL_experiment\Analysis\Patients\Across\BrainMapping\General\data\\')
+    start = 1
+    for subj in subjs:
+        path_patient_analysis = os.path.join(sub_path, 'EvM', 'Projects', 'EL_experiment', 'Analysis', 'Patients', subj)
+        exp_dir = os.path.join(path_patient_analysis, 'BrainMapping', 'CR', 'Graph', 'Node')
+        # summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\summ_general.csv'  # summary_general
+        if ss == 'general':
+            file = os.path.join(path_patient_analysis, 'InputOutput', 'CR', 'data', 'AUC_mean.csv')
+        else:
+            file = os.path.join(path_patient_analysis, 'InputOutput', 'CR', 'data', 'AUC_mean_SS.csv')
 
-            StimChanIx = np.unique(data_A.Stim)
-            bad_chans = pd.read_csv(path_patient_analysis + '/BrainMapping/data/badchan.csv')
-            bad_chans = np.unique(np.array(np.where(bad_chans.values[:, 1:] == 1))[0, :])
-            non_stim = np.arange(len(labels_all))
-            non_stim = np.delete(non_stim, StimChanIx.astype('int'), 0)
-            WM_chans = np.where(labels_region == 'WM')[0]
-            bad_all = np.unique(np.concatenate([WM_chans, bad_region, bad_chans, non_stim])).astype('int')
+        con_summary_all = pd.read_csv(file)
+        con_summary_all = con_summary_all.drop_duplicates()
+        con_summary_all['Subj'] = subj
+        if start:
+            con_all = con_summary_all
+            start = 0
+        else:
+            con_all = pd.concat([con_all, con_summary_all]).reset_index(drop=True)
+    return con_all
 
-            data_A = data_A[~np.isin(data_A.Chan, bad_all) & ~np.isin(data_A.Stim, bad_all)]
-            data_A.reset_index(drop=True)
-            data_A.insert(0, 'Subj', subjs[i])
-            data_A.insert(1, 'StimA', '0')
-            data_A.insert(2, 'ChanA', '0')
-            data_A.insert(1, 'Stim_ID', data_A.Stim)
-            data_A.insert(2, 'Chan_ID', data_A.Chan)
-            data_A.insert(8, 'H', 0)
-            for c in np.unique(data_A[['Chan', 'Stim']]).astype('int'):
-                data_A.loc[data_A.Chan == c, 'ChanA'] = " ".join(re.findall("[a-zA-Z_]+", labels_all[c]))
-                data_A.loc[data_A.Stim == c, 'StimA'] = " ".join(re.findall("[a-zA-Z_]+", labels_all[c]))
-                chans = data_A.loc[data_A.Stim == c, 'Chan'].values.astype('int')
-                data_A.loc[data_A.Stim == c, 'H'] = np.array(lbls.Hemisphere[chans] != lbls.Hemisphere[c]) * 1
 
-            # data_A = data_A[~np.isnan(data_A.N1.values)]
-            data_A.Stim_ID = data_A.Stim + chan_n_max
-            data_A.Chan_ID = data_A.Chan + chan_n_max
+def get_AUC_NMF_sleep(subjs, sub_path):
+    # path_export = os.path.join(sub_path,
+    #                            'EvM\\Projects\\EL_experiment\Analysis\Patients\Across\BrainMapping\General\data\\')
+    start = 1
+    for subj in subjs:
+        path_patient_analysis = os.path.join(sub_path, 'EvM', 'Projects', 'EL_experiment', 'Analysis', 'Patients', subj)
+        file = os.path.join(path_patient_analysis, 'InputOutput', 'CR', 'data', 'NMF_summary.csv')
+        con_summary_all = pd.read_csv(file)
+        con_summary_all = con_summary_all.drop_duplicates()
+        con_summary_all['Subj'] = subj
+        if start:
+            con_all = con_summary_all
+            start = 0
+        else:
+            con_all = pd.concat([con_all, con_summary_all]).reset_index(drop=True)
+    return con_all
 
-            if chan_n_max == 0:
-                data_con = data_A
+
+def get_connections_sleep(subjs, sub_path, ss_sel, DI_metric='ratio'):
+    start = 1
+    for subj in subjs:
+        for ss in ss_sel:
+            path_patient_analysis = os.path.join(sub_path, 'EvM', 'Projects', 'EL_experiment', 'Analysis', 'Patients',
+                                                 subj)
+            summary_gen_path = path_patient_analysis + '\\' + folder + '\\' + cond_folder + '\\data\\summ_' + ss + '_' + DI_metric + '.csv'  # summary_general
+
+            con_summary_all = pd.read_csv(summary_gen_path)
+            con_summary_all = con_summary_all.drop_duplicates()
+            con_summary_all['Subj'] = subj
+            if start:
+                con_sleep = con_summary_all
+                start = 0
             else:
-                data_con = pd.concat([data_con, data_A])
-                data_con = data_con.reset_index(drop=True)
-            chan_n_max = np.max(data_con[['Stim_ID', 'Chan_ID']].values) + 1
-    data_con = data_con[(data_con.ChanA != 'Necrosis') & (data_con.StimA != 'Necrosis')]
-
-    data_con.to_csv(filename,
-                    header=True, index=False)
+                con_sleep = pd.concat([con_sleep, con_summary_all]).reset_index(drop=True)
+    return con_sleep
 
 
 def update_DI(data_con_all):
