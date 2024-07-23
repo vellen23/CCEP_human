@@ -89,7 +89,7 @@ for j=2:length(files_raw)
     stimlist.TTL = zeros(height(stimlist),1);
     if isempty(ix_startblock)
         TTL_startblock = locs(1);
-        i = input('enter index of first trigger: '); % seelect manually (first trigger to stimlist)
+        i =1;%  input('enter index of first trigger: '); % seelect manually (first trigger to stimlist)
     else  
         TTL_startblock = locs(ix_startblock(1)+1);
         blocks = unique(stimlist.stim_block);
